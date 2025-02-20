@@ -8,10 +8,12 @@ import { Store } from '@/constants/store'
 
 interface Product {
   product: {
+    _id: string;
     id: string;
     name: string;
     images: string[];
     priceToShow: number;
+    articleNumber: string;
     params: {
       name: string;
       value: string;
@@ -103,11 +105,12 @@ export default function OrderPage({ orderJson }: { orderJson: string}) {
           {order.products.map((product: Product) => (
             <OrderedProductCard
               key={product.product.id}
+              _id={product.product._id}
               id={product.product.id}
               name={product.product.name}
               image={product.product.images[0]}
               priceToShow={product.product.priceToShow}
-              model={product.product.params[0].value}
+              articleNumber={product.product.articleNumber}
               amount={product.amount}
             />
           ))}

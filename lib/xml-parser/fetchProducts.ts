@@ -81,7 +81,7 @@ export default function getProductsData(xmlString: string, config: Config) {
     const categoryId = categoryIdElement ? categoryIdElement.textContent : "";
     const vendor = vendorElement ? vendorElement.textContent : "" as string;
     const name = nameElement ? nameElement.textContent : "" as string;
-    const description = descriptionElement ? replaceDescription(descriptionElement.textContent || "") : "" as string;
+    const description = descriptionElement ? descriptionElement.textContent : "" as string;
   
     let category = "";
     if (categoryId) {

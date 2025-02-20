@@ -1,7 +1,6 @@
 import ProductPage from '@/components/shared/ProductPage';
 import { fetchProductPageInfo } from '@/lib/actions/cache';
-import { fetchProductAndRelevantParams } from '@/lib/actions/product.actions';
-import { pretifyProductName } from '@/lib/utils';
+import { pretifyProductName, replaceDescription } from '@/lib/utils';
 import { Metadata } from 'next';
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -9,7 +8,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 
   return {
     title: pretifyProductName(product.name, [], product.articleNumber || ""),
-    description: product.description,
+    description: replaceDescription(product.description),
     openGraph: {
       images: [
         {

@@ -82,64 +82,87 @@ function generateUniqueId() {
 }
 
 export async function createOrder({ products, userId, value, name, surname, phoneNumber, email, paymentType, deliveryMethod, city, adress, postalCode, comment }: CreateOrderParams, type?: "json") {
-    try {
-        connectToDB();
+  try {
+      connectToDB();
 
-        const uniqueId = generateUniqueId();
+      const uniqueId = generateUniqueId();
 
-        const createdOrder = await Order.create({
-            id: uniqueId,
-            products: products,
-            user: userId,
-            value: value,
-            name: name,
-            surname: surname,
-            phoneNumber: phoneNumber,
-            email: email,
-            paymentType: paymentType,
-            deliveryMethod: deliveryMethod,
-            city: city,
-            adress: adress,
-            postalCode: postalCode,
-            comment: comment ? comment : "",
-            paymentStatus: "Pending",
-            deliveryStatus: "Proceeding",
-        })
+      let user = null;
 
-        const user = await User.findById(userId);
+      if (!userId) {
+          user = await User.findOne({ email });
 
-        await User.findById(userId).updateOne({
-          name: name,
-          surname: surname,
-          phoneNumber: phoneNumber,
-        })
+          if (!user) {
+              user = await User.create({
+                  name,
+                  surname,
+                  phoneNumber,
+                  email,
+                  totalOrders: 0,
+                  orders: [],
+              });
+          }
 
-        user.orders.push({
+          userId = user._id;
+      } else {
+          user = await User.findById(userId);
+
+          if (!user) {
+              throw new Error("User not found");
+          }
+      }
+
+      await user.updateOne({
+          name,
+          surname,
+          phoneNumber,
+      });
+
+      const createdOrder = await Order.create({
+          id: uniqueId,
+          products,
+          user: userId,
+          value,
+          name,
+          surname,
+          phoneNumber,
+          email,
+          paymentType,
+          deliveryMethod,
+          city,
+          adress,
+          postalCode,
+          comment: comment || "",
+          paymentStatus: "Pending",
+          deliveryStatus: "Proceeding",
+      });
+
+      user.orders.push({
           order: createdOrder._id,
-          createdAt: Date.now()
-        })
+          createdAt: Date.now(),
+      });
 
-        user.totalOrders += 1;
+      user.totalOrders += 1;
+      await user.save();
 
-        await user.save();
+      for (const product of products) {
+          const orderedProduct = await Product.findById(product.product);
 
-        for(const product of products) {
-            const orderedProduct = await Product.findById(product.product);
+          if (!orderedProduct) {
+              throw new Error(`Product not found: ${product.product}`);
+          }
 
-            orderedProduct.quantity = orderedProduct.quantity - product.amount;
-            orderedProduct.orderedBy.push(createdOrder._id)
-            await orderedProduct.save();
-        }
+          orderedProduct.quantity -= product.amount;
+          orderedProduct.orderedBy.push(createdOrder._id);
+          await orderedProduct.save();
+      }
 
-        await clearCache("createOrder")
-        if(type === "json") {
-          return JSON.stringify(createdOrder)
-        } else {
-          return createdOrder
-        }
-    } catch (error: any) {
-        throw new Error(`Error creating order: ${error.message}`)
-    }
+      await clearCache("createOrder");
+
+      return type === "json" ? JSON.stringify(createdOrder) : createdOrder;
+  } catch (error: any) {
+      throw new Error(`Error creating order: ${error.message}`);
+  }
 }
 
 export async function fetchOrders() {
@@ -207,7 +230,7 @@ export async function fetchOrder(orderId: string) {
                 populate: {
                     path: 'product',
                     model: 'Product',
-                    select: 'id name images priceToShow params'
+                    select: '_id id name images priceToShow params articleNumber'
                 }
             })
             .populate({

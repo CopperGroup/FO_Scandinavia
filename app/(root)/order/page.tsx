@@ -22,7 +22,7 @@ const Page = async () => {
 
   return (
     <section className="flex flex-row w-full justify-between max-lg:flex-col max-[425px]:-mt-24">
-        <CreateOrder userId={user._id} email={email}/>
+        <CreateOrder userId={user?._id || ""} email={email}/>
     </section>
   )
 }

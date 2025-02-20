@@ -10,6 +10,9 @@
     @apply flex min-h-screen flex-1 flex-col items-center bg-white  pb-10 pt-28 max-md:pb-32 overflow-x-hidden;
   }
 
+  .adaptiveHeading {
+    @apply max-[520px]:text-[65px] max-[520px]:leading-[70px] max-[510px]:text-[63px] max-[510px]:leading-[68px] max-[500px]:text-[61px] max-[500px]:leading-[66px] max-[490px]:text-[60px] max-[490px]:leading-[65px] max-[480px]:text-[58px] max-[480px]:leading-[63px] max-[470px]:text-[56px] max-[470px]:leading-[61px] max-[460px]:text-[54px] max-[460px]:leading-[59px] max-[450px]:text-[52px] max-[450px]:leading-[57px] max-[440px]:text-[50px] max-[440px]:leading-[55px] max-[430px]:text-[48px] max-[430px]:leading-[53px] max-[420px]:text-[46px] max-[420px]:leading-[51px] max-[410px]:text-[44px] max-[410px]:leading-[49px] max-[400px]:text-[42px] max-[400px]:leading-[47px]
+  }
   .admin-container {
     @apply flex min-h-screen flex-1 flex-col items-center bg-white;
   }

@@ -132,8 +132,9 @@ export default function ProductPage({ productJson, selectParams }: { productJson
                     <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
                         <div itemProp="description">
                             <h2 className="text-heading4-medium mb-4">Опис</h2>
-                            <p className="text-base-regular text-gray-700">{product.description}</p>
+                            <p className="text-base-regular text-gray-700" dangerouslySetInnerHTML={{ __html: product.description }} />
                         </div>
+
                         
                         <div>
                             <h2 className="text-heading4-medium mb-4">Параметри</h2>
@@ -145,6 +146,10 @@ export default function ProductPage({ productJson, selectParams }: { productJson
                                             <td className="py-2 text-base-regular text-gray-700">{param.value.replaceAll("_", " ")}</td>
                                         </tr>
                                     ))}
+                                    <tr className="border-b">
+                                        <td className="py-2 text-base-semibold">Article Number</td>
+                                        <td className="py-2 text-base-regular text-gray-700">{product.articleNumber}</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>

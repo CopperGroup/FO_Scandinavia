@@ -75,6 +75,7 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
   const [bodyOverflow, setBodyOverflow] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState("")
   const [checkParamsSearchTerms, setCheckParamsSearchTerms] = useState<{ [key: string]: string }>({})
+  const [ isLoaded, setIsLoaded ] = useState(false)
 
   
   const router = useRouter();
@@ -98,11 +99,14 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
     }))
     
     setCatalogData((prev: any) => ({...prev, sort: searchParams.sort || "default"}))
+
+    setIsLoaded(true)
   }, [search, minPrice, maxPrice, checkParams, categories, counts]);
   
   
   useEffect(() => {
-    
+    if(!isLoaded) return
+
     const startSearch = async () => {
       
       await sleep(delay);
@@ -444,61 +448,74 @@ return (
               ))}
             </>
 
-            {selectParams && 
-            <>
-              {Object.entries(selectParams).map(([paramName, paramData]) => (
-                <div key={paramName} className='mt-4 pb-4 w-full'>
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value={paramName}>
-                      <AccordionTrigger className='text-[18px] bg-zinc-100 rounded-3xl font-medium py-[6px] px-3'>
-                        {paramName}
-                      </AccordionTrigger>
-                      <AccordionContent className="pl-3 max-h-[300px] overflow-y-auto">
-                        {paramData.values.map(({value, valueTotalProducts}, index) => {
-                          // Find the existing entry for the param in selectParamsValues
-                          const existingEntry = filter.selectParamsValues.find((entry) =>
-                            entry.startsWith(`${paramName}--`)
-                          );
+            <Accordion type="single" collapsible className="w-full mt-4">
+              <AccordionItem value="selectParams">
+                <AccordionTrigger className='text-[18px] bg-zinc-100 rounded-3xl font-medium py-[6px] px-3'>
+                  Параметри
+                </AccordionTrigger>
+                <AccordionContent>
 
-                          // Initialize isChecked as false
-                          let isChecked = false;
+                    {selectParams && 
+                    <div className='overflow-hidden'>
+                      <div className='max-h-[300px] overflow-y-auto pl-2'>
+                        {Object.entries(selectParams).map(([paramName, paramData]) => (
+                          <div key={paramName} className='mt-4 w-full '>
+                            <Accordion type="single" collapsible className="w-full">
+                              <AccordionItem value={paramName}>
+                                <AccordionTrigger className='text-[14px] bg-neutral-100 rounded-3xl font-normal py-[6px] px-3'>
+                                  {paramName}
+                                </AccordionTrigger>
+                                <AccordionContent className="pl-3 max-h-[300px] overflow-y-auto">
+                                  {paramData.values.map(({value, valueTotalProducts}, index) => {
+                                    // Find the existing entry for the param in selectParamsValues
+                                    const existingEntry = filter.selectParamsValues.find((entry) =>
+                                      entry.startsWith(`${paramName}--`)
+                                    );
 
-                          if (existingEntry) {
-                            // Remove `${paramName}--` and split by `__`
-                            const values = existingEntry.replace(`${paramName}--`, "").split("__");
-                            // Check if the value is in the list of selected values
-                            isChecked = values.includes(value);
-                          }
+                                    // Initialize isChecked as false
+                                    let isChecked = false;
 
-                          return (
-                            <div key={index} className="w-full h-fit flex justify-between items-center">
-                              <div className="flex items-center space-x-2 mt-4">
-                                <Checkbox
-                                  id={value}
-                                  className="size-5 rounded-md border-neutral-600 data-[state=checked]:bg-black data-[state=checked]:text-white"
-                                  onCheckedChange={() => handleSelectParamChange(paramName, value)}
-                                  checked={isChecked}
-                                />
-                                <label
-                                  htmlFor={value}
-                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  {value}
-                                </label>
-                              </div>
-                              <p className="w-fit text-small-medium text-blue drop-shadow-xl mt-3 px-4">
-                                {valueTotalProducts}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </div>
-              ))}
-            </>
-          }
+                                    if (existingEntry) {
+                                      // Remove `${paramName}--` and split by `__`
+                                      const values = existingEntry.replace(`${paramName}--`, "").split("__");
+                                      // Check if the value is in the list of selected values
+                                      isChecked = values.includes(value);
+                                    }
+
+                                    return (
+                                      <div key={index} className="w-full h-fit flex justify-between items-center">
+                                        <div className="flex items-center space-x-2 mt-4">
+                                          <Checkbox
+                                            id={value}
+                                            className="size-5 rounded-md border-neutral-600 data-[state=checked]:bg-black data-[state=checked]:text-white"
+                                            onCheckedChange={() => handleSelectParamChange(paramName, value)}
+                                            checked={isChecked}
+                                          />
+                                          <label
+                                            htmlFor={value}
+                                            className="text-small-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                          >
+                                            {value}
+                                          </label>
+                                        </div>
+                                        <p className="w-fit text-subtle-medium text-blue drop-shadow-xl mt-3 px-4">
+                                          {valueTotalProducts}
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          </div>
+                        ))}
+                      </div>
+
+                    </div>
+                  }
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           
           {unitParams && 
             <>
@@ -528,7 +545,7 @@ return (
 
             </>
           }
-          <div className="space-y-3 pb-5">
+          <div className="space-y-3 pb-5 mt-6">
             <ApplyFilterButton onClick={handleApplyFilter}/>
             <ClearFilterButton />
           </div>

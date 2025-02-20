@@ -3,19 +3,20 @@ import Image from "next/image";
 import Link from "next/link";
 
 interface Props {
+    _id: string;
     id: string;
     name: string;
     image: string;
     priceToShow: number;
-    model: string;
     amount: number;
+    articleNumber: string
 }
 
-const OrderedProductCard = ({ id, name, image, priceToShow, model, amount}: Props) => {
+const OrderedProductCard = ({ _id, id, name, image, priceToShow, amount, articleNumber}: Props) => {
   return (
     <article className="w-full flex flex-col border border-gray-200 rounded-2xl shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-lg">
       <div className="w-full h-48 sm:h-56 flex justify-center items-center p-4 bg-gray-50">
-        <Link href={`/catalog/${model}`} className="block w-full h-full relative">
+        <Link href={`/catalog/${_id}`} className="block w-full h-full relative">
           <Image
             src={image}
             layout="fill"
@@ -27,10 +28,9 @@ const OrderedProductCard = ({ id, name, image, priceToShow, model, amount}: Prop
       </div>
       <div className="flex-1 p-4 flex flex-col justify-between">
         <div>
-          <Link href={`/catalog/${model}`} className="block mb-2 hover:underline">
+          <Link href={`/catalog/${_id}`} className="block mb-2 hover:underline">
             <h2 className="text-heading4-medium text-gray-800 mb-1 line-clamp-2">{name}</h2>
-            <p className="text-base-medium text-gray-600 break-words">Модель: {model}</p>
-            <p className="text-small-regular text-gray-500">ID: {id}</p>
+            <p className="text-small-regular text-gray-500">{articleNumber ? 'Артикуль' : 'Id'}: {articleNumber || id}</p>
           </Link>
         </div>
         <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-end">

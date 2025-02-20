@@ -19,7 +19,7 @@ export default function AboutUs() {
   return (
     <motion.section 
       ref={sectionRef}
-      className="w-full py-24 bg-neutral-50"
+      className="w-full py-24 bg-gradient-to-b from-white to-neutral-50"
       initial={{ opacity: 0 }}
       animate={isInView ? { opacity: 1 } : { opacity: 0 }}
       transition={{ duration: 0.8 }}

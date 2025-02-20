@@ -104,7 +104,7 @@ export default function ProductPreview({ setCurrentStage }: { setCurrentStage: R
                                 <span className="text-base-regular text-gray-500 line-through">{Store.currency_sign}{parsePrice(product.price)}</span>
                             )}
                         </div>
-                        <p className="text-base-regular text-gray-600">{product.description || "No description available."}</p>
+                        <p className="text-base-regular text-gray-600" dangerouslySetInnerHTML={{ __html: product.description }}></p>
                         <div className="grid grid-cols-2 gap-2 text-small-medium max-[475px]:grid-cols-1">
                             <div>
                                 <span className="font-semibold">Vendor:</span> {product.vendor || "N/A"}

@@ -15,11 +15,12 @@ export default async function Home() {
     <>
       <BannerHero/>
       <Categories/>
-      <Divider iconUrl="" width={0} height={0} mt={0} mb={0} type="default"/>
+      {/* <Divider iconUrl="" width={0} height={0} mt={0} mb={0} type="default"/>
       <AboutUs/>
       <History/>
-      <Brand/>
+      <Brand/> */}
       {/* <Map/>   */}
+      {/* I love Liza❤️‍🔥 */}
     </>
   );
 }

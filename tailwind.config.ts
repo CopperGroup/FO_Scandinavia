@@ -16,6 +16,12 @@ module.exports = {
       },
     },
     fontSize: {
+      "responsive-heading": [
+        "clamp(40px, 6vw, 80px)", // Gradual scaling
+        {
+          lineHeight: "clamp(50px, 7vw, 88px)", // Scales proportionally
+        },
+      ],
       "heading1-bold": [
         "36px",
         {

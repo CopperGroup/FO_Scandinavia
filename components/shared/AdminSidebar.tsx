@@ -5,9 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Store } from "lucide-react";
-// import { useState } from "react";
-// import { Store, ChevronDown, LayoutDashboard, BarChart3, Package, LinkIcon, ShoppingCart, Users, CreditCard, BarChart4, FolderTree, Code, Receipt, Ticket, PlusCircle } from 'lucide-react';
+import { Store as StoreIcon } from "lucide-react";
+import { Store } from "@/constants/store";
 
 
 const AdminSidebar = () => {
@@ -22,7 +21,7 @@ const AdminSidebar = () => {
             <div className="flex w-full flex-1 flex-col gap-3 pl-5 max-lg:pl-0">
                 <div className="flex gap-2 items-center">
                     <Link href="/" className="text-heading3-bold pl-3 max-lg:hidden">{Store.name}</Link>
-                    <Link href="/" className="w-full flex justify-center lg:hidden"><Store className="size-8 bg-black text-white rounded-full p-1"/></Link>
+                    <Link href="/" className="w-full flex justify-center lg:hidden"><StoreIcon className="size-8 bg-black text-white rounded-full p-1"/></Link>
                 </div>
                 <p className="text-small-x-semibold text-dark-4 pl-3 mt-10 max-lg:hidden">Admin</p>
                 {sidebarLinks.map((link) => {

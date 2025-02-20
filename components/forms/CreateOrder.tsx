@@ -341,7 +341,9 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
                                 </FormControl>
                                 <SelectContent>
                                   <SelectItem value="Нова пошта (У відділення)">Нова пошта (У відділення)</SelectItem>
-                                  <SelectItem value="Нова пошта (До дому)">Нова пошта (До дому)</SelectItem>
+                                  <SelectItem value="Нова пошта (До дому)">Нова пошта (Кур'єр)</SelectItem>
+                                  <SelectItem value="Нова пошта (У відділення)">Укрпошта (У відділення)</SelectItem>
+                                  <SelectItem value="Нова пошта (До дому)">Укрпошта (Кур'єр)</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage className="text-small-regular" />
