@@ -46,7 +46,7 @@ export default function Categories() {
   return (
     <motion.section
       ref={sectionRef}
-      className="w-full py-12 sm:py-16 md:py-24 bg-neutral-100"
+      className="w-full py-12 sm:py-16 md:py-24 bg-gradient-to-b from-white to-neutral-100"
       initial="hidden"
       animate={controls}
       variants={{
@@ -63,7 +63,7 @@ export default function Categories() {
             hidden: { opacity: 0, y: 20 },
           }}
         >
-          <h2 className="text-heading1-bold text-neutral-900 mb-4">Explore Our Categories</h2>
+          <h1 className="text-neutral-900 mb-4 adaptiveHeading">Explore Our Categories</h1>
           <div className="w-16 sm:w-20 md:w-24 h-1 bg-neutral-900 mx-auto mb-4 sm:mb-6" />
           <p className="text-body-medium text-neutral-600 max-w-xl mx-auto">
             Discover our curated selection of Scandinavian-inspired products

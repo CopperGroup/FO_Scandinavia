@@ -22,7 +22,7 @@ const Links = [
   { label: "Головна", href: "/" },
   { label: "Каталог", href: "catalog?page=1&sort=default" },
   { label: "Уподобані", href: "/liked" },
-  { label: "Про нас", href: "/aboutUs"},
+  // { label: "Про нас", href: "/aboutUs"},
   { label: "Мої замовлення", href: "/myOrders" },
   { label: "Інформація", href: "/info" },
 ];

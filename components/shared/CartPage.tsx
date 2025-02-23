@@ -77,56 +77,59 @@ const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) =>
           <p className="text-body-medium text-center text-gray-500">Ваш кошик порожній</p>
         ) : (
           cartData.map((data: any, index: number) => (
-            <article key={index} className="flex items-center py-4 border-b last:border-b-0">
-              <div className="flex-shrink-0 w-24 h-24 mr-4">
-                <div className="w-full h-full overflow-hidden rounded-md aspect-square">
-                  <Image
-                    width={96}
-                    height={96}
-                    alt={data.name}
-                    className="object-cover w-full h-full"
-                    src={data.image || "/placeholder.svg"}
-                  />
-                </div>
-              </div>
-              <div className="flex-grow">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-base-semibold">{data.name}</h3>
-                  <button onClick={() => removeProduct(index)} className="text-gray-400 hover:text-gray-600">
-                    <X size={20} />
-                  </button>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center border rounded-md">
-                    <Button onClick={() => minus(index)} variant="ghost" className="p-1 h-8 w-8">
-                      <Minus size={16} />
-                    </Button>
-                    <input
-                      className="w-12 h-8 text-center focus:outline-none"
-                      value={data.quantity}
-                      onChange={(e) => setCount(index, e.target.value)}
-                      onBlur={(e) => delProduct(index, e.target.value)}
-                      maxLength={3}
+            <Link href={`/catalog/${data.id}`} key={index}>
+              <article className="flex items-center py-4 border-b last:border-b-0">
+                <div className="flex-shrink-0 w-24 h-24 mr-4">
+                  <div className="w-full h-full overflow-hidden rounded-md aspect-square">
+                    <Image
+                      width={96}
+                      height={96}
+                      alt={data.name}
+                      className="object-cover w-full h-full"
+                      src={data.image || "/placeholder.svg"}
                     />
-                    <Button onClick={() => plus(index)} variant="ghost" className="p-1 h-8 w-8">
-                      <Plus size={16} />
-                    </Button>
-                  </div>
-                  <div className="text-right">
-                    {data.priceWithoutDiscount !== data.price && (
-                      <p className="text-small-medium text-gray-500 line-through">
-                        {Store.currency_sign}
-                        {data.priceWithoutDiscount}
-                      </p>
-                    )}
-                    <p className="text-base-semibold">
-                      {Store.currency_sign}
-                      {data.price}
-                    </p>
                   </div>
                 </div>
-              </div>
-            </article>
+                <div className="flex-grow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-base-semibold">{data.name}</h3>
+                    <button onClick={() => removeProduct(index)} className="text-gray-400 hover:text-gray-600">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center border rounded-md">
+                      <Button onClick={() => minus(index)} variant="ghost" className="p-1 h-8 w-8">
+                        <Minus size={16} />
+                      </Button>
+                      <input
+                        className="w-12 h-8 text-center focus:outline-none"
+                        value={data.quantity}
+                        onChange={(e) => setCount(index, e.target.value)}
+                        onBlur={(e) => delProduct(index, e.target.value)}
+                        maxLength={3}
+                      />
+                      <Button onClick={() => plus(index)} variant="ghost" className="p-1 h-8 w-8">
+                        <Plus size={16} />
+                      </Button>
+                    </div>
+                    <div className="text-right">
+                      {data.priceWithoutDiscount !== data.price && (
+                        <p className="text-small-medium text-gray-500 line-through">
+                          {Store.currency_sign}
+                          {data.priceWithoutDiscount}
+                        </p>
+                      )}
+                      <p className="text-base-semibold">
+                        {Store.currency_sign}
+                        {data.price}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            
+            </Link>
           ))
         )}
       </div>

@@ -70,7 +70,7 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
         <Button
           variant="outline"
           size="sm"
-          className="bg-transparent border-0 text-gray-800 hover:text-blue transition-colors duration-300"
+          className="bg-transparent border-0 text-gray-800 hover:text-gray-950 transition-colors duration-300"
           onClick={prevSlide}
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
@@ -79,7 +79,7 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
         <Button
           variant="outline"
           size="sm"
-          className="bg-transparent border-0 text-gray-800 hover:text-blue transition-colors duration-300"
+          className="bg-transparent border-0 text-gray-800 hover:text-gray-950 transition-colors duration-300"
           onClick={nextSlide}
         >
           <span className="text-small-medium">Next</span>
