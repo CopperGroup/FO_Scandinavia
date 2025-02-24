@@ -448,14 +448,13 @@ return (
               ))}
             </>
 
-            <Accordion type="single" collapsible className="w-full mt-4">
-              <AccordionItem value="selectParams">
-                <AccordionTrigger className='text-[18px] bg-zinc-100 rounded-3xl font-medium py-[6px] px-3'>
-                  Параметри
-                </AccordionTrigger>
-                <AccordionContent>
-
-                    {selectParams && 
+            {Object.entries(selectParams).length > 0 && 
+              <Accordion type="single" collapsible className="w-full mt-4">
+                <AccordionItem value="selectParams">
+                  <AccordionTrigger className='text-[18px] bg-zinc-100 rounded-3xl font-medium py-[6px] px-3'>
+                    Параметри
+                  </AccordionTrigger>
+                  <AccordionContent>
                     <div className='overflow-hidden'>
                       <div className='max-h-[300px] overflow-y-auto pl-2'>
                         {Object.entries(selectParams).map(([paramName, paramData]) => (
@@ -510,12 +509,11 @@ return (
                           </div>
                         ))}
                       </div>
-
                     </div>
-                  }
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            } 
           
           {unitParams && 
             <>

@@ -4,7 +4,7 @@ import { pretifyProductName, replaceDescription } from '@/lib/utils';
 import { Metadata } from 'next';
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const { product, selectParams } = await fetchProductPageInfo(params.id, "name", " ", -1);
+  const { product, selectParams } = await fetchProductPageInfo(params.id, "articleNumber", "-", 0);
 
   return {
     title: pretifyProductName(product.name, [], product.articleNumber || ""),
@@ -24,7 +24,7 @@ const Page = async ({ params }: { params: { id: string } }) => {
     return <h1>Product does not exist</h1>
   }
 
-  const { product, selectParams } = await fetchProductPageInfo(params.id, "name", " ", -1);
+  const { product, selectParams } = await fetchProductPageInfo(params.id, "articleNumber", "-", 0);
 
   return (
     <section className="max-lg:-mt-24">

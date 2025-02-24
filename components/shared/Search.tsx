@@ -54,7 +54,7 @@ const Search = () => {
           height={24}
           alt="Seacrh"
         />
-        <Input type='text' onChange={textFromInput}  placeholder='Пошук товару' />
+        <Input value={catalogData.search} onChange={(e) => setCatalogData((prev: any) => ({...prev, search: e.target.value}))}  placeholder='Пошук товару' />
       </div>
       <Select value={sort} onValueChange={(element: SortParams) => setSort(element)}>
         <SelectTrigger className="w-[240px] max-[600px]:hidden">

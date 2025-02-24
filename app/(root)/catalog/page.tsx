@@ -74,10 +74,10 @@ const Catalog = async ({searchParams,data}:any) => {
   const minPrice = Math.min(...filtredProducts.map(item => item.priceToShow));
   const vendors = Array.from(new Set (filtredProducts.map(item => item.vendor))).filter(function(item) {return item !== '';});
 
-  const counts = getCounts(filtredProducts)
   filtredProducts = getFiltredProducts(filtredProducts, searchParams);
-
-  filtredProducts = filterProductsByKey(filtredProducts, "name", " ", -1);
+  
+  filtredProducts = filterProductsByKey(filtredProducts, "articleNumber", "-", 0);
+  const counts = getCounts(filtredProducts)
 
   const countOfPages = Math.ceil(filtredProducts.length/12)
   const pageNumber = searchParams.page
