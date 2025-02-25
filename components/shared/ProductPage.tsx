@@ -29,6 +29,7 @@ export default function ProductPage({ productJson, selectParams }: { productJson
 
     const pretifiedName = pretifyProductName(product.name, [], product.articleNumber || "");
 
+    const optimizedDescription = product.description.replace(/<p>\s*<\/p>/g, "") // Removes empty <p></p>
     return (
         <>
             <Head>
@@ -132,7 +133,7 @@ export default function ProductPage({ productJson, selectParams }: { productJson
                     <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
                         <div itemProp="description">
                             <h2 className="text-heading4-medium mb-4">Опис</h2>
-                            <p className="text-base-regular text-gray-700" dangerouslySetInnerHTML={{ __html: product.description }} />
+                            <div className="text-base-regular text-gray-700 space-y-2" dangerouslySetInnerHTML={{ __html: optimizedDescription }} />
                         </div>
 
                         
