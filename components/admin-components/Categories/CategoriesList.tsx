@@ -69,7 +69,7 @@ export default function CategoryCardList({ categories }: { categories: Category[
       </div>
 
       <div className="grid grid-cols-4 gap-6 mt-20 pb-20 max-[1800px]:grid-cols-3 max-[1250px]:grid-cols-2 max-[650px]:grid-cols-1">
-        {paginatedCategories.map((category, index) => (
+        {sortedCategories.map((category, index) => (
           <CategoryCard key={index} categoryInfo={category} />
         ))}
       </div>
