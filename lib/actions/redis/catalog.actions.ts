@@ -2,6 +2,9 @@
 
 import { redis } from "@/lib/redis";
 import { fetchAllProducts } from "../product.actions";
+import { getCategoriesNamesIdsTotalProducts } from "../categories.actions";
+import { getFilterSettingsAndDelay } from "../filter.actions";
+import { FilterSettingsData } from "@/lib/types/types";
 
 export async function createCatalogChunks (filtredProducts: any) {
     const jsonData = JSON.stringify(filtredProducts); // Convert to JSON string
@@ -35,9 +38,9 @@ export async function fetchCatalog () {
         const chunkCount: number | null = await redis.get("catalog_chunk_count");
     
         if (!chunkCount) {
-            return await fetchAndCreateCatalogChunks();
+            throw new Error("Catlog product chunks missing")
         }
-        //console.log("Chunk count", chunkCount);
+        console.log("Chunk count", chunkCount);
     
         while (chunkIndex < chunkCount) {
             const chunk = await redis.get(`catalog_chunk_${chunkIndex}`);
@@ -45,26 +48,51 @@ export async function fetchCatalog () {
             if(chunk) {
                 chunks.push(chunk);
             } else {
-                return await fetchAndCreateCatalogChunks();
+                throw new Error("Catlog product chunks missing")
             }
     
             chunkIndex++;
         }
 
         if(chunks.length !== chunkCount) {
-            return await fetchAndCreateCatalogChunks();
+            throw new Error("Catlog product chunks missing")
         }
     
-        //console.log("Fetching from redis");
+        console.log("Fetching from redis");
 
         const combinedChunks = chunks.join('');
     
         const data = JSON.parse(combinedChunks);
+        
+        let stringifiedCategories: { name: string, categoryId: string, totalProducts: number}[] | null = await redis.get("catalog_categories"); // This was supposed to return a string but return an object instead
 
-        console.log("This was fetched from redis cache");
-        return data;
+        let categories;
+        if (!stringifiedCategories) {
+            categories = await fetchAndCreateCategoriesCache();
+            // console.log("categories", categories);
+        } else {
+            // console.log("Fetched categories", typeof stringifiedCategories, stringifiedCategories);
+            categories = stringifiedCategories;
+        }
+        
+        const stringifiedFilterSettings: { filterSettings: FilterSettingsData, delay: number } | null = await redis.get("filter_settings") // This was supposed to return a string but return an object instead
+
+        let filterSettingsData;
+
+        if(!stringifiedFilterSettings) {
+            filterSettingsData = await fetchAndCreateFilterSettingsCache()
+        } else {
+            filterSettingsData = stringifiedFilterSettings
+        }
+
+        // console.log(filterSettingsData)
+        // console.log("categories length:", categories.length);
+        // console.log("This was fetched from redis cache");
+
+        return { data, categories, filterSettingsData };
     } catch (error) {
-        return await fetchAndCreateCatalogChunks();
+        console.error("Error in fetchCatalog:", error);
+        return { data: await fetchAndCreateCatalogChunks(), categories: await fetchAndCreateCategoriesCache(), filterSettingsData: await fetchAndCreateFilterSettingsCache()};
     }
 }
 
@@ -95,7 +123,40 @@ export async function clearCatalogCache() {
                 await redis.del(...keys);
             }
         } while (cursor !== '0')
+
+        redis.del("catalog_categories")
+        redis.del("filter_settings")
     } catch (error: any) {
         throw new Error(`Error clearing catalog cache: ${error.message}`);
     }
+}
+
+export async function fetchAndCreateCategoriesCache() {
+  try {
+    const categories = await getCategoriesNamesIdsTotalProducts();
+
+    const jsonCategories = JSON.stringify(categories);
+
+    await redis.set("catalog_categories", jsonCategories);
+
+
+    return categories
+  } catch (error: any) {
+    throw new Error(`Error creating categories catalog cache: ${error.message}`)
+  }
+}
+
+export async function fetchAndCreateFilterSettingsCache() {
+  try {
+    const data = await getFilterSettingsAndDelay();
+
+    const jsonCategories = JSON.stringify(data);
+
+    await redis.set("filter_settings", jsonCategories);
+
+
+    return data
+  } catch (error: any) {
+    throw new Error(`Error creating filter settings cache: ${error.message}`)
+  }
 }

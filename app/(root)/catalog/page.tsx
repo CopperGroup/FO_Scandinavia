@@ -12,6 +12,7 @@ import { filterProductsByKey, getCounts, getFiltredProducts, pretifyProductName,
 import { getCategoriesNamesIdsTotalProducts } from '@/lib/actions/categories.actions'
 import { getFilterSettingsAndDelay } from '@/lib/actions/filter.actions'
 import { Metadata } from 'next';
+import { FilterSettingsData } from '@/lib/types/types'
 
 export const metadata: Metadata = {
   title: "Catalog",
@@ -22,14 +23,11 @@ export const metadata: Metadata = {
 }
 
 
-const Catalog = async ({searchParams,data}:any) => {
-  let filtredProducts: any[] = await fetchCatalog();
-  
+const Catalog = async ({searchParams }:any) => {
+  let { data: filtredProducts, categories, filterSettingsData }: { data: any[], categories: { name: string, categoryId: string, totalProducts: number}[], filterSettingsData: { filterSettings: FilterSettingsData, delay: number } } = await fetchCatalog();
+
+  const { filterSettings, delay } = filterSettingsData
   const email = await getSession()
-
-  const categories: { name: string, categoryId: string, totalProducts: number}[] = await getCategoriesNamesIdsTotalProducts();
-
-  const {filterSettings, delay} = await getFilterSettingsAndDelay();
 
   if(searchParams.sort === 'low_price'){
     filtredProducts = filtredProducts.sort((a,b) => a.price - b.price)
