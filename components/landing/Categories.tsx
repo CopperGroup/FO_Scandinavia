@@ -46,7 +46,7 @@ export default function Categories() {
   return (
     <motion.section
       ref={sectionRef}
-      className="w-full py-12 sm:py-16 md:py-24 bg-gradient-to-b from-white to-neutral-100"
+      className="w-full bg-gradient-to-b from-white to-neutral-100"
       initial="hidden"
       animate={controls}
       variants={{
@@ -56,7 +56,7 @@ export default function Categories() {
       transition={{ duration: 0.8 }}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8" id="categories">
-        <motion.div
+        {/* <motion.div
           className="text-center mb-8 sm:mb-12 md:mb-16"
           variants={{
             visible: { opacity: 1, y: 0 },
@@ -68,7 +68,7 @@ export default function Categories() {
           <p className="text-body-medium text-neutral-600 max-w-xl mx-auto">
             Discover our curated selection of Scandinavian-inspired products
           </p>
-        </motion.div>
+        </motion.div> */}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 md:gap-10">
           {categories.map((category, index) => (
