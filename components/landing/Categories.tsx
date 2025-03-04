@@ -28,7 +28,7 @@ const categories = [
     name: "Все для дому",
     image: "/assets/1.jpg",
     href: "/catalog/accessories",
-    subcategories: ["Постільна білизна", "Декор", "Віконний тескстиль"],
+    subcategories: ["Постільна білизна", "Декор", "Домашній тескстиль"],
   },
 ]
 
