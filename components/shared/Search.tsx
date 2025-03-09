@@ -1,75 +1,71 @@
-'use client'
+"use client"
 
-import React from 'react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { useState } from 'react'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import {useDebounce} from 'use-debounce'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { useAppContext } from '@/app/(root)/context'
-import Image from 'next/image'
-import { trackFacebookEvent } from '@/helpers/pixel'
+import { useState, useEffect } from "react"
+import { Input } from "@/components/ui/input"
+import { useDebounce } from "use-debounce"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAppContext } from "@/app/(root)/context"
+import { trackFacebookEvent } from "@/helpers/pixel"
 
 type SortParams = "default" | "low_price" | "hight_price"
 
 const Search = () => {
-    const {catalogData, setCatalogData} = useAppContext();
-    const [sort, setSort] = useState<SortParams>(catalogData.sort);
-    const [searchText, setSearchText] = useState<string>("");
-    const [debounce] = useDebounce(searchText, 0)
+  const { catalogData, setCatalogData } = useAppContext()
+  const [sort, setSort] = useState<SortParams>(catalogData.sort)
+  const [searchText, setSearchText] = useState<string>("")
+  const [debounce] = useDebounce(searchText, 0)
 
-    const textFromInput = (e:any)=>{
-        setSearchText(e.target.value)
+  const textFromInput = (e: any) => {
+    setSearchText(e.target.value)
+  }
+
+  useEffect(() => {
+    setCatalogData({ ...catalogData, search: debounce, sort: sort })
+
+    if (searchText.trim() != "") {
+      trackFacebookEvent("Search", {
+        search_string: debounce,
+      })
     }
-
-     useEffect(()=>{
-      setCatalogData({...catalogData, search:debounce, sort:sort});
-
-      if(searchText.trim() != "") {
-        trackFacebookEvent("Search", {
-          search_string: debounce,
-        });
-      }
-    },[debounce, sort])
-
-
-    
+  }, [debounce, sort])
 
   return (
-    <>
-      <div className='w-full flex gap-3 max-md:text-black'>
-        <Image
-          src="/assets/search.svg"
-          width={24}
-          height={24}
-          alt="Seacrh"
+    <div className="flex flex-col sm:flex-row w-full gap-4 items-center">
+      <div className="relative w-full">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <Input
+          value={catalogData.search}
+          onChange={(e) => setCatalogData((prev: any) => ({ ...prev, search: e.target.value }))}
+          placeholder="Search products"
+          className="pl-10 border-gray-200 focus:border-gray-300 h-10 rounded-md"
         />
-        <Input value={catalogData.search} onChange={(e) => setCatalogData((prev: any) => ({...prev, search: e.target.value}))}  placeholder='Пошук товару' />
       </div>
+
       <Select value={sort} onValueChange={(element: SortParams) => setSort(element)}>
-        <SelectTrigger className="w-[240px] max-[600px]:hidden">
-          <SelectValue placeholder="Звичайне" />
+        <SelectTrigger className="w-full sm:w-[180px] h-10 border-gray-200 focus:border-gray-300 rounded-md">
+          <SelectValue placeholder="Sort by" />
         </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="default" >Звичайне</SelectItem>
-              <SelectItem value="low_price" >Ціна(низька)</SelectItem>
-              <SelectItem value="hight_price">Ціна(Висока)</SelectItem>   
-            </SelectGroup>
-          </SelectContent>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="default">Default</SelectItem>
+            <SelectItem value="low_price">Price (Low to High)</SelectItem>
+            <SelectItem value="hight_price">Price (High to Low)</SelectItem>
+          </SelectGroup>
+        </SelectContent>
       </Select>
-    </>
+    </div>
   )
 }
 
 export default Search
+

@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { revalidatePath } from "next/cache";
 import moment from "moment";
 import clearCache from "./cache";
+import { generateLongPassword } from "../utils";
 
 interface CreateOrderParams {
     products: {
@@ -100,6 +101,8 @@ export async function createOrder({ products, userId, value, name, surname, phon
                   email,
                   totalOrders: 0,
                   orders: [],
+                  password: generateLongPassword(),
+                  selfCreated: true   
               });
           }
 

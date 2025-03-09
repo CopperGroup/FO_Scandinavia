@@ -1,13 +1,20 @@
-"use client";
+"use client"
 
-import { trackFacebookEvent } from "@/helpers/pixel";
-import { addLike } from "@/lib/actions/product.actions";
-import { useSession } from "next-auth/react";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
- 
-const LikeButton = ({ productId, productName, value, likedBy, email}: { productId: string, productName: string, value: number, likedBy: string, email:string }) => {
+import { useState, useEffect } from "react"
+import { Heart } from "lucide-react"
+import { trackFacebookEvent } from "@/helpers/pixel"
+import { usePathname } from "next/navigation"
+import { addLike } from "@/lib/actions/product.actions"
+
+interface Props {
+  likedBy: string
+  productId: string
+  productName: string
+  value: number
+  email: string
+}
+
+const LikeButton = ({ likedBy, productId, productName, value, email }: Props) => {
     const [ isLiked, setIsLiked ] = useState(false);
 
     let likes = []
@@ -49,9 +56,18 @@ const LikeButton = ({ productId, productName, value, likedBy, email}: { productI
         }
     }
 
-    return (
-        <Image src={`/assets/heart-${isLiked ? "filled" : "gray"}.svg`} width={24} height={24} alt="Like" className="cursor-pointer relative z-10" onClick={(e)=>handleAddingLike(e)}/> 
-    )
+  return (
+    <button
+      onClick={handleAddingLike}
+      disabled={!email}
+      className={`relative p-2 rounded-full transition-colors duration-300 ${
+        isLiked ? "text-[#FECC02] hover:text-[#e6b800]" : "text-[#006AA7] hover:text-[#FECC02]"
+      } ${!email ? "opacity-50 cursor-not-allowed" : "cursor-pointer z-30"}`}
+    >
+      <Heart className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`} />
+    </button>
+  )
 }
 
-export default LikeButton;
+export default LikeButton
+

@@ -72,6 +72,7 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
           size="sm"
           className="bg-transparent border-0 text-gray-800 hover:text-gray-950 transition-colors duration-300"
           onClick={prevSlide}
+          disabled={currentIndex === 0}
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
           <span className="text-small-medium">Prev</span>
@@ -81,6 +82,7 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
           size="sm"
           className="bg-transparent border-0 text-gray-800 hover:text-gray-950 transition-colors duration-300"
           onClick={nextSlide}
+          disabled={currentIndex + 1 === images.length}
         >
           <span className="text-small-medium">Next</span>
           <ChevronRight className="h-4 w-4 ml-1" />

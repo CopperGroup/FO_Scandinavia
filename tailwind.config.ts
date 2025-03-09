@@ -186,7 +186,7 @@ module.exports = {
     },
     extend: {
       colors: {
-        "theme-3": "rgba(167, 36, 39, 1)",
+        "theme-3": "rgb(254, 204, 2)",
         "primary-500": "rgba(37,99,235,0.9)",
         "secondary-500": "#FFB620",
         "primary-experimental": "rgba(37,99,235,0.9)",

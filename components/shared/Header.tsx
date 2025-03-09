@@ -34,20 +34,20 @@ export default function Header({ email, user }: { email: string; user: string })
   }
 
   return (
-    <header ref={headerRef} className="w-full min-w-[320px] bg-black shadow-md border-b border-gray-800">
+    <header ref={headerRef} className="w-full min-w-[320px] bg-[#006AA7] shadow-md border-b border-[#004d7a]">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
         <div className="relative group">
           <Link href="/" className="w-fit flex gap-2 justify-center items-center">
-            <p className="text-base-semibold text-white group-hover:text-yellow-400 transition-colors duration-300">
+            <p className="text-base-semibold text-white group-hover:text-[#FECC02] transition-colors duration-300">
               {Store.name}
             </p>
           </Link>
         </div>
 
-        <nav className="w-fit h-11 flex gap-2 justify-center items-center rounded-full bg-[#1f1f1f] border border-sky-800 px-2 max-lg:hidden shadow-md">
+        <nav className="w-fit h-11 flex gap-2 justify-center items-center rounded-full bg-[#005a8e] border border-[#004d7a] px-2 max-lg:hidden shadow-md">
           <AdminLink />
           {Links.map(({ label, href }, index) => {
-            const isActive = (pathname.includes(href) && href.length > 1) || pathname === href
+            const isActive = (pathname.includes(href.split("?")[0]) && href.length > 1) || pathname === href
 
             if (["Уподобані", "Мої замовлення"].includes(label)) {
               if (!email) return null
@@ -56,7 +56,7 @@ export default function Header({ email, user }: { email: string; user: string })
                 <div key={label} className="relative group">
                   <div
                     className={`w-fit h-8 flex justify-center items-center rounded-full px-[0.885rem] transition-colors duration-300 ${
-                      isActive ? "bg-yellow-600 text-white shadow-sm" : "text-neutral-400 hover:text-sky-500"
+                      isActive ? "bg-[#FECC02] text-[#006AA7] font-medium shadow-sm" : "text-white hover:text-[#FECC02]"
                     }`}
                   >
                     <TransitionLink
@@ -76,16 +76,18 @@ export default function Header({ email, user }: { email: string; user: string })
                     <MenubarMenu>
                       <MenubarTrigger
                         className={`w-fit h-8 flex justify-center items-center rounded-full cursor-pointer px-[0.885rem] transition-colors duration-300 ${
-                          isActive ? "bg-yellow-600 text-white shadow-sm" : "text-neutral-400 hover:text-sky-500 "
+                          isActive
+                            ? "bg-[#FECC02] text-[#006AA7] font-medium shadow-sm"
+                            : "text-white hover:text-[#FECC02]"
                         }`}
                       >
                         <p className="text-small-medium font-normal transition-colors duration-300">{label}</p>
                       </MenubarTrigger>
-                      <MenubarContent className="min-w-[9rem] bg-[#1f1f1f] text-neutral-400 border border-gray-800 rounded-lg shadow-md">
+                      <MenubarContent className="min-w-[9rem] bg-[#005a8e] text-white border border-[#004d7a] rounded-lg shadow-md">
                         {["contacts", "delivery-payment", "warranty-services"].map((subItem, subIndex) => (
                           <MenubarItem
                             key={subItem}
-                            className="text-small-medium font-normal cursor-pointer hover:text-white transition-colors duration-300"
+                            className="text-small-medium font-normal cursor-pointer hover:text-[#FECC02] transition-colors duration-300"
                           >
                             <TransitionLink
                               href={`/info/${subItem}`}
@@ -109,7 +111,7 @@ export default function Header({ email, user }: { email: string; user: string })
                 <div key={label} className="relative group">
                   <div
                     className={`w-fit h-8 flex justify-center items-center rounded-full px-[0.885rem] transition-colors duration-300 ${
-                      isActive ? "bg-yellow-600 text-white shadow-sm" : "text-neutral-400 hover:text-sky-500 "
+                      isActive ? "bg-[#FECC02] text-[#006AA7] font-medium shadow-sm" : "text-white hover:text-[#FECC02]"
                     }`}
                   >
                     <TransitionLink

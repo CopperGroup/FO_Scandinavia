@@ -13,11 +13,6 @@ const Page = async () => {
 
     const email = await getSession();
 
-    if(!email){
-      redirect('/login')
-    }
-
-
     const user = await fetchUserByEmail({email});
 
   return (
