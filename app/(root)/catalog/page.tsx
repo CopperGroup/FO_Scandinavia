@@ -38,7 +38,7 @@ const Catalog = async ({searchParams }:any) => {
 
     const matchesCategories = searchedCategories ? categories.filter(cat => searchedCategories.includes(cat.categoryId)).map(cat => cat.name).includes(product.category): true
   
-    searchedCategories && (categories.filter(cat => searchedCategories.includes(cat.categoryId)).map(cat => cat.name).includes(product.category) && console.log(product.name))
+    // searchedCategories && (categories.filter(cat => searchedCategories.includes(cat.categoryId)).map(cat => cat.name).includes(product.category) && console.log(product.name))
 
     return matchesCategories
   })

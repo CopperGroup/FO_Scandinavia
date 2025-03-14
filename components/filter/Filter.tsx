@@ -1,10 +1,9 @@
 'use client'
 
-import React, { ChangeEvent, Dispatch, SetStateAction, useState } from 'react'
-import { capitalize, cn, createSearchString, extractNumber, sleep } from '@/lib/utils'
+import React, { useState } from 'react'
+import { cn, createSearchString, extractNumber, sleep } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter, useSearchParams } from "next/navigation"
-import { useDebounce } from 'use-debounce'
 import { useEffect } from 'react'
 import { useAppContext } from "@/app/(root)/context"
 import { useRef } from 'react';
@@ -42,10 +41,6 @@ interface Props {
     vendorsCount: { [key: string]: number },
   } 
 }
-
-const params = ["width", "height", "depth"] as const;
-const paramsUa = { width: "Ширина", height: "Висота", depth: "Глибина" };
-type ParamsName = typeof params[number];
 
 const checkParamsNames = ["vendors" ] as const;
 const checkParamsNamesUa = {vendors: "Виробник"};
