@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
+import { Store } from "@/constants/store"
 
 // Type definitions
 interface Category {
@@ -500,11 +501,6 @@ export default function CategoryStructureManager({ categories, setCategories }: 
     }),
     [moveCategory],
   )
-
-  // Mock Store object
-  const Store = {
-    currency_sign: "$",
-  }
 
   return (
     <div className="space-y-4">
