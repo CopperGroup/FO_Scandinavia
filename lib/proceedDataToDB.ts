@@ -1,8 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { createUrlProduct, createUrlProductsMany, deleteProduct, deleteUrlProducts, fetchUrlProducts, updateUrlProduct, updateUrlProductsMany } from "./actions/product.actions";
 import { clearCatalogCache } from "./actions/redis/catalog.actions";
-import { updateCategories } from "./actions/categories.actions";
-import { ProductType } from "./types/types";
+import { createUrlCategories, updateCategories } from "./actions/categories.actions";
+import { FetchedCategory, ProductType } from "./types/types";
 
 interface Product {
     _id: string,
@@ -22,12 +22,11 @@ interface Product {
         value: string | null
     }[],
     isFetched: boolean,
-    category: string
+    categoryId: string
 }
 
-export async function proceedDataToDB(data: Product[], selectedRowsIds: (string | null)[]) {
+export async function proceedDataToDB(data: Product[], selectedRowsIds: (string | null)[], categories: FetchedCategory[]) {
     try {
-        console.log(data)
         const stringifiedUrlProducts = await fetchUrlProducts("json");
         let urlProducts: Product[] = JSON.parse(stringifiedUrlProducts as string);
 
@@ -39,46 +38,26 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
         const newProducts = [];
         const productsToUpdate = [];
 
+        await createUrlCategories(categories);
+
         for (const product of data) {
+            const categoryName = categories.find(cat => cat.id === product.categoryId)?.name || "No-category";
+
             if (product.id && selectedRowsIds.includes(product.id) && !processedIds.has(product.id)) {
                 const existingProductIndex = urlProducts.findIndex(urlProduct => urlProduct.articleNumber === product.articleNumber);
 
                 if (existingProductIndex !== -1) {
                     // Add to bulk update array
                     productsToUpdate.push({
+                        ...product,
                         _id: urlProducts[existingProductIndex]._id,
-                        id: product.id,
-                        name: product.name,
-                        isAvailable: product.isAvailable,
-                        quantity: product.quantity,
-                        url: product.url,
-                        priceToShow: product.priceToShow,
-                        price: product.price,
-                        images: product.images,
-                        vendor: product.vendor,
-                        description: product.description,
-                        articleNumber: product.articleNumber,
-                        params: product.params,
-                        isFetched: product.isFetched,
-                        category: product.category,
+                        category: categoryName,
                     });
                 } else {
                     // Add to new products array
                     newProducts.push({
-                        id: product.id,
-                        name: product.name,
-                        isAvailable: product.isAvailable,
-                        quantity: product.quantity,
-                        url: product.url,
-                        priceToShow: product.priceToShow,
-                        price: product.price,
-                        images: product.images,
-                        vendor: product.vendor,
-                        description: product.description,
-                        params: product.params,
-                        articleNumber: product.articleNumber,
-                        isFetched: product.isFetched,
-                        category: product.category || "No-category",
+                        ...product,
+                        category: categoryName,
                     });
                 }
 

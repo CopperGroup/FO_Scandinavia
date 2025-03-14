@@ -42,6 +42,7 @@ import {
 import { proceedDataToDB } from "@/lib/proceedDataToDB"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { FetchedCategory } from "@/lib/types/types"
 
 export type Product = {
   _id: string
@@ -61,18 +62,21 @@ export type Product = {
     value: string | null
   }[],
   isFetched: boolean,
-  category: string // Add the category property here
+  categoryId: string // Add the category property here
 }
+
 
 export type DataTableProps<TData extends Product, TValue> = {
   data: TData[]
-  columns: ColumnDef<TData, TValue>[]
+  columns: ColumnDef<TData, TValue>[],
+  categories: FetchedCategory[]
   // ... other props
 }
 
 export function DataTable<TData extends Product, TValue>({
   columns,
   data,
+  categories
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -121,7 +125,7 @@ export function DataTable<TData extends Product, TValue>({
     try {
       const allSelectedRowsIds = table.getSelectedRowModel().rows.map(row => row.original.id);
   
-      await proceedDataToDB(data, allSelectedRowsIds);
+      await proceedDataToDB(data, allSelectedRowsIds, categories);
     } finally {
       setProceedingState("Збережено");
   

@@ -26,6 +26,11 @@ export const connectionCardsDefault = {
             "start": "l2-3",
             "end": "r1-2-attribute",
             "color": "rgb(168, 85, 247)"
+        },
+        {
+          "start": "l2-4",
+          "end": "r1-3-attribute",
+          "color": "rgb(234, 179, 8)"
         }
     ],
     connectionCard3: [

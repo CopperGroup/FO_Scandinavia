@@ -16,7 +16,8 @@ const AddToCart = ({
   //@ts-ignore
   const { cartData, setCartData } = useAppContext()
 
-  async function AddDataToCart() {
+  async function AddDataToCart(e: any) {
+    e.preventDefault()
     let exist = 0
     let del = 0
 
@@ -53,7 +54,7 @@ const AddToCart = ({
       <Button
         variant="outline"
         className="w-48 max-[425px]:w-full bg-white text-[#006AA7] border-[#006AA7] border hover:bg-[#006AA7] hover:text-white transition-all duration-300 rounded-lg shadow-sm"
-        onClick={AddDataToCart}
+        onClick={(e) => AddDataToCart(e)}
       >
         <ShoppingCart className="mr-2" size={20} />
         Додати в кошик
@@ -63,7 +64,7 @@ const AddToCart = ({
     return (
       <Button
         className="bg-[#006AA7] text-white hover:bg-[#005a8e] mr-1 px-9 z-20 transition-all duration-300 rounded-lg shadow-sm"
-        onClick={AddDataToCart}
+        onClick={(e) => AddDataToCart(e)}
       >
         У кошик
       </Button>

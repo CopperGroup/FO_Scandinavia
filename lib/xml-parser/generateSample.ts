@@ -11,7 +11,7 @@ export default function generateSample(xmlString: string, config: Config) {
 
   const xmlDocument = new DOMParser().parseFromString(xmlString, "text/xml");
 
-  const categories = [] as { name: string, id: string, ref: string}[];
+  const categories = [] as { name: string, id: string, ref: string, parentCategoryId: string | null }[];
   const categoriesElements = getElementData({...config.paths.Start.categories, parent: xmlDocument.documentElement, many: true}) as Element[];
 
   for (let i = 0; i < categoriesElements.length; i++) {
@@ -20,7 +20,8 @@ export default function generateSample(xmlString: string, config: Config) {
     const name = getElementData({...config.paths.Categories.name, parent: categoryElement}) as string;
     const id = getElementData({...config.paths.Categories.category_id, parent: categoryElement}) as string;
     const ref = getElementData({...config.paths.Categories.reference_by, parent: categoryElement}) as string;
-    categories.push({ name, id, ref })
+    const parentCategoryId = getElementData({...config.paths.Categories.reference_by, parent: categoryElement}) as string | null;
+    categories.push({ name, id, ref, parentCategoryId })
   }
 
   const product = getElementData({...config.paths.Start.products, parent: xmlDocument.documentElement}) as Element;
@@ -31,7 +32,6 @@ export default function generateSample(xmlString: string, config: Config) {
   }
 
   const articleNumber = getElementData({...config.paths.Products.article_number, parent: product }) as string;
-  console.log(articleNumber)
   const isAvailableValue = getElementData({...config.paths.Products.available, parent: product }) as string;
   const quantityElement = getElementData({...config.paths.Products.quantity, parent: product }) as Element;
   const urlElement = getElementData({...config.paths.Products.url, parent: product }) as Element;

@@ -594,3 +594,23 @@ h1{
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
+
+[data-state="indeterminate"] {
+  position: relative;
+  background-color: #e5e7eb;
+  border-color: #6b7280;
+}
+
+[data-state="indeterminate"]::after {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 2px;
+  background-color: #4b5563;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+

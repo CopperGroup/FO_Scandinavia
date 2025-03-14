@@ -7,12 +7,6 @@ const Page = async ({ params }: { params: { id: string } }) => {
         return null;
     }
 
-    // // Decode the category name to handle encoded characters
-    // const decodedCategoryName = decodeURIComponent(params.categoryName.replace('_', ' '));
-
-    // console.log("Decoded Category name:", decodedCategoryName);
-
-    // Fetch category information based on the decoded name
     const categoryInfo = await fetchCategory({ categoryId: params.id });
 
     return (

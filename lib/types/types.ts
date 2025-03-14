@@ -33,7 +33,8 @@ export type CategoryType = {
     _id: string,
     name: string,
     products: string[],
-    totalValue: number
+    totalValue: number,
+    subCategories: string[]
 }
 
 export type Category = {
@@ -94,7 +95,8 @@ export type Config = {
         Categories: {
             category_id: ConfigPathValue,
             name: ConfigPathValue,
-            reference_by: ConfigPathValue
+            reference_by: ConfigPathValue,
+            parent_category: ConfigPathValue
         },
         Products: {
             article_number: ConfigPathValue,
@@ -240,5 +242,30 @@ export type FilterSettingsData = {
     [categoryId: string]: {
         params: { [paramName: string]: FilterSettingsParamsType };
         totalProducts: number;
+        subCategories: string[]
     };
 };
+
+export type FetchedCategory = { 
+    name: string, 
+    id: string, 
+    ref: string, 
+    parentCategoryId: string | null 
+}
+
+export type FilterCategoryType = { 
+    name: string, 
+    categoryId: string, 
+    totalProducts: number, 
+    subCategories: string[] 
+}
+
+export type PageFilterType = {
+    page: string,
+    price: [number, number],
+    categories: string[],
+    vendors: string[],
+    selectParamsValues: string[],
+    unitParamsValues: string[]
+  }
+  

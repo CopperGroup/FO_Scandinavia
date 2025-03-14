@@ -91,7 +91,7 @@ export async function getFilterSettingsAndDelay(type?: 'json') {
 
             const categoryId = category.categoryId._id; // Get category name
             const totalProducts = category.categoryId.products.length; // Get category's total products count
-
+            const subCategories = category.categoryId.subCategories
             // Build params object
             const params: { [paramName: string]: FilterSettingsParamsType } = {};
             category.params.forEach(param => {
@@ -102,7 +102,7 @@ export async function getFilterSettingsAndDelay(type?: 'json') {
             });
 
             // Store in result
-            result[categoryId] = { params, totalProducts };
+            result[categoryId] = { params, totalProducts, subCategories};
         }
     }
 

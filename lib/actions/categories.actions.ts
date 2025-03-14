@@ -4,13 +4,60 @@ import { ObjectId } from "mongoose";
 import Category from "../models/category.model";
 import Product from "../models/product.model";
 import { connectToDB } from "../mongoose";
-import { CategoriesParams, CategoryType, ProductType } from "../types/types";
+import { CategoriesParams, CategoryType, FetchedCategory, ProductType } from "../types/types";
 import clearCache from "./cache";
 import { clearCatalogCache } from "./redis/catalog.actions";
 import { deleteProduct } from "./product.actions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Filter from "../models/filter.model";
+import mongoose from "mongoose";
+
+export async function createUrlCategories(categories: FetchedCategory[]) {
+  // Sort categories to process parent categories first
+  const sortedCategories = [...categories].sort((a, b) => {
+      if (a.parentCategoryId && !b.parentCategoryId) return 1;
+      if (!a.parentCategoryId && b.parentCategoryId) return -1;
+      return 0;
+  });
+
+  console.log(sortedCategories)
+  const categoryMap = new Map<string, mongoose.Types.ObjectId>();
+
+  for (const category of sortedCategories) {
+      // Check if the category already exists
+      const existingCategory = await Category.findOne({ id: category.id });
+
+      if (existingCategory) {
+          // If category already exists, update the category map
+          categoryMap.set(category.id, existingCategory._id);
+          continue;
+      }
+
+      // If the category doesn't exist, create it
+      const newCategory = new Category({
+          name: category.name,
+          id: category.id,
+          subCategories: [],
+      });
+
+      if (category.parentCategoryId) {
+          const parentCategoryId = categoryMap.get(category.parentCategoryId);
+
+          if (parentCategoryId) {
+              await Category.findByIdAndUpdate(parentCategoryId, {
+                  $push: { subCategories: newCategory._id }
+              });
+          }
+      }
+
+      await newCategory.save();
+      categoryMap.set(category.id, newCategory._id);
+  }
+
+  return categoryMap; // Returning the map for future use if needed
+}
+
 
 export async function updateCategories(
   products: ProductType[],
@@ -31,6 +78,20 @@ export async function updateCategories(
       { productIds: string[]; totalValue: number }
     > = {};
 
+    const calculateTotalValue = async (categoryId: string): Promise<number> => {
+      const category = await Category.findById(categoryId).populate("subCategories");
+      if (!category) return 0;
+
+      let totalValue = category.totalValue || 0;
+
+      for (const subCategory of category.subCategories) {
+        const subCategoryValue = await calculateTotalValue(subCategory._id.toString());
+        totalValue += subCategoryValue;
+      }
+
+      return totalValue;
+    };
+
     for (const product of products) {
       const newCategoryName = product.category; // Updated category
 
@@ -40,7 +101,7 @@ export async function updateCategories(
           const existingCategory = categoryMap.get(newCategoryName);
           categoriesToUpdate[newCategoryName] = {
             productIds: existingCategory ? [...existingCategory.products] : [],
-            totalValue: existingCategory ? existingCategory.totalValue : 0,
+            totalValue: existingCategory ? await calculateTotalValue(existingCategory._id.toString()) : 0,
           };
         }
 
@@ -376,13 +437,13 @@ export async function getCategoriesNamesAndIds(): Promise<{ name: string; catego
   }
 }
 
-export async function getCategoriesNamesIdsTotalProducts(): Promise<{ name: string; categoryId: string; totalProducts: number}[]> {
+export async function getCategoriesNamesIdsTotalProducts(): Promise<{ name: string; categoryId: string; totalProducts: number, subCategories: string[] }[]> {
   try {
     connectToDB();
 
     const categories = await Category.find();
 
-    const categoriesNamesAndIdsArray = categories.map(category => ({ name: category.name, categoryId: category._id.toString(), totalProducts: category.products.length}))
+    const categoriesNamesAndIdsArray = categories.map(category => ({ name: category.name, categoryId: category._id.toString(), totalProducts: category.products.length, subCategories: category.subCategories }))
 
     return categoriesNamesAndIdsArray
   } catch (error: any) {
@@ -527,6 +588,24 @@ export async function fetchCategoriesParams(type?: 'json') {
 
       return type === 'json' ? JSON.stringify(result) : result;
   } catch (error: any) {
-      throw new Error(`${error.message}`);
+      throw new Error(`Error fetching categories params: ${error.message}`);
+  }
+}
+
+export async function updateSubcategories({ categories }: { categories: CategoryType[] }) {
+  try {
+    await connectToDB();
+
+      for (const category of categories) {
+        await Category.updateOne(
+          { _id: category._id },
+          { $set: { subCategories: category.subCategories } }
+        )
+      }
+    
+    await clearCatalogCache();
+    await clearCache("updateCategory")
+  } catch (error: any) {
+    throw new Error(`Error updating subcategories: ${error.message}`)
   }
 }

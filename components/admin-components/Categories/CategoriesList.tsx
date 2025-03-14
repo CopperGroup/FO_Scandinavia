@@ -6,6 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Category } from "@/lib/types/types";
 import CategoryCard from '@/components/cards/CategoryCard';
 import Pagination from '@/components/shared/Pagination';
+import Link from 'next/link';
+import { PiTreeStructure } from "react-icons/pi";
+import { Button } from '@/components/ui/button';
 
 type SortOption = 'name' | 'totalProducts' | 'totalValue' | 'averagePrice';
 
@@ -60,16 +63,21 @@ export default function CategoryCardList({ categories }: { categories: Category[
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="name">Name</SelectItem>
-            <SelectItem value="totalProducts">Total Products</SelectItem>
-            <SelectItem value="totalValue">Total Value</SelectItem>
-            <SelectItem value="averagePrice">Average Price</SelectItem>
+            <SelectItem value="name">Назва</SelectItem>
+            <SelectItem value="totalProducts">Загальна кількість товарів</SelectItem>
+            <SelectItem value="totalValue">Загальна вартість</SelectItem>
+            <SelectItem value="averagePrice">Середня ціна</SelectItem>
           </SelectContent>
         </Select>
+        <Button className='px-0 py-0'>
+          <Link href="/admin/categories/structure" className='inline-flex items-center gap-2 px-4 py-2'>
+            <PiTreeStructure className='size-5'/> Структура
+          </Link>
+        </Button>
       </div>
 
       <div className="grid grid-cols-4 gap-6 mt-20 pb-20 max-[1800px]:grid-cols-3 max-[1250px]:grid-cols-2 max-[650px]:grid-cols-1">
-        {sortedCategories.map((category, index) => (
+        {paginatedCategories.map((category, index) => (
           <CategoryCard key={index} categoryInfo={category} />
         ))}
       </div>

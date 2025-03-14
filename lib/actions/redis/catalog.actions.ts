@@ -64,7 +64,7 @@ export async function fetchCatalog () {
     
         const data = JSON.parse(combinedChunks);
         
-        let stringifiedCategories: { name: string, categoryId: string, totalProducts: number}[] | null = await redis.get("catalog_categories"); // This was supposed to return a string but return an object instead
+        let stringifiedCategories: { name: string, categoryId: string, totalProducts: number, subCategories: string[] }[] | null = await redis.get("catalog_categories"); // This was supposed to return a string but return an object instead
 
         let categories;
         if (!stringifiedCategories) {

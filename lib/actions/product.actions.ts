@@ -78,9 +78,8 @@ export async function createUrlProductsMany(products: CreateUrlParams[]) {
       connectToDB();
   
       const createdProducts = await Product.insertMany(products);
-
-      await updateCategories(createdProducts, "create")
   
+      await updateCategories(createdProducts, "update")
       clearCache("createProduct");
     } catch (error: any) {
       throw new Error(`Error creating url-product, ${error.message}`);
@@ -636,7 +635,7 @@ export async function findProductCategory(product: ProductType, type?: "json"): 
     try {
         const categories = await Category.find({ name: product.category });
 
-        let category = { _id: "", name: "", products: [], totalValue: 0 };
+        let category = { _id: "", name: "", products: [], totalValue: 0, subCategories: []};
 
         if (categories.length !== 0) {
             for (const cat of categories) {

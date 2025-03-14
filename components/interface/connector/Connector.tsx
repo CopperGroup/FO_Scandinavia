@@ -38,7 +38,8 @@ export const cards = [
     leftElements: [
         { id: "l2-1", name: "Name" },
         { id: 'l2-2', name: "Category ID"},
-        { id: 'l2-3', name: "Reference by"}
+        { id: 'l2-3', name: "Reference by"},
+        { id: 'l2-4', name: "Parent category"},
     ],
     rightElements: [
         { id: 'r2-1', name: "loading..."}

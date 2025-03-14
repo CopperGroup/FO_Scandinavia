@@ -1,7 +1,6 @@
 import { DOMParser } from "xmldom";
-import { generateUniqueId, getElementData, replaceDescription } from "../utils";
-import getTagsMap from "./getTagsMap";
-import { Config, ProductType } from "../types/types";
+import { generateUniqueId, getElementData } from "../utils";
+import { Config } from "../types/types";
 
 interface CreateUrlParams {
     _id?: string,
@@ -19,29 +18,33 @@ interface CreateUrlParams {
         name: string | null,
         value: string | null
     }[],
-    category:string,
+    productCategoryId:string,
     isFetched: boolean,
 }
 
-export default function getProductsData(xmlString: string, config: Config) {
+export default async function getProductsData(xmlString: string, config: Config) {
   if (!xmlString) {
     console.log("No XML data found");
     return null;
   }
 
+
   const xmlDocument = new DOMParser().parseFromString(xmlString, "text/xml");
 
-  const categories = [] as { name: string, id: string, ref: string}[];
+  const categories = [] as { name: string, id: string, ref: string, parentCategoryId: string | null }[];
   const categoriesElements = getElementData({...config.paths.Start.categories, parent: xmlDocument.documentElement, many: true}) as Element[];
 
+  console.log(config.paths.Categories)
   for (let i = 0; i < categoriesElements.length; i++) {
     const categoryElement = categoriesElements[i];
 
     const name = getElementData({...config.paths.Categories.name, parent: categoryElement}) as string;
     const id = getElementData({...config.paths.Categories.category_id, parent: categoryElement}) as string;
     const ref = getElementData({...config.paths.Categories.reference_by, parent: categoryElement}) as string;
-    categories.push({ name, id, ref })
+    const parentCategoryId = getElementData({...config.paths.Categories.parent_category, parent: categoryElement}) as string | null;
+    categories.push({ name, id, ref, parentCategoryId })
   }
+
 
   const products = getElementData({...config.paths.Start.products, parent: xmlDocument.documentElement, many: true}) as Element[];
 
@@ -50,7 +53,7 @@ export default function getProductsData(xmlString: string, config: Config) {
      return null;
   }
 
-  const result: CreateUrlParams[] = [];
+  const result = [];
 
   for (let i = 0; i < products.length; i++) {
     const product = products[i]
@@ -83,9 +86,9 @@ export default function getProductsData(xmlString: string, config: Config) {
     const name = nameElement ? nameElement.textContent : "" as string;
     const description = descriptionElement ? descriptionElement.textContent : "" as string;
   
-    let category = "";
+    let productCategoryId = "";
     if (categoryId) {
-      category = categories.filter(category => category.ref === categoryId)[0]?.name;
+      productCategoryId = categories.filter(category => category.ref === categoryId)[0]?.id;
     }
   
     for (let i = 0; i < imagesElements.length; i++) {
@@ -121,18 +124,12 @@ export default function getProductsData(xmlString: string, config: Config) {
       vendor: vendor as string,
       description,
       params,
-      category,
+      categoryId: productCategoryId,
       isFetched: true,
     };
 
     result.push(sampleProduct)
   }
 
-  result.sort((a, b) => {
-    if (a.category < b.category) return -1;
-    if (a.category > b.category) return 1;
-    return 0;
-  });
-
-  return result;
+  return { products: result, categories };
 }

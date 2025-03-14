@@ -4,7 +4,7 @@ import { Inter } from "next/font/google";
 import "../globals.css";
 import MobileAdminSidebar from "@/components/shared/MobileAdminSidebar";
 import AdminHeader from "@/components/shared/AdminHeader";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "react-hot-toast";
 
 export const metadata = {
   title: 'Next.js',

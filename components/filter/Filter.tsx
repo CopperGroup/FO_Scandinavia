@@ -21,14 +21,15 @@ import { Slider } from '../ui/slider'
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import { Label } from '../ui/label'
 import ClearFilterButton from '../interface/ClearFilterButton'
-import { CategoryType } from '@/lib/types/types'
+import { CategoryType, FilterCategoryType, PageFilterType } from '@/lib/types/types'
 import ApplyFilterButton from '../interface/ApplyFilterButton'
 import { Input } from '../ui/input'
+import CategoryFilterComponent from './CategoriesSelect'
 
 interface Props {
   maxPrice:number,
   minPrice:number, 
-  categories: { name: string, categoryId: string, totalProducts: number }[],
+  categories: FilterCategoryType[],
   checkParams: {
     vendors: string[], 
   },
@@ -50,15 +51,6 @@ const checkParamsNames = ["vendors" ] as const;
 const checkParamsNamesUa = {vendors: "Виробник"};
 type CheckParams = typeof checkParamsNames[number];
 
-type PageFilterType = {
-  page: string,
-  price: [number, number],
-  categories: string[],
-  vendors: string[],
-  selectParamsValues: string[],
-  unitParamsValues: string[]
-}
-
 const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, unitParams, category, delay, counts }: Props) => {
   const {catalogData, setCatalogData} = useAppContext();
   const [filter, setFilter] = useState<PageFilterType>({
@@ -73,7 +65,6 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const divRef = useRef<HTMLDivElement>(null);
   const [bodyOverflow, setBodyOverflow] = useState(false);
-  const [categorySearchTerm, setCategorySearchTerm] = useState("")
   const [checkParamsSearchTerms, setCheckParamsSearchTerms] = useState<{ [key: string]: string }>({})
   const [ isLoaded, setIsLoaded ] = useState(false)
 
@@ -158,17 +149,6 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
     setFilter({...filter, page: "1", price:newValue})
   };
   
-  const handleCategoriesCheckboxChange = (categoryId: string) => {
-    const isChecked = filter.categories.includes(categoryId);
-    
-    setFilter((prevFilter):any => {
-      if (!isChecked) {
-        return {...prevFilter, page: "1", categories: [...prevFilter.categories, categoryId]};
-      } else {
-        return {...prevFilter, page: "1", categories: prevFilter.categories.filter(id => id !== categoryId)};
-      }
-    });
-  };
   
   const handleCheckboxChange = (checkParam: CheckParams, value: string) => {
     const isChecked = filter[checkParam].includes(value);
@@ -285,10 +265,6 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
     setBodyOverflow(!bodyOverflow);
   };
 
-  const filteredCategories = categories.filter((cat) =>
-    cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
-  )
-
   const handleSearchChange = (param: string, value: string) => {
     setCheckParamsSearchTerms(prev => ({ ...prev, [param]: value }))
   }
@@ -360,48 +336,11 @@ return (
               </Accordion>
             </div>
 
-            <div className="mt-4 pb-4 w-full">
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-1">
-                  <AccordionTrigger className="text-[18px] bg-zinc-100 rounded-3xl font-medium py-[6px] px-3">
-                    Категорії
-                  </AccordionTrigger>
-                  <AccordionContent className="pl-3">
-                    <Input
-                      type="text"
-                      placeholder="Пошук категорій..."
-                      value={categorySearchTerm}
-                      onChange={(e) => setCategorySearchTerm(e.target.value)}
-                      className="h-8 w-11/12 text-small-medium border-0 border-b rounded-none focus-visible:ring-transparent focus-visible:border-black mt-4 mb-1"
-                    />
-                    <div className="max-h-[300px] overflow-y-auto">
-                      {filteredCategories.map((cat, index) => (
-                        <div key={index} className="w-full h-fit flex justify-between items-center">
-                          <div className="flex items-center space-x-2 mt-4">
-                            <Checkbox
-                              id={cat.categoryId}
-                              className="size-5 rounded-md border-neutral-600 data-[state=checked]:bg-black data-[state=checked]:text-white"
-                              onCheckedChange={() => handleCategoriesCheckboxChange(cat.categoryId)}
-                              checked={filter.categories.includes(cat.categoryId)}
-                            />
-                            <label
-                              htmlFor={cat.categoryId}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {cat.name}
-                            </label>
-                          </div>
-                          <p className="w-fit text-small-medium text-blue drop-shadow-xl mt-3 px-4">
-                            {cat.totalProducts}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-
+            <CategoryFilterComponent
+              categories={categories}
+              filter={filter}
+              setFilter={setFilter}
+            />
             <>
               {checkParamsNames.map((param) => (
                 <div key={param} className='mt-4 pb-4 w-full'>
