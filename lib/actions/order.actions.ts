@@ -160,7 +160,7 @@ export async function createOrder({ products, userId, value, name, surname, phon
           await orderedProduct.save();
       }
 
-      await clearCache("createOrder");
+      await clearCache("createOrder", undefined);
 
       return type === "json" ? JSON.stringify(createdOrder) : createdOrder;
   } catch (error: any) {
@@ -250,12 +250,10 @@ export async function fetchOrder(orderId: string) {
 
 
 
-export async function fetchUsersOrders(email:string){
+export async function fetchUsersOrders({ userId }: { userId: string }){
     try {
 
-        const user = await User.findOne({email:email});
-
-        const orders = await Order.find({ user: user._id})
+        const orders = await Order.find({ user: userId })
         .sort({ data: "desc" })
         .populate({
             path: 'products',
@@ -271,6 +269,7 @@ export async function fetchUsersOrders(email:string){
         });
 
 
+        console.log("Orders", orders)
         return orders
     } catch (error:any) {
         throw new Error(`Error fetching user's orders: ${error.message}`)

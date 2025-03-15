@@ -125,8 +125,8 @@ export default function LoginPage() {
           </div>
         </div>
         <div className="relative w-4/5 h-full flex justify-center items-center  overflow-hidden max-[1010px]:flex-col max-[1010px]:w-full max-[1010px]:rounded-none" style={{ backgroundImage: `url(/assets/loginbackground.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-          <h1 className="text-[56px] font-medium bg-black text-white py-2 px-5 max-[1010px]:text-[48px] max-[390px]:text-[40px]">{Store.name}</h1>
-          <div className="w-full text-white justify-center items-center px-28 py-5 overflow-y-auto min-[1011px]:hidden max-[600px]:px-16 max-[455px]:px-12 max-[360px]:px-10 max-[340px]:px-7">
+          <h1 className="text-[56px] text-center font-medium bg-black text-white py-2 px-5 max-[1010px]:text-[48px] max-[1010px]:w-full max-[390px]:text-[40px]">{Store.name}</h1>
+          <div className="w-full text-white justify-center items-center px-28 py-5 overflow-y-auto min-[1010px]:hidden max-[600px]:px-16 max-[455px]:px-12 max-[360px]:px-10 max-[340px]:px-7 bg-black/45">
             <div className="w-full h-fit flex flex-col flex-1 mb-10">
               <h3 className="text-heading1-semibold text-slate-200 font-[550] mt-5 mb-1">Welcome back</h3>
               <p className="text-slate-200 mb-8">Продовжте з Google, або введіть дані самостійно.</p>

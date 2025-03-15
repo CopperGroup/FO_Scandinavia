@@ -1,7 +1,5 @@
 import React from 'react'
 import { getSession } from '@/lib/getServerSession';
-import Order from '@/lib/models/order.model';
-import Image from 'next/image';
 import { fetchUsersOrders } from '@/lib/actions/order.actions';
 import OrderCard from '@/components/cards/OrderCard';
 import { formatDateString } from '@/lib/utils';
@@ -12,21 +10,14 @@ export const metadata: Metadata = {
   title: "My orders"
 }
 
-const myOrders = async() => {
+const myOrders = async({ params }: { params: { userId: string } }) => {
 
-
-  const email = await getSession();
-    
-  if(!email){
-    redirect('/login')
+  if(!params.userId) {
+    return <h1>Invalid path</h1>
   }
   
-  console.log(email);
-  
-  const orders = await fetchUsersOrders(email);
-  console.log('fsdfsd',orders);
+  const orders = await fetchUsersOrders({ userId: params.userId });
 
-  
   return (
     <section className="max-grid1:px-2  w-full">
     <h1 className="text-heading1-bold drop-shadow-text-blue">Мої замовлення</h1>

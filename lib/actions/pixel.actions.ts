@@ -34,7 +34,7 @@ export async function createPixel({ type, name, id }: { type: "Meta" | "TikTok",
     
     //console.log(createdPixel);
 
-    clearCache("createPixel")
+    clearCache("createPixel", undefined)
   } catch (error: any) {
     throw new Error(`Error creating pixel: ${error.message}`)
   }
@@ -61,7 +61,7 @@ export async function deletePixel({ _id }: { _id: string }) {
 
     revalidatePath("/admin/pixel");
 
-    clearCache("deletePixel")
+    clearCache("deletePixel", undefined)
   } catch (error: any) {
     throw new Error(`Error deleting pixel: ${error.message}`)
   }
@@ -96,7 +96,7 @@ export async function activatePixel({ _id, type }: { _id: string, type: PixelDat
         await pixel.save();
     }
 
-    clearCache("updatePixel")
+    clearCache("updatePixel", undefined)
 } catch (error: any) {
     throw new Error(`Error activating/disactivating pixel: ${error.message}`)
   }
@@ -160,7 +160,7 @@ export async function updatePixelEvents({ _id, events }: { _id: string, events: 
       return { success: false, message: "Update failed, pixel not found" };
     }
     
-    clearCache("updatePixel")
+    clearCache("updatePixel", undefined)
     return { success: true, message: "Pixel events updated successfully." };
   } catch (error: any) {
 

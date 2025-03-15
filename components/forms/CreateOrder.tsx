@@ -15,10 +15,11 @@ import { useAppContext } from "@/app/(root)/context";
 import { createOrder } from "@/lib/actions/order.actions";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { CheckCircle, Truck, CreditCard, MessageSquare, ShoppingCart, Phone, Package } from "lucide-react";
+import { CheckCircle, Truck, CreditCard, MessageSquare, ShoppingCart, Phone, Package, ArrowRight } from "lucide-react";
 import Confetti from 'react-confetti';
 import { trackFacebookEvent } from "@/helpers/pixel";
 import { Store } from "@/constants/store";
+import { Card } from "../ui/card";
 
 type CartProduct = {
   id: string; 
@@ -38,7 +39,7 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [showThankYou, setShowThankYou] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [ position, setPosition ] = useState<"fixed" | "relative">("fixed")
+  const [position, setPosition] = useState<"fixed" | "relative">("fixed");
 
   const priceToPay = cartData.reduce((acc: number, data: { price: number; quantity: number; }) => acc + (data.price * data.quantity), 0);
   useEffect(() => {
@@ -70,33 +71,34 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
   }));
 
   const onSubmit = async (values: z.infer<typeof OrderValidation>) => {
-    const createdOrder = await createOrder({
-      products: products,
-      userId: userId,
-      value: priceToPay,
-      name: values.name,
-      surname: values.surname,
-      phoneNumber: values.phoneNumber,
-      email: values.email,
-      paymentType: values.paymentType,
-      deliveryMethod: values.deliveryMethod,
-      city: values.city,
-      adress: values.adress,
-      postalCode: values.postalCode,
-      comment: values.comment,
-    }, "json");
+    // const createdOrder = await createOrder({
+    //   products: products,
+    //   userId: userId,
+    //   value: priceToPay,
+    //   name: values.name,
+    //   surname: values.surname,
+    //   phoneNumber: values.phoneNumber,
+    //   email: values.email,
+    //   paymentType: values.paymentType,
+    //   deliveryMethod: values.deliveryMethod,
+    //   city: values.city,
+    //   adress: values.adress,
+    //   postalCode: values.postalCode,
+    //   comment: values.comment,
+    // }, "json");
 
-    const order = JSON.parse(createdOrder);
+    // const order = JSON.parse(createdOrder);
 
-    trackFacebookEvent("Purchase", {
-      value: priceToPay,
-      currency: "UAH",
-      content_ids: cartData.map((product: CartProduct) => product.id),
-    });
+    // trackFacebookEvent("Purchase", {
+    //   value: priceToPay,
+    //   currency: "UAH",
+    //   content_ids: cartData.map((product: CartProduct) => product.id),
+    // });
     
+    window.scrollTo({ top: 0, behavior: "smooth" })
     setCartData([]);
     setIsOrderCreated(true);
-    setOrderId(order.id);
+    // setOrderId(order.id);
     setTimeout(() => setShowThankYou(true), 3000);
     setTimeout(() => setShowConfetti(true), 3500);
   };
@@ -111,112 +113,165 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 overflow-x-hidden">
       {isOrderCreated ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="relative w-full flex flex-col items-center max-[425px]:pt-24"
-        >
-          <AnimatePresence>
-            {showConfetti && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 pointer-events-none"
-              >
-                <Confetti
-                  width={windowSize.width}
-                  height={windowSize.height}
-                  recycle={false}
-                  numberOfPieces={200}
-                  gravity={0.1}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: [0, 20, 1] }}
-            transition={{ 
-              duration: 1,
-              times: [0, 0.7, 1],
-              ease: "easeInOut",
-            }}
-            style={{
-              position: position,
-              left: position === "fixed" ? '50%' : '0%',
-              translateX: position === "fixed" ? '-50%' : '0%',
-              translateY: position === "fixed" ? '-50%' : '0%',
-            }}
-            onAnimationComplete={() => setPosition("relative")}
-            className="bg-sky-100 rounded-full p-8 mb-8 overflow-hidden"
-          >
-            <motion.div
-              initial={{ y: -200, rotate: 0}}
-              animate={{ y: 0, rotate: [0, -10, 10, -5, 5, 0]}}
-              transition={{
-                y: {delay: 1.2, duration: 0.3},
-                rotate: { delay: 1.5, duration: 0.5, ease: "easeInOut" },
-              }}
-            >
-              <Package className="w-16 h-16 text-sky-600" />
-            </motion.div>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2.2, duration: 0.5 }}
-            className="text-center mt-7"
-          >
-            <motion.h1 
-              className="text-heading1-bold mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.5 }}
-            >
-              Замовлення створено успішно!
-            </motion.h1>
-            <motion.p 
-              className="text-body-medium mb-8 max-w-md mx-auto"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.7 }}
-            >
-              Дякуємо за ваше замовлення. Наш менеджер зв&apos;яжеться з вами найближчим часом.
-            </motion.p>
-            <motion.div 
-              className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.9 }}
-            >
-              <Button
-                onClick={() => router.push(`/myOrders/${orderId}`)}
-                className="bg-sky-500 hover:bg-sky-600 px-6 py-3 rounded-lg text-base-medium text-white transition duration-300 w-full sm:w-auto"
-              >
-                {windowSize.width > 380 ? "Переглянути деталі замовлення" : "Переглянути деталі"}
-              </Button>
-              <div className="flex flex-1 justify-center items-center text-gray-600 bg-white px-4 py-2 rounded-lg shadow-md max-[640px]:w-full">
-                <Phone className="w-5 h-5 mr-2 text-sky-500" />
-                <span className="text-base-medium">Очікуйте на дзвінок</span>
-              </div>
-            </motion.div>
-            <AnimatePresence>
-              {showThankYou && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  className="mt-12 text-body-semibold text-sky-600"
-                >
-                  Дякуємо за покупку!
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </motion.div>
+           <motion.div
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           transition={{ duration: 0.5 }}
+           className="relative w-full flex flex-col justify-center items-center py-12"
+         >
+           <AnimatePresence>
+             {showConfetti && (
+               <motion.div
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 exit={{ opacity: 0 }}
+                 className="fixed inset-0 pointer-events-none z-50"
+               >
+                 <Confetti
+                   width={windowSize.width}
+                   height={windowSize.height}
+                   recycle={false}
+                   numberOfPieces={200}
+                   gravity={0.1}
+                   colors={["#0ea5e9", "#38bdf8", "#7dd3fc", "#e0f2fe", "#ffffff"]}
+                 />
+               </motion.div>
+             )}
+           </AnimatePresence>
+   
+           {/* Success Icon Animation */}
+           <motion.div
+             initial={{ scale: 0 }}
+             animate={{ scale: [0, 1.2, 1] }}
+             transition={{
+               duration: 1,
+               times: [0, 0.7, 1],
+               ease: "easeInOut",
+             }}
+             style={{
+               position: position,
+               left: position === "fixed" ? "50%" : "0%",
+               top: position === "fixed" ? "40%" : "0%",
+               translateX: position === "fixed" ? "-50%" : "0%",
+               translateY: position === "fixed" ? "-50%" : "0%",
+             }}
+             onAnimationComplete={() => setPosition("relative")}
+             className="bg-gradient-to-br from-sky-100 to-sky-200 rounded-full p-8 mb-10 shadow-lg overflow-hidden"
+           >
+             <motion.div
+               initial={{ y: -100, rotate: 0 }}
+               animate={{ y: 0, rotate: [0, -10, 10, -5, 5, 0] }}
+               transition={{
+                 y: { delay: 1.2, duration: 0.3 },
+                 rotate: { delay: 1.5, duration: 0.5, ease: "easeInOut" },
+               }}
+               className="relative"
+             >
+               <Package className="w-16 h-16 text-sky-600" />
+               <motion.div
+                 initial={{ scale: 0, opacity: 0 }}
+                 animate={{ scale: 1, opacity: 1 }}
+                 transition={{ delay: 2, duration: 0.3 }}
+                 className="absolute -bottom-1 -right-1 bg-white rounded-full p-1"
+               >
+                 <CheckCircle className="w-6 h-6 text-green-500" />
+               </motion.div>
+             </motion.div>
+           </motion.div>
+   
+           {/* Content Card */}
+           <motion.div
+             initial={{ opacity: 0, y: 30 }}
+             animate={{ opacity: 1, y: 0 }}
+             transition={{ delay: 2.2, duration: 0.5 }}
+             className="w-full max-w-2xl"
+           >
+             <Card className="p-8 shadow-lg border-sky-100 bg-white/80 backdrop-blur-sm">
+               <motion.div className="text-center">
+                 <motion.h1
+                   className="text-heading1-bold text-gray-800 mb-6"
+                   initial={{ opacity: 0, y: 20 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   transition={{ delay: 2.5 }}
+                 >
+                   Замовлення створено успішно!
+                 </motion.h1>
+   
+                 <motion.p
+                   className="text-gray-600 mb-8 max-w-md mx-auto"
+                   initial={{ opacity: 0, y: 20 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   transition={{ delay: 2.7 }}
+                 >
+                   Дякуємо за ваше замовлення. Наш менеджер зв&apos;яжеться з вами найближчим часом.
+                 </motion.p>
+   
+                 <motion.div
+                   className="flex flex-col sm:flex-row justify-center items-center gap-4"
+                   initial={{ opacity: 0, y: 20 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   transition={{ delay: 2.9 }}
+                 >
+                   <Button
+                     onClick={() => router.push(`/myOrders/${orderId}`)}
+                     className="bg-sky-500 hover:bg-sky-600 px-6 py-3 rounded-lg text-white transition-all duration-300 w-full sm:w-auto h-auto font-medium"
+                     size="lg"
+                   >
+                     <span>{windowSize.width > 380 ? "Переглянути деталі замовлення" : "Переглянути деталі"}</span>
+                     <ArrowRight className="ml-2 h-5 w-5" />
+                   </Button>
+   
+                   {/* <motion.div
+                     whileHover={{ scale: 1.02 }}
+                     className="flex justify-center items-center text-gray-600 bg-white px-6 py-3 rounded-lg shadow-md border border-gray-100 w-full sm:w-auto"
+                   >
+                     <Phone className="w-5 h-5 mr-2 text-sky-500" />
+                     <span className="font-medium">Очікуйте на дзвінок</span>
+                   </motion.div> */}
+                 </motion.div>
+   
+                 {/* Order ID */}
+                 <motion.div
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   transition={{ delay: 3.1, duration: 0.5 }}
+                   className="mt-8 text-small-regular text-gray-500"
+                 >
+                   Номер замовлення: <span className="font-medium">{orderId}</span>
+                 </motion.div>
+               </motion.div>
+             </Card>
+           </motion.div>
+   
+           {/* Thank You Message */}
+           <AnimatePresence>
+             {showThankYou && (
+               <motion.div
+                 initial={{ opacity: 0, scale: 0.8 }}
+                 animate={{ opacity: 1, scale: 1 }}
+                 exit={{ opacity: 0, scale: 0.8 }}
+                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                 className="mt-8 text-heading4-medium font-semibold text-sky-600 flex items-center"
+               >
+                 <motion.span
+                   animate={{ rotate: [0, 10, -10, 10, 0] }}
+                   transition={{ delay: 0.2, duration: 0.5 }}
+                   className="mr-2"
+                 >
+                   ✨
+                 </motion.span>
+                 Дякуємо за покупку!
+                 <motion.span
+                   animate={{ rotate: [0, -10, 10, -10, 0] }}
+                   transition={{ delay: 0.2, duration: 0.5 }}
+                   className="ml-2"
+                 >
+                   ✨
+                 </motion.span>
+               </motion.div>
+             )}
+           </AnimatePresence>
+         </motion.div>
       ) : (
         <>
           <h1 className="w-full text-heading1-bold mb-10 text-center">Оформлення замовлення</h1>
