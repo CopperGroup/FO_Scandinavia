@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cache } from "react";
 import { ProductType } from "../types/types";
 import { fetchProductAndRelevantParams } from "./product.actions";
+import { Store } from "@/constants/store";
 
 const paths = {
     categories: "/admin/categories",
@@ -21,15 +22,30 @@ const paths = {
 const adminPaths = [
     {
         name: 'createProduct',
-        values: [paths.categories, paths.products, paths.filter]
+        values: [paths.categories, paths.products, paths.filter],
+        user_cache: {
+            catalog: true,
+            productPage: false,
+            allProductPages: false
+        }
     },
     {
         name: 'updateProduct',
-        values: [paths.categories, paths.products, paths.dashboard, paths.statistics, paths.filter]
+        values: [paths.categories, paths.products, paths.dashboard, paths.statistics, paths.filter],
+        user_cache: {
+            catalog: true,
+            productPage: true,
+            allProductPages: false
+        }
     },
     {
         name: 'deleteProduct',
-        values: [paths.categories, paths.products, paths.dashboard, paths.statistics, paths.filter]
+        values: [paths.categories, paths.products, paths.dashboard, paths.statistics, paths.filter],
+        user_cache: {
+            catalog: true,
+            productPage: false,
+            allProductPages: true
+        }
     },
     {
         name: 'createOrder',
@@ -53,11 +69,21 @@ const adminPaths = [
     },
     {
         name: "updateCategory",
-        values: [paths.categories, paths.createProduct, paths.filter, paths.statistics, paths.dashboard, paths.products]
+        values: [paths.categories, paths.createProduct, paths.filter, paths.statistics, paths.dashboard, paths.products],
+        user_cache: {
+            catalog: true,
+            productPage: false,
+            allProductPages: true
+        }
     }, 
     {
         name: "deleteCategory",
-        values: [paths.categories, paths.createProduct, paths.filter, paths.statistics, paths.dashboard, paths.products]
+        values: [paths.categories, paths.createProduct, paths.filter, paths.statistics, paths.dashboard, paths.products],
+        user_cache: {
+            catalog: true,
+            productPage: false,
+            allProductPages: true
+        }
     },
     {
         name: "createPixel",
@@ -73,7 +99,15 @@ const adminPaths = [
     }
 ] as const;
 
-export default async function clearCache(functionNames: typeof adminPaths[number]["name"] | (typeof adminPaths[number]["name"])[]) {
+type ConditionalProps<T extends typeof adminPaths[number]["name"]> = 
+    Extract<typeof adminPaths[number], { name: T }> extends { user_cache: { productPage: true } }
+        ?  string 
+        : undefined;
+
+export default async function clearCache<T extends typeof adminPaths[number]["name"]>(
+    functionNames: T | T[],
+    productId: ConditionalProps<T>
+) {
     const functionNamesArray = Array.isArray(functionNames) ? functionNames : [functionNames];
 
     functionNamesArray.forEach(functionName => {
@@ -83,15 +117,24 @@ export default async function clearCache(functionNames: typeof adminPaths[number
             revalidatePath(value);
         });
     });
+
+    if(productId) {
+        revalidateTag(`${Store.name}-product-${productId}`)
+    }
 }
 
-export const fetchProductPageInfo = cache(async (
-    currentProductId: string,
-    key: keyof ProductType,
-    splitChar?: string,
-    index?: number
-) => {
-    const info = await fetchProductAndRelevantParams(currentProductId, key, splitChar, index)
-
-    return info
-})
+export const fetchProductPageInfo = cache(
+    async (currentProductId: string, key: keyof ProductType, splitChar?: string, index?: number) => {
+      return unstable_cache(
+        async () => {
+          const { product, selectParams } = await fetchProductAndRelevantParams(currentProductId, key, splitChar, index);
+          return { product, selectParams };
+        },
+        [`${Store.name}-product-${currentProductId}`],
+        { tags: [`${Store.name}-product-${currentProductId}`] }
+      )();
+    }
+  );
+  
+  
+  

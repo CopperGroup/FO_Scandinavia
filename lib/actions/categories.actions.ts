@@ -194,7 +194,7 @@ export async function updateCategories(
 
     // Clear cache if relevant
     clearCatalogCache();
-    clearCache(["updateCategory", "updateProduct"]);
+    clearCache(["updateCategory", "updateProduct"], undefined);
   } catch (error: any) {
     throw new Error(
       `Error updating categories with products: ${error.message}`
@@ -332,7 +332,7 @@ export async function setCategoryDiscount({categoryId, percentage}: {categoryId:
     await category.save();
     // Clear the cache after updating product prices
     await clearCatalogCache();
-    clearCache(["updateCategory", "updateProduct"]);
+    clearCache(["updateCategory", "updateProduct"], undefined);
 
   } catch (error: any) {
     throw new Error(`Error changing discount for all the products in the category: ${error.message}`);
@@ -362,7 +362,7 @@ export async function changeCategoryName({ categoryId, newName }: { categoryId: 
 
     await clearCatalogCache();
 
-    clearCache(["updateCategory","updateProduct"]);
+    clearCache(["updateCategory","updateProduct"], undefined);
   } catch (error: any) {
     throw new Error(`Error changing category's name: ${error.message}`);
   }
@@ -416,7 +416,7 @@ export async function moveProductsToCategory({
     await targetCategory.save();
 
     await clearCatalogCache();
-    clearCache(["updateCategory", "updateProduct"]);
+    clearCache(["updateCategory", "updateProduct"], undefined);
     revalidatePath(`/admin/categories/edit/${initialCategoryId}`)
   } catch (error: any) {
     throw new Error(`Error moving products to another category: ${error.message}`);
@@ -480,7 +480,7 @@ export async function createNewCategory({ name, products, previousCategoryId }: 
     })
 
     clearCatalogCache();
-    clearCache(["createCategory", "updateProduct"]);
+    clearCache(["createCategory", "updateProduct"], undefined);
   } catch (error: any) {
     throw new Error(`Error creating new category: ${error.message}`)
   }
@@ -520,7 +520,7 @@ export async function deleteCategory(props: DeleteCategoryProps) {
 
       // Clear cache
       await clearCatalogCache();
-      clearCache(["deleteCategory", "updateProduct"]);
+      clearCache(["deleteCategory", "updateProduct"], undefined);
 
   } catch (error: any) {
       throw new Error(`Error deleting category: ${error.message}`);
@@ -604,7 +604,7 @@ export async function updateSubcategories({ categories }: { categories: Category
       }
     
     await clearCatalogCache();
-    await clearCache("updateCategory")
+    await clearCache("updateCategory", undefined)
   } catch (error: any) {
     throw new Error(`Error updating subcategories: ${error.message}`)
   }

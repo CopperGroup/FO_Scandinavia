@@ -67,7 +67,7 @@ export async function createUrlProduct({ id, name, isAvailable, quantity, url, p
             category: category ? category : "No-category"
         })
 
-        clearCache("createProduct")
+        clearCache("createProduct", undefined)
     } catch (error: any) {
         throw new Error(`Error creating url-product, ${error.message}`)
     }
@@ -80,7 +80,7 @@ export async function createUrlProductsMany(products: CreateUrlParams[]) {
       const createdProducts = await Product.insertMany(products);
   
       await updateCategories(createdProducts, "update")
-      clearCache("createProduct");
+      clearCache("createProduct", undefined);
     } catch (error: any) {
       throw new Error(`Error creating url-product, ${error.message}`);
     }
@@ -103,7 +103,7 @@ export async function updateUrlProductsMany(products: Partial<CreateUrlParams>[]
         const updatedProducts = await Product.find({ _id: { $in: products.map(product => product._id)}});
 
         await updateCategories(updatedProducts, "update")
-        clearCache("createProduct");
+        clearCache("createProduct", undefined);
     } catch (error: any) {
         throw new Error(`Error updating url-products in bulk, ${error.message}`);
     }
@@ -136,7 +136,7 @@ export async function createProduct({ id, name, quantity, images, url, priceToSh
 
         await clearCatalogCache();
 
-        clearCache("createProduct");
+        clearCache("createProduct", undefined);
 
         if(type === "json") {
             return JSON.stringify(createdProduct)
@@ -168,7 +168,7 @@ export async function updateUrlProduct({_id, id, name, isAvailable, quantity, ur
             category: category ? category : "No-category"
         })
         
-        clearCache("updateProduct")
+        clearCache("updateProduct", _id as string)
 
         
         //console.log(product);
@@ -181,9 +181,11 @@ export async function deleteUrlProducts(){
     try {
         connectToDB();
 
-        await Product.deleteMany({ isFetched: true});
+        const productsToDelete = await Product.find({ isFetched: true});
 
-        clearCache("deleteProduct")
+        await deleteManyProducts(productsToDelete.map(p => p._id))
+
+        clearCache("deleteProduct", undefined)
     } catch (error: any) {
         throw new Error(`Error deleting fetched products, ${error.message}`)
     }
@@ -304,7 +306,7 @@ export async function addLike({ productId, email, path }: InterfaceProps) {
             revalidatePath(`/liked/${currentUser._id}`);
         }
 
-        clearCache("likeProduct")
+        clearCache("likeProduct", undefined)
     } catch (error: any) {
         throw new Error(`Error adding like to the product, ${error.message}`)
     }
@@ -429,7 +431,7 @@ export async function editProduct({ _id, name, quantity, images, url, priceToSho
 
         // Clear the cache
         await clearCatalogCache();
-        clearCache("updateProduct");
+        clearCache("updateProduct", _id as string);
 
         // Return the updated product
         if (type === "json") {
@@ -455,7 +457,7 @@ export async function productAddedToCart(id: string) {
 
         //console.log(product);
 
-        clearCache("addToCart")
+        clearCache("addToCart", undefined)
     } catch (error: any) {
         throw new Error(`Error adding prduct to cart: ${error.message}`)
     }
@@ -510,6 +512,8 @@ export async function deleteManyProducts(_ids: string[], cache?: "keep-catalog-c
 
         // Loop over the products to handle likes and orders before deletion
         for (const product of products) {
+            const deletedProductId = product._id;
+
             const usersWhoLikedProduct = await User.find({ _id: { $in: product.likedBy }});
 
             if (usersWhoLikedProduct) {
@@ -531,6 +535,8 @@ export async function deleteManyProducts(_ids: string[], cache?: "keep-catalog-c
 
             // Delete the product
             await Product.deleteOne({ _id: product._id });
+
+            clearCache("deleteProduct", undefined);
         }
 
         if (!cache) {
@@ -540,7 +546,6 @@ export async function deleteManyProducts(_ids: string[], cache?: "keep-catalog-c
         }
 
         console.log("Deleted products")
-        clearCache("deleteProduct");
 
     } catch (error: any) {
         throw new Error(`Error deleting products: ${error.message}`);
@@ -621,7 +626,7 @@ export async function deleteProduct(id: { productId: string} | {product_id: stri
                 console.log("Catalog cache cleared.");
             }
             
-            clearCache("deleteProduct")
+            clearCache("deleteProduct", undefined)
         }
     }
   } catch (error: any) {

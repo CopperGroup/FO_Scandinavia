@@ -182,4 +182,4 @@ export const fetchCatalogWithCache = cache(
         tags: ["catalog-data"],
       }
     )
-  );
+);
