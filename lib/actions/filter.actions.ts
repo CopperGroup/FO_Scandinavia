@@ -114,6 +114,6 @@ export async function getFilterSettingsAndDelay(type?: 'json') {
       return response
     }
    } catch (error: any) {
-     throw new Error(`${error.message}`)
+     throw new Error(`Error getting filer setting and delay: ${error.message}`)
    }
 }

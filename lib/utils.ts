@@ -176,8 +176,8 @@ export function getFiltredProducts(products: ProductType[], searchParams: { [key
   });
 
 
-  console.log(paramNamesSet, unitParamNamesSet)
-  console.log(selectParamsValues, unitParamsValues) 
+  // console.log(paramNamesSet, unitParamNamesSet)
+  // console.log(selectParamsValues, unitParamsValues) 
 
   
   return products.filter(product => {
@@ -221,7 +221,7 @@ export function getFiltredProducts(products: ProductType[], searchParams: { [key
         }
     
         const [min, max] = new Set(valuesString.split("m"));
-        console.log(min, max);
+        // console.log(min, max);
         
         const productParam = product.params.find((param) => param.name === paramName);
     

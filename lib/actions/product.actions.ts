@@ -215,6 +215,7 @@ export async function fetchAllProducts() {
             model: User,
             select: "_id email"
         })
+        
         return fetchedProducts
 
     } catch (error:any) {
@@ -682,9 +683,26 @@ export async function fetchProductAndRelevantParams(
 
     // Find products with the same base value (excluding the current product)
     const similarProducts = await Product.find({
-      [key]: new RegExp(valueToCompare, "i"),
-      isAvailable: true,
-    });
+        _id: { $ne: currentProductId },
+        isAvailable: true,
+        $expr: index === -1 
+          ? {
+              $eq: [
+                { $arrayElemAt: [
+                    { $split: [`$${key}`, splitChar] }, 
+                    { $subtract: [{ $size: { $split: [`$${key}`, splitChar] } }, 1] }
+                  ] 
+                },
+                valueToCompare
+              ]
+            }
+          : {
+              $eq: [
+                { $arrayElemAt: [{ $split: [`$${key}`, splitChar] }, index] },
+                valueToCompare
+              ]
+            }
+      });
 
     const paramCounts: Record<string, Set<string>> = {};
 

@@ -6,7 +6,7 @@ import PaginationForCatalog from '@/components/shared/PaginationForCatalog'
 
 import { getSession } from '@/lib/getServerSession'
 import BannerSmall from '@/components/banner/BannerSmall'
-import { fetchCatalog } from '@/lib/actions/redis/catalog.actions'
+import { fetchCatalogWithCache } from '@/lib/actions/redis/catalog.actions'
 import { filterProductsByKey, getCounts, getFiltredProducts, pretifyProductName, processProductParams } from '@/lib/utils'
 import { Metadata } from 'next';
 import { FilterSettingsData } from '@/lib/types/types'
@@ -21,8 +21,10 @@ export const metadata: Metadata = {
 
 
 const Catalog = async ({searchParams }:any) => {
-  let { data: filtredProducts, categories, filterSettingsData }: { data: any[], categories: { name: string, categoryId: string, totalProducts: number, subCategories: string[] }[], filterSettingsData: { filterSettings: FilterSettingsData, delay: number } } = await fetchCatalog();
+  let { data: filtredProducts, categories, filterSettingsData }: { data: any[], categories: { name: string, categoryId: string, totalProducts: number, subCategories: string[] }[], filterSettingsData: { filterSettings: FilterSettingsData, delay: number } } = await fetchCatalogWithCache();
 
+  // filtredProducts = filterProductsByKey(filtredProducts, "articleNumber", "-", 0);
+  
   const { filterSettings, delay } = filterSettingsData
   const email = await getSession()
 
@@ -71,7 +73,6 @@ const Catalog = async ({searchParams }:any) => {
 
   filtredProducts = getFiltredProducts(filtredProducts, searchParams);
   
-  filtredProducts = filterProductsByKey(filtredProducts, "articleNumber", "-", 0);
   const counts = getCounts(filtredProducts)
 
   const countOfPages = Math.ceil(filtredProducts.length/12)

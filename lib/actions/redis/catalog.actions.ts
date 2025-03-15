@@ -4,7 +4,10 @@ import { redis } from "@/lib/redis";
 import { fetchAllProducts } from "../product.actions";
 import { getCategoriesNamesIdsTotalProducts } from "../categories.actions";
 import { getFilterSettingsAndDelay } from "../filter.actions";
-import { FilterSettingsData } from "@/lib/types/types";
+import { FilterSettingsData, ProductType } from "@/lib/types/types";
+import { filterProductsByKey } from "@/lib/utils";
+import { revalidateTag, unstable_cache } from "next/cache";
+import { cache } from "react";
 
 export async function createCatalogChunks (filtredProducts: any) {
     const jsonData = JSON.stringify(filtredProducts); // Convert to JSON string
@@ -98,7 +101,9 @@ export async function fetchCatalog () {
 
 export async function fetchAndCreateCatalogChunks() {
     try {
-        const filtredProducts = await fetchAllProducts();
+        let filtredProducts = await fetchAllProducts();
+
+        filtredProducts = filterProductsByKey(filtredProducts as ProductType[], "articleNumber", "-", 0)
 
         await clearCatalogCache();
         await createCatalogChunks(filtredProducts);
@@ -124,8 +129,12 @@ export async function clearCatalogCache() {
             }
         } while (cursor !== '0')
 
-        redis.del("catalog_categories")
-        redis.del("filter_settings")
+        await redis.del("catalog_categories")
+        await redis.del("filter_settings")
+
+        revalidateTag("catalog-data");
+
+        await fetchCatalogWithCache()
     } catch (error: any) {
         throw new Error(`Error clearing catalog cache: ${error.message}`);
     }
@@ -160,3 +169,17 @@ export async function fetchAndCreateFilterSettingsCache() {
     throw new Error(`Error creating filter settings cache: ${error.message}`)
   }
 }
+
+
+export const fetchCatalogWithCache = cache(
+    unstable_cache(
+      async () => {
+        const { data, categories, filterSettingsData } = await fetchCatalog();
+        return { data, categories, filterSettingsData };
+      },
+      ['fetchCatalog'],
+      { 
+        tags: ["catalog-data"],
+      }
+    )
+  );
