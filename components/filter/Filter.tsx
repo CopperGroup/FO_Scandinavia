@@ -307,6 +307,11 @@ return (
               </Accordion>
             </div>
             
+            <div className="space-y-3 pb-5 mt-6 md:hidden">
+              <ApplyFilterButton onClick={handleApplyFilter}/>
+              <ClearFilterButton />
+            </div>
+
             <div className='mt-4 pb-4 w-full min-[601px]:hidden'>
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="item-1">
@@ -315,7 +320,7 @@ return (
                   <RadioGroup className="py-3" onValueChange={(element)=>setCatalogData((prev: any) => ({...prev, sort: element}))} value={catalogData.sort}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="default" id="default" />
-                      <Label htmlFor="default">Default</Label>
+                      <Label htmlFor="default">Без сортування</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="low_price" id="low_price" />
@@ -477,7 +482,7 @@ return (
 
             </>
           }
-          <div className="space-y-3 pb-5 mt-6">
+          <div className="space-y-3 pb-5 mt-6 max-md:hidden">
             <ApplyFilterButton onClick={handleApplyFilter}/>
             <ClearFilterButton />
           </div>
