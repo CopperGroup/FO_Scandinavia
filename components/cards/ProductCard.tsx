@@ -34,7 +34,7 @@ const ProductCard = ({
   likedBy,
 }: Props) => {
   return (
-    <article className="w-full h-[420px] bg-white rounded-xl overflow-hidden flex flex-col shadow-sm hover:shadow-lg transition-all duration-300 group relative">
+    <article className="w-full h-[420px] bg-white rounded-xl overflow-hidden flex flex-col shadow-sm hover:shadow-lg transition-all duration-300 group relative z-0">
       {/* Image Container */}
       <Link href={`/catalog/${id}`} prefetch={false} className="block flex-grow flex flex-col h-full">
         <div className="relative w-full h-[220px] overflow-hidden flex-shrink-0">

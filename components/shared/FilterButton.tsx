@@ -23,7 +23,9 @@ const FilterButton = (divRef:any) => {
     setBodyOverflow(!bodyOverflow);
   };
   return (
-    <Button onClick={toggleOverflow} className="fixed left-0 top-36 rounded-none rounded-r md:hidden z-[100]"><i className="fa fa-filter"></i></Button>
+    <div className="fixed left-0 top-36 z-[9999]">
+      <Button onClick={toggleOverflow} className="rounded-none rounded-r md:hidden"><i className="fa fa-filter"></i></Button>
+    </div>
   )
 }
 

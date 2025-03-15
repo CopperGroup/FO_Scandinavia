@@ -89,9 +89,9 @@ const Catalog = async ({searchParams }:any) => {
       max = min+12
   } 
   return (
-    <section>
+    <section className='relative'>
       <BannerSmall/>
-      <div className="flex mt-12">
+      <div className="relative flex mt-12">
         <Filter  
          category={searchParams.category} 
          minPrice={minPrice} 
