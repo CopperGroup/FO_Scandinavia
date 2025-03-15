@@ -84,7 +84,7 @@ export default function CartPage() {
     <div className="container max-w-6xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-heading1-bold">Кошик</h1>
-        <Link href="/catalog" className="flex items-center text-sky-500 hover:underline">
+        <Link href="/catalog" className="flex items-center text-sky-500 hover:underline" title="Каталог">
           <ArrowLeft size={16} className="mr-1" />
           Продовжити покупки
         </Link>
@@ -95,7 +95,7 @@ export default function CartPage() {
           <ShoppingBag className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h2 className="text-heading3-bold font-semibold mb-2">Ваш кошик порожній</h2>
           <p className="text-gray-500 mb-6">Додайте товари до кошика, щоб продовжити</p>
-          <Link href="/catalog">
+          <Link href="/catalog" title="Каталог">
             <Button>Перейти до каталогу</Button>
           </Link>
         </div>
@@ -219,7 +219,7 @@ export default function CartPage() {
                     Оформити замовлення
                   </Button>
                 </Link>
-                <Link href="/catalog" className="block w-full">
+                <Link href="/catalog" className="block w-full" title="Каталог">
                   <Button variant="outline" className="w-full">
                     Продовжити покупки
                   </Button>

@@ -3,7 +3,7 @@
 import Product from "../models/product.model"
 import { connectToDB } from "../mongoose"
 import User from "../models/user.model";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import Value from "../models/value.model";
 import { CategoryType, CreateUrlParams, ProductType } from "../types/types";
 import { clearCatalogCache } from "./redis/catalog.actions";

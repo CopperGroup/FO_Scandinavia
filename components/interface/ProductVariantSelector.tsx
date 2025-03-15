@@ -51,7 +51,7 @@ export default function ProductVariantSelector({ selectParams, productId }: Prod
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 ml-2">
         {Object.entries(selectParams).map(([param, options]) => (
           <div key={param} className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-600">{param}</h3>
+            <p className="text-small-medium text-gray-600">{param}</p>
             <Select defaultValue={selectedVariants[param]} onValueChange={(value) => handleVariantChange(param, value)}>
               <SelectTrigger className="w-full border-0 border-b border-gray-300 rounded-none focus-visible:ring-0 focus:ring-0 hover:border-gray-800 transition-all duration-200">
                 <SelectValue placeholder={`Select ${param}`} />
@@ -63,7 +63,7 @@ export default function ProductVariantSelector({ selectParams, productId }: Prod
                     value={option._id}
                     className="cursor-pointer hover:bg-gray-100 transition-colors duration-150"
                   >
-                    <span className="text-sm">{option.value}</span>
+                    <span className="text-small-regular">{option.value}</span>
                   </SelectItem>
                 ))}
               </SelectContent>

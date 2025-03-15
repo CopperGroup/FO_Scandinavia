@@ -3,9 +3,9 @@
 import { sleep } from "@/lib/utils";
 import Link, { LinkProps } from "next/link";
 import { useRouter } from "next/navigation";
-import { ReactNode } from "react";
+import { AnchorHTMLAttributes, ReactNode } from "react";
 
-interface Props extends LinkProps {
+interface Props extends LinkProps, AnchorHTMLAttributes<HTMLAnchorElement> {
     children: ReactNode;
     href: string;
     className?: string;

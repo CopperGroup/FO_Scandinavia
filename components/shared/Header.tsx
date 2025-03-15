@@ -61,6 +61,7 @@ export default function Header({ email, user }: { email: string; user: string })
                   >
                     <TransitionLink
                       href={`${href}${label === "Уподобані" ? "/" + userInfo?._id : ""}`}
+                      title={label}
                       className="text-small-medium font-normal transition-colors duration-300"
                       onClick={() => handleLead(label)}
                     >

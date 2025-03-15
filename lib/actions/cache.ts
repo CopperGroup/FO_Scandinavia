@@ -26,7 +26,7 @@ const adminPaths = [
         user_cache: {
             catalog: true,
             productPage: false,
-            allProductPages: false
+            allProductPages: true
         }
     },
     {
@@ -35,7 +35,7 @@ const adminPaths = [
         user_cache: {
             catalog: true,
             productPage: true,
-            allProductPages: false
+            allProductPages: true
         }
     },
     {
@@ -151,12 +151,17 @@ export default async function clearCache<T extends typeof adminPaths[number]["na
     const functionNamesArray = Array.isArray(functionNames) ? functionNames : [functionNames];
 
     let shouldClearCatalogCache = false;
+    let shouldClearAllProductPagesCache = false;
 
     functionNamesArray.forEach(functionName => {
         const path = adminPaths.filter(({ name, values }) => name === functionName);
 
         if (path[0].name.length > 0 && path[0].user_cache?.catalog) {
             shouldClearCatalogCache = true; // Set flag to true if catalog needs clearing
+        }
+
+        if (path[0].name.length > 0 && path[0].user_cache?.allProductPages) {
+            shouldClearAllProductPagesCache = true;
         }
 
         path[0]?.values.forEach((value: string) => {
@@ -167,8 +172,13 @@ export default async function clearCache<T extends typeof adminPaths[number]["na
     if(shouldClearCatalogCache) {
         revalidateTag("catalog-data");
     }
+
     if(productId) {
         revalidateTag(`${Store.name}-product-${productId}`)
+    }
+
+    if(shouldClearAllProductPagesCache) {
+        revalidateTag(`${Store.name}-product`)
     }
 }
 
@@ -180,7 +190,7 @@ export const fetchProductPageInfo = cache(
           return { product, selectParams };
         },
         [`${Store.name}-product-${currentProductId}`],
-        { tags: [`${Store.name}-product-${currentProductId}`] }
+        { tags: [`${Store.name}-product-${currentProductId}`, `${Store.name}-product`] }
       )();
     }
   );

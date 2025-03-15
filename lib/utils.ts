@@ -520,7 +520,7 @@ export function filterProductsByKey<T extends keyof ProductType>(
   });
 }
 
-export function pretifyProductName(productName: string, params: { name: string, value: string }[], articleNumber: string): string {
+export function pretifyProductName(productName: string, params: { name: string, value: string }[], articleNumber: string, index: number): string {
   let cleanedName = productName;
 
   // Split the product name into words and exclude the first two words
@@ -528,8 +528,15 @@ export function pretifyProductName(productName: string, params: { name: string, 
   const wordsToCheck = words.slice(2).join(' '); // Skip the first two words
 
   // Remove article number from the product name (ignoring the first two words)
-  const articleNumberRegex = new RegExp(articleNumber, 'i');
-  cleanedName = cleanedName.replace(articleNumberRegex, '').trim();
+
+  // Handle the index for articleNumber split
+  const articleParts = articleNumber.split('-');
+  const partToMatch = articleParts[index === -1 ? articleParts.length - 1 : index] || articleNumber;
+
+  // Remove the article part from the product name
+  const partRegex = new RegExp(partToMatch, 'i');
+  cleanedName = cleanedName.replace(partRegex, '').trim();
+
 
   // Iterate over the params and remove matching parts from the name (ignoring the first two words)
   params.forEach((param) => {

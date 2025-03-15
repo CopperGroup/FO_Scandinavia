@@ -27,7 +27,7 @@ export type Product = {
 export default function ProductPage({ productJson, selectParams }: { productJson: string, selectParams: Record<string, {_id: string, value: string}[]> }) {
     const product = JSON.parse(productJson);
 
-    const pretifiedName = pretifyProductName(product.name, [], product.articleNumber || "");
+    const pretifiedName = pretifyProductName(product.name, [], product.articleNumber || "", 0);
 
     const optimizedDescription = product.description.replace(/<p>\s*<\/p>/g, "") // Removes empty <p></p>
     return (

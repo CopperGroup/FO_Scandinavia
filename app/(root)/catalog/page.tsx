@@ -124,7 +124,7 @@ const Catalog = async ({searchParams }:any) => {
                   imageUrl={product.images[0]} 
                   description={product.description.replace(/[^а-яА-ЯіІ]/g, ' ').substring(0, 35) + '...'}  
                   priceToShow={product.priceToShow} 
-                  name={pretifyProductName(product.name, [], product.articleNumber || "")}
+                  name={pretifyProductName(product.name, [], product.articleNumber || "", 0)}
                   // @ts-ignore
                   likedBy={product.likedBy}
                 />

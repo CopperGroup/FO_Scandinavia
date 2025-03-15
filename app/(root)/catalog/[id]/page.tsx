@@ -17,20 +17,20 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const { product } = await fetchProductPageInfo(params.id, "articleNumber", "-", 0);
 
   const optimizedDescription = generateMetaDescription(
-    pretifyProductName(product.name, [], product.articleNumber || ""),
+    pretifyProductName(product.name, [], product.articleNumber || "", 0),
     replaceDescription(product.description)
   );
 
   return {
-    title: pretifyProductName(product.name, [], product.articleNumber || ""),
+    title: pretifyProductName(product.name, [], product.articleNumber || "", 0),
     description: optimizedDescription,
-    openGraph: {
-      images: [
-        {
-          url: `${product.images[0]}`
-        }
-      ]
-    }
+    // openGraph: {
+    //   images: [
+    //     {
+    //       url: `${product.images[0]}`
+    //     }
+    //   ]
+    // }
   };
 }
 

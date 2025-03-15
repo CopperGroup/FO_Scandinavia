@@ -15,7 +15,7 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
 
   const Links = [
     { label: "Головна", href: "/" },
-    { label: "Каталог", href: "/catalog" },
+    { label: "Каталог", href: "/catalog?page=1&sort=default" },
     { label: "Уподобані", href: `/liked/${userInfo?._id}` },
     { label: "Мої замовлення", href: "/myOrders" },
     { label: "Контакти", href: "/info/contacts" },
@@ -127,6 +127,7 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
                   <TransitionLink
                     key={label}
                     href={href}
+                    title={label}
                     className={`text-white hover:text-[#FECC02] transition-colors ${isActive ? "text-[#FECC02]" : ""} w-full text-center py-2`}
                     onClick={() => setIsOpen(false)}
                   >

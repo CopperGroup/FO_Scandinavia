@@ -80,6 +80,7 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
             await deleteProduct({ productId: leftOverProduct.id as string }, "keep-catalog-cache");
         }
 
+        revalidateTag("catalog-data");
         await clearCatalogCache();
 
         return null;

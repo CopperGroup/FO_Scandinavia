@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidateTag } from "next/cache";
 import Filter from "../models/filter.model";
 import { connectToDB } from "../mongoose";
 import { CategoryType, CreateFilterProps, FilterSettingsData, FilterSettingsParamsType, FilterType } from "../types/types";
@@ -57,6 +58,7 @@ export async function createFilter(categoriesObject: CreateFilterProps, delay: n
       filter = await Filter.create({ categories, delay });
     }
 
+    revalidateTag("catalog-data");
     clearCatalogCache();
     return type === 'json' ? JSON.stringify(filter) : filter;
   } catch (error: any) {
