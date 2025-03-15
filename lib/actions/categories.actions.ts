@@ -8,7 +8,7 @@ import { CategoriesParams, CategoryType, FetchedCategory, ProductType } from "..
 import clearCache from "./cache";
 import { clearCatalogCache } from "./redis/catalog.actions";
 import { deleteProduct } from "./product.actions";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import Filter from "../models/filter.model";
 import mongoose from "mongoose";
@@ -193,6 +193,7 @@ export async function updateCategories(
     await Promise.all(categoryOps);
 
     // Clear cache if relevant
+
     clearCatalogCache();
     clearCache(["updateCategory", "updateProduct"], undefined);
   } catch (error: any) {

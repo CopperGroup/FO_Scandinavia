@@ -106,7 +106,6 @@ export async function fetchAndCreateCatalogChunks() {
         filtredProducts = filterProductsByKey(filtredProducts as ProductType[], "articleNumber", "-", 0)
 
         await clearCatalogCache();
-        await createCatalogChunks(filtredProducts);
 
         return filtredProducts;
     } catch (error: any) {
@@ -132,9 +131,7 @@ export async function clearCatalogCache() {
         await redis.del("catalog_categories")
         await redis.del("filter_settings")
 
-        revalidateTag("catalog-data");
-
-        await fetchCatalogWithCache()
+        // await fetchCatalogWithCache()
     } catch (error: any) {
         throw new Error(`Error clearing catalog cache: ${error.message}`);
     }

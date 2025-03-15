@@ -49,23 +49,48 @@ const adminPaths = [
     },
     {
         name: 'createOrder',
-        values: [paths.categories, paths.dashboard, paths.orders, paths.payments, paths.statistics]
+        values: [paths.categories, paths.dashboard, paths.orders, paths.payments, paths.statistics],
+        user_cache: {
+            catalog: false,
+            productPage: false,
+            allProductPages: false
+        }
     },
     {
         name: "createUser",
-        values: [paths.clients, paths.statistics]
+        values: [paths.clients, paths.statistics],
+        user_cache: {
+            catalog: false,
+            productPage: false,
+            allProductPages: false
+        }
     },
     {
         name: 'likeProduct',
-        values: [paths.statistics, paths.categories]
+        values: [paths.statistics, paths.categories],
+        user_cache: {
+            catalog: true,
+            productPage: false,
+            allProductPages: false
+        }
     },
     {
         name: "addToCart",
-        values: [paths.dashboard, paths.statistics]
+        values: [paths.dashboard, paths.statistics],
+        user_cache: {
+            catalog: false,
+            productPage: false,
+            allProductPages: false
+        }
     },
     {
         name: "createCategory",
-        values: [paths.categories, paths.createProduct, paths.filter]
+        values: [paths.categories, paths.createProduct, paths.filter],
+        user_cache: {
+            catalog: true,
+            productPage: false,
+            allProductPages: true
+        }
     },
     {
         name: "updateCategory",
@@ -87,15 +112,30 @@ const adminPaths = [
     },
     {
         name: "createPixel",
-        values: [paths.pixel]
+        values: [paths.pixel],
+        user_cache: {
+            catalog: false,
+            productPage: false,
+            allProductPages: false
+        }
     },
     {
         name: "updatePixel",
-        values: [paths.pixel]
+        values: [paths.pixel],
+        user_cache: {
+            catalog: false,
+            productPage: false,
+            allProductPages: false
+        }
     },
     {
         name: "deletePixel",
-        values: [paths.pixel]
+        values: [paths.pixel],
+        user_cache: {
+            catalog: false,
+            productPage: false,
+            allProductPages: false
+        }
     }
 ] as const;
 
@@ -110,14 +150,23 @@ export default async function clearCache<T extends typeof adminPaths[number]["na
 ) {
     const functionNamesArray = Array.isArray(functionNames) ? functionNames : [functionNames];
 
+    let shouldClearCatalogCache = false;
+
     functionNamesArray.forEach(functionName => {
         const path = adminPaths.filter(({ name, values }) => name === functionName);
+
+        if (path[0].name.length > 0 && path[0].user_cache?.catalog) {
+            shouldClearCatalogCache = true; // Set flag to true if catalog needs clearing
+        }
 
         path[0]?.values.forEach((value: string) => {
             revalidatePath(value);
         });
     });
 
+    if(shouldClearCatalogCache) {
+        revalidateTag("catalog-data");
+    }
     if(productId) {
         revalidateTag(`${Store.name}-product-${productId}`)
     }
