@@ -40,7 +40,7 @@ export default async function RootLayout({
   const user = await fetchUserByEmail({email});
   
   return (
-      <html lang="ua">
+      <html lang="uk">
         <body className={inter.className}>
           {/* <Analytics /> */}
           <FacebookPixel />
