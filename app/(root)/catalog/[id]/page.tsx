@@ -3,12 +3,27 @@ import { fetchProductPageInfo } from '@/lib/actions/cache';
 import { pretifyProductName, replaceDescription } from '@/lib/utils';
 import { Metadata } from 'next';
 
+const generateMetaDescription = (productName: string, productDescription: string): string => {
+  let description = `${productName} - ${productDescription}`;
+
+  if (description.length > 160) {
+    description = description.substring(0, 160);
+  }
+
+  return description;
+};
+
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const { product } = await fetchProductPageInfo(params.id, "articleNumber", "-", 0);
 
+  const optimizedDescription = generateMetaDescription(
+    pretifyProductName(product.name, [], product.articleNumber || ""),
+    replaceDescription(product.description)
+  );
+
   return {
     title: pretifyProductName(product.name, [], product.articleNumber || ""),
-    description: replaceDescription(product.description),
+    description: optimizedDescription,
     openGraph: {
       images: [
         {
@@ -16,7 +31,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
         }
       ]
     }
-  }
+  };
 }
 
 const Page = async ({ params }: { params: { id: string } }) => {
