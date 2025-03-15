@@ -8,7 +8,7 @@ const generateMetaDescription = (productName: string, productDescription: string
   let description = `${productName} - ${productDescription}`;
 
   if (description.length > 160) {
-    description = description.substring(0, 160);
+    description = description.substring(0, 140);
   }
 
   return description;
