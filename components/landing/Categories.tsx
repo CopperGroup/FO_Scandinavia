@@ -323,6 +323,7 @@ export default function Categories() {
         >
           <Link
             href="/catalog?page=1&sort=default"
+            title="Каталог"
             className="inline-block text-base-semibold text-white bg-[#006AA7] hover:bg-[#005a8e] px-8 py-4 rounded-full transition-colors duration-300 shadow-sm"
           >
             <span className="flex items-center">

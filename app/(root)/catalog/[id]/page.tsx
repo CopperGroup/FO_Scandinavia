@@ -1,4 +1,5 @@
 import ProductPage from '@/components/shared/ProductPage';
+import { Store } from '@/constants/store';
 import { fetchProductPageInfo } from '@/lib/actions/cache';
 import { pretifyProductName, replaceDescription } from '@/lib/utils';
 import { Metadata } from 'next';
@@ -24,13 +25,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   return {
     title: pretifyProductName(product.name, [], product.articleNumber || "", 0),
     description: optimizedDescription,
-    // openGraph: {
-    //   images: [
-    //     {
-    //       url: `${product.images[0]}`
-    //     }
-    //   ]
-    // }
+    openGraph: {
+      type: "website",
+      siteName: Store.name,
+      url: `${Store.domain}/catalog/${product._id}`
+    }
   };
 }
 

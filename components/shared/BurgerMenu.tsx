@@ -88,6 +88,7 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
                           <MenubarItem>
                             <TransitionLink
                               href="/info/contacts"
+                              title="Контакти"
                               className="block py-2 w-full text-center hover:text-[#FECC02] transition-colors"
                             >
                               Контакти
@@ -96,6 +97,7 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
                           <MenubarItem>
                             <TransitionLink
                               href="/info/delivery-payment"
+                              title="Доставка та оплата"
                               className="block py-2 w-full text-center hover:text-[#FECC02] transition-colors"
                             >
                               Доставка та оплата
@@ -104,6 +106,7 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
                           <MenubarItem>
                             <TransitionLink
                               href="/info/warranty-services"
+                              title="Гарантія та сервіси"
                               className="block py-2 w-full text-center hover:text-[#FECC02] transition-colors"
                             >
                               Гарантія та сервіси
@@ -112,6 +115,7 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
                           <MenubarItem>
                             <TransitionLink
                               href="/info/presentations"
+                              title="Презентації"
                               className="block py-2 w-full text-center hover:text-[#FECC02] transition-colors"
                             >
                               Презентації

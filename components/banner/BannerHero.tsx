@@ -25,7 +25,7 @@ export default function BannerHero() {
               Скандинавська якість у кожному ковтку, кроці та страві.
             </p>
             <div className="w-full flex gap-4 max-[465px]:flex-col">
-              <Link href="/catalog?page=1&sort=default" className="max-[465px]:w-full">
+              <Link href="/catalog?page=1&sort=default" className="max-[465px]:w-full" title="Shop Now">
                 <Button size="lg" className="w-full bg-white text-black rounded-none hover:bg-neutral-200 px-8 py-6 text-lg">
                   Shop Now
                 </Button>
