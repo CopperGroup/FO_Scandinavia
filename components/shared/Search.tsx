@@ -9,15 +9,11 @@ import { trackFacebookEvent } from "@/helpers/pixel"
 
 type SortParams = "default" | "low_price" | "hight_price"
 
-const Search = () => {
+const Search = ({ initialSearchText = "" }: {initialSearchText: string }) => {
   const { catalogData, setCatalogData } = useAppContext()
   const [sort, setSort] = useState<SortParams>(catalogData.sort)
-  const [searchText, setSearchText] = useState<string>("")
+  const [searchText, setSearchText] = useState<string>(initialSearchText)
   const [debounce] = useDebounce(searchText, 0)
-
-  const textFromInput = (e: any) => {
-    setSearchText(e.target.value)
-  }
 
   useEffect(() => {
     setCatalogData({ ...catalogData, search: debounce, sort: sort })
