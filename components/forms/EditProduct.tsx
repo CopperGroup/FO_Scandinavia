@@ -444,7 +444,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
 
             <div className="w-full h-fit flex gap-2 justify-end mt-3">
                 <Dialog>
-                    <DialogTrigger className="items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-input bg-background hover:text-accent-foreground rounded-md px-3 h-[1.87rem] flex gap-1 text-black border hover:bg-neutral-200"> {/* Coppied from Shadcn button, variant: default*/}
+                    <DialogTrigger className="items-center justify-center whitespace-nowrap text-small-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-input bg-background hover:text-accent-foreground rounded-md px-3 h-[1.87rem] flex gap-1 text-black border hover:bg-neutral-200"> {/* Coppied from Shadcn button, variant: default*/}
                       <Image
                         src="/assets/arrow-up-tray.svg"
                         width={16}
@@ -469,7 +469,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                 </Dialog>
 
                   <Dialog>
-                    <DialogTrigger className="items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-input bg-background hover:text-accent-foreground rounded-md px-3 h-[1.87rem] flex gap-1 text-black border hover:bg-neutral-200"> {/* Coppied from Shadcn button, variant: default*/}
+                    <DialogTrigger className="items-center justify-center whitespace-nowrap text-small-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-input bg-background hover:text-accent-foreground rounded-md px-3 h-[1.87rem] flex gap-1 text-black border hover:bg-neutral-200"> {/* Coppied from Shadcn button, variant: default*/}
                       <Image
                         src="/assets/eye.svg"
                         width={16}

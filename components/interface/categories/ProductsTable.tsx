@@ -241,7 +241,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
         </div>
 
         <div className="flex items-center justify-between gap-2 py-4 max-[460px]:flex-col">
-          <div className="text-sm text-gray-500">
+          <div className="text-small-regular text-gray-500">
             Showing {startIndex + 1} to {Math.min(endIndex, filteredAndSortedProducts.length)} of {filteredAndSortedProducts.length} entries
           </div>
           <div className="flex items-center space-x-2">

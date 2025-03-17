@@ -89,7 +89,7 @@ export default AdminSidebar;
 //                     </Link>
 //                 </div>
 //                 <nav className="mt-4 pb-24 px-4 overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 60px)' }}>
-//                     <p className="text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider">Admin Panel</p>
+//                     <p className="text-subtle-medium font-bold text-gray-400 mb-4 uppercase tracking-wider">Admin Panel</p>
 //                     {sidebarLinks.map((group) => (
 //                         <div key={group.title} className="mb-4">
 //                             <button

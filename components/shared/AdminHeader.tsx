@@ -14,7 +14,7 @@ export default function AdminHeader() {
     <header className="w-full p-4 bg-white text-gray-800 shadow-md">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <motion.h1 
-          className="text-2xl font-bold"
+          className="text-heading3-bold font-bold"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}

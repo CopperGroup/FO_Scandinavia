@@ -170,7 +170,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
         >
           Previous
         </Button>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-small-regular text-muted-foreground">
           Page {pageNumber} of {totalPages}
         </p>
         <Button

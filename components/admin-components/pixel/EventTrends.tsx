@@ -32,7 +32,7 @@ export function EventTrends({ data, eventOptions }: EventTrendsProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-base font-semibold">Event Trends</CardTitle>
+        <CardTitle className="text-base-semibold">Event Trends</CardTitle>
         <LineChartIcon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
@@ -58,7 +58,7 @@ export function EventTrends({ data, eventOptions }: EventTrendsProps) {
             </ResponsiveContainer>
           </div>
           <div className="w-full md:w-1/5">
-            <h4 className="text-sm font-medium mb-2">Select Events</h4>
+            <h4 className="text-small-medium mb-2">Select Events</h4>
             <ScrollArea className="h-[250px] w-full rounded-md border">
               <div className="p-2">
                 {eventOptions.map((option) => (
@@ -70,7 +70,7 @@ export function EventTrends({ data, eventOptions }: EventTrendsProps) {
                     />
                     <label
                       htmlFor={option.value}
-                      className="text-xs leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      className="text-subtle-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
                       {option.label}
                     </label>

@@ -105,7 +105,7 @@ const Map = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.6 }}
         >
-          <p className="text-2xl text-gray-600 mb-2">ТРЦ PLAZA SPORT OUTLET</p>
+          <p className="text-heading3-bold text-gray-600 mb-2">ТРЦ PLAZA SPORT OUTLET</p>
           <p className="text-xl text-gray-500">Адреса: проспект Степана Бандери, 20б, Київ, 04073</p>
         </motion.div>
       </div>

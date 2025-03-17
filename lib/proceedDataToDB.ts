@@ -25,7 +25,7 @@ interface Product {
     categoryId: string
 }
 
-export async function proceedDataToDB(data: Product[], selectedRowsIds: (string | null)[], categories: FetchedCategory[]) {
+export async function proceedDataToDB(data: Product[], selectedRowsIds: (string | null)[], categories: FetchedCategory[], mergeProducts: boolean) {
     try {
         const stringifiedUrlProducts = await fetchUrlProducts("json");
         let urlProducts: Product[] = JSON.parse(stringifiedUrlProducts as string);
@@ -76,11 +76,13 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
         }
 
         // Delete left-over products
-        for (const leftOverProduct of leftOverProducts) {
-            await deleteProduct({ productId: leftOverProduct.id as string }, "keep-catalog-cache");
+        if(mergeProducts) {
+            for (const leftOverProduct of leftOverProducts) {
+                //IMPORTANT! Not clearing catalog cache, beacause, it will be cleard later, line 85
+                await deleteProduct({ productId: leftOverProduct.id as string }, "keep-catalog-cache"); 
+            }
         }
 
-        revalidateTag("catalog-data");
         await clearCatalogCache();
 
         return null;

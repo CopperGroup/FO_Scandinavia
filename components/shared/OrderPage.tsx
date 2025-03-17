@@ -76,7 +76,7 @@ export default function OrderPage({ orderJson }: { orderJson: string}) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
-        <Button className="inline-flex items-center font-normal text-sky-600 hover:text-sky-800 max-lg:-ml-3 mb-2 sm:mb-4 text-sm sm:text-base" variant="ghost" onClick={() => router.back()}>
+        <Button className="inline-flex items-center font-normal text-sky-600 hover:text-sky-800 max-lg:-ml-3 mb-2 sm:mb-4 text-small-regular sm:text-base" variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="mr-1 sm:mr-2" size={16} />
           Назад до замовлень
         </Button>
@@ -94,7 +94,7 @@ export default function OrderPage({ orderJson }: { orderJson: string}) {
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Інформація про клієнта</h2>
+            <h2 className="text-heading4-medium font-semibold">Інформація про клієнта</h2>
             <p className="flex items-center gap-2">
               <span className="font-semibold">Ім&apos;я:</span> {order.name} {order.surname}
             </p>
@@ -119,7 +119,7 @@ export default function OrderPage({ orderJson }: { orderJson: string}) {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Деталі замовлення</h2>
+            <h2 className="text-heading4-medium font-semibold">Деталі замовлення</h2>
             <p className="flex items-center gap-2">
               <Truck size={16} />
               <span>Метод доставки: {order.deliveryMethod}</span>
@@ -150,7 +150,7 @@ export default function OrderPage({ orderJson }: { orderJson: string}) {
         transition={{ duration: 0.5, delay: 0.4 }}
         className="w-full"
       >
-        <h2 className="text-xl sm:text-2xl font-semibold mb-4">Замовлена продукція</h2>
+        <h2 className="text-heading4-medium sm:text-heading3-bold font-semibold mb-4">Замовлена продукція</h2>
         <div className="w-full space-y-4 max-h-[700px] overflow-y-auto">
           {order.products.map((product: Product) => (
             <OrderedProductCard
@@ -166,7 +166,7 @@ export default function OrderPage({ orderJson }: { orderJson: string}) {
           ))}
         </div>
         <div className="flex justify-end items-center mt-6">
-          <p className="text-xl font-semibold">Загальна вартість: <span className="text-body-semibold text-green-600">{order.value}{Store.currency_sign}</span></p>
+          <p className="text-heading4-medium font-semibold">Загальна вартість: <span className="text-body-semibold text-green-600">{order.value}{Store.currency_sign}</span></p>
         </div>
       </motion.div>
     </div>

@@ -6,17 +6,14 @@ import Footer from "@/components/shared/Footer";
 import StickyCart from "@/components/shared/StickyCart";
 import Provider from "../Provider";
 import { AppWrapper } from "./context";
-import CartPage from "@/components/shared/CartPage";
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import BannerHero from "@/components/banner/BannerHero";
 import { getSession } from "@/lib/getServerSession";
 import { fetchUserByEmail } from "@/lib/actions/user.actions";
 import FacebookPixel from "@/components/pixel/FacebookPixel";
 import PageView from "@/components/pixel/PageView";
-import { Analytics } from "@vercel/analytics/react"
 
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
   title: {

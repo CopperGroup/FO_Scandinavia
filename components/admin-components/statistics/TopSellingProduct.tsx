@@ -195,7 +195,7 @@ export function TopSellingProduct() {
                 )}
                 <div>
                   <h4 className="text-base-semibold mb-1">{topProduct.name}</h4>
-                  <p className="text-sm text-muted-foreground">Продано: {topProduct.amount}</p>
+                  <p className="text-small-medium text-muted-foreground">Продано: {topProduct.amount}</p>
                 </div>
               </CardContent>
               {topProduct.searchParam && (
@@ -228,7 +228,7 @@ export function TopSellingProduct() {
                 )}
                 <div>
                   <h4 className="text-base-semibold mb-1">{currentPayload.value.product.name}</h4>
-                  <p className="text-sm text-muted-foreground">Продано: {currentPayload.value.amount}</p>
+                  <p className="text-small-medium text-muted-foreground">Продано: {currentPayload.value.amount}</p>
                 </div>
               </CardContent>
               {currentPayload.value.product.searchParam && (
@@ -253,7 +253,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className={`bg-white/70 rounded-xl shadow-lg p-3`}>
-        <p className="text-small-semibold">{label}</p>
+        <p className="text-small-mediumall-semibold">{label}</p>
         <p className="text-subtle-medium mt-1">
           Всього продано: <span className={`${payload[0].value > 0 && "text-green-500"}`}>{payload[0].value}</span>
         </p>

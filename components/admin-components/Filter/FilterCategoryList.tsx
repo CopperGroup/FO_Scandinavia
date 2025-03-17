@@ -346,7 +346,7 @@ export default function FilterCategoryList({ stringifiedCategories, filterDelay}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" align="center" className="bg-gray-900 text-white">
-            <p className="text-sm font-medium">Generate with AI</p>
+            <p className="text-small-medium">Generate with AI</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

@@ -78,8 +78,6 @@ export function generateConfigurator(cards: Card[]) {
     }
   }
 
-  console.log(configurator)
-
   return configurator;
 
   // Helper to validate a connection object

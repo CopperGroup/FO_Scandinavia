@@ -62,7 +62,7 @@ export default function StickyCart() {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
-                  className="absolute top-0 right-0 bg-[#FECC02] text-[#006AA7] text-xs rounded-full w-6 h-6 flex items-center justify-center"
+                  className="absolute top-0 right-0 bg-[#FECC02] text-[#006AA7] text-subtle-medium rounded-full w-6 h-6 flex items-center justify-center"
                 >
                   {cartData.length}
                 </motion.div>

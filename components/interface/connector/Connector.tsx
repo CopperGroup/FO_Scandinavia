@@ -359,7 +359,7 @@ export default function Connector({ setCurrentStage }: { setCurrentStage: React.
               <Button onClick={handlePrevCard} variant="outline" size="icon">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-medium">Card {currentCard.id} of {cards.length}</span>
+              <span className="text-small-medium">Card {currentCard.id} of {cards.length}</span>
               <Button onClick={handleNextCard} variant="outline" size="icon" disabled={areAllLeftElementsConnected(currentCard.leftElements, connections)}>
                 <ChevronRight className="h-4 w-4" />
               </Button>

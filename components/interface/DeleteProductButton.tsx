@@ -29,7 +29,7 @@ const DeleteProductButton = ({ id, _id }: { id: string, _id: string}) => {
     }, [productId])
     return (
     <Dialog>
-        <DialogTrigger className="inline-flex items-center justify-center bg-red-500 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-2 hover:bg-red-400">
+        <DialogTrigger className="inline-flex items-center justify-center bg-red-500 whitespace-nowrap rounded-md text-small-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground px-2 hover:bg-red-400">
             <Image 
                 src="/assets/delete-white.svg"
                 width={22}

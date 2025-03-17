@@ -94,8 +94,8 @@ export default function OrderCard({
   return (
     <div className="bg-white rounded-3xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-2xl border border-gray-200">
       <div className="bg-black p-6 text-white rounded-b-3xl">
-        <h4 className="text-xl font-semibold">{name} {surname}</h4>
-        <p className="text-sm opacity-80 mt-1">Order ID: {id}</p>
+        <h4 className="text-heading4-medium font-semibold">{name} {surname}</h4>
+        <p className="text-small-regular opacity-80 mt-1">Order ID: {id}</p>
       </div>
       <div className="p-8">
         <div className="flex flex-wrap items-center justify-between mb-8 gap-6">
@@ -107,8 +107,8 @@ export default function OrderCard({
         </div>
         <div className="mb-8">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-medium text-gray-700">Статус доставки</span>
-            <span className={`text-sm font-semibold text-${getStatusColor(deliveryStatus)}`}>{deliveryStatus}</span>
+            <span className="text-small-medium text-gray-700">Статус доставки</span>
+            <span className={`text-small-semibold  text-${getStatusColor(deliveryStatus)}`}>{deliveryStatus}</span>
           </div>
           <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
             <div className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${getDeliveryBarStyle()}`}></div>
@@ -119,10 +119,10 @@ export default function OrderCard({
         </div>
         <div className="w-full flex items-center gap-2 -mt-2">
             <span className={`w-3 h-3 rounded-full bg-${getStatusColor(paymentStatus)}`}></span>
-            <span className={`text-sm font-medium text-${getStatusColor(paymentStatus)}`}>Оплата: {paymentStatus}</span>
+            <span className={`text-small-medium text-${getStatusColor(paymentStatus)}`}>Оплата: {paymentStatus}</span>
           </div>
         <div className="flex justify-end items-center mt-3">
-          <Link href={`${url}${id}`} className="inline-flex items-center px-6 py-3 bg-black text-white text-sm font-medium rounded-full hover:bg-blue transition-colors duration-300">
+          <Link href={`${url}${id}`} className="inline-flex items-center px-6 py-3 bg-black text-white text-small-medium rounded-full hover:bg-blue transition-colors duration-300">
             Деталі
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </Link>
@@ -136,7 +136,7 @@ function InfoItem({ icon, text, link }: { icon: React.ReactNode; text: string; l
   const content = (
     <div className="flex items-center space-x-3">
       {icon}
-      <span className="text-sm whitespace-nowrap text-gray-700">{text}</span>
+      <span className="text-small-regular whitespace-nowrap text-gray-700">{text}</span>
     </div>
   );
 

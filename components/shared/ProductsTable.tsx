@@ -69,7 +69,7 @@ export default function ProductsTable({ stringifiedProducts, categoryName, selec
         </Table>
       </div>
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
-        <div className="text-sm text-muted-foreground order-2 sm:order-1">
+        <div className="text-small-regular text-muted-foreground order-2 sm:order-1">
           Page {currentPage} of {totalPages}
         </div>
         <div className="flex space-x-2 order-1 sm:order-2">

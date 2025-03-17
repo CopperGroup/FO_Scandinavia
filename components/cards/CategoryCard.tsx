@@ -58,20 +58,20 @@ const CategoryCard = ({ categoryInfo }: {categoryInfo: Category}) => {
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white p-4 rounded-lg shadow-inner">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Total Products</p>
-                  <p className="text-2xl font-bold text-gray-800 truncate" title={categoryInfo.values.totalProducts.toString()}>
+                  <p className="text-small-medium text-gray-500 mb-1">Total Products</p>
+                  <p className="text-heading3-bold text-gray-800 truncate" title={categoryInfo.values.totalProducts.toString()}>
                     {formatNumber(categoryInfo.values.totalProducts)}
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-inner">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Total Value</p>
-                  <p className="text-2xl font-bold text-gray-800 truncate" title={`${Store.currency_sign}${categoryInfo.values.totalValue.toFixed(2)}`}>
+                  <p className="text-small-medium text-gray-500 mb-1">Total Value</p>
+                  <p className="text-heading3-bold text-gray-800 truncate" title={`${Store.currency_sign}${categoryInfo.values.totalValue.toFixed(2)}`}>
                     {Store.currency_sign}{formatNumber(categoryInfo.values.totalValue)}
                   </p>
                 </div>
                 <div className="col-span-2 bg-white p-4 rounded-lg shadow-inner">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Average Price</p>
-                  <p className="text-2xl font-bold text-gray-800 truncate" title={`$${categoryInfo.values.averageProductPrice.toFixed(2)}`}>
+                  <p className="text-small-medium text-gray-500 mb-1">Average Price</p>
+                  <p className="text-heading3-bold text-gray-800 truncate" title={`$${categoryInfo.values.averageProductPrice.toFixed(2)}`}>
                     {Store.currency_sign}{formatNumber(categoryInfo.values.averageProductPrice)}
                   </p>
                 </div>

@@ -109,7 +109,7 @@ export default function LoginPage() {
                   placeholder="Password"
                 />
                 {error && (
-                  <div className="w-full bg-red-500 text-white text-sm py-1 px-3 rounded-md mt-2 mb-3">
+                  <div className="w-full bg-red-500 text-white text-small-regular py-1 px-3 rounded-md mt-2 mb-3">
                     {error}
                   </div>
                 )} 
@@ -152,7 +152,7 @@ export default function LoginPage() {
                   placeholder="Password"
                 />
                 {error && (
-                  <div className="w-full bg-red-500 text-white text-sm py-1 px-3 rounded-md mt-2 mb-3">
+                  <div className="w-full bg-red-500 text-white text-small-regular py-1 px-3 rounded-md mt-2 mb-3">
                     {error}
                   </div>
                 )} 
@@ -196,7 +196,7 @@ export default function LoginPage() {
         //   :<button className="w-fit mx-auto py-2 px-10 border border-gray-300 rounded-lg mb-4 focus:outline-none    hover:border-slate-950 transition-colors duration-300">Увійти</button>}
           
         //   {error && (
-        //     <div className="bg-red-500 text-white w-fit text-sm py-1 px-3 rounded-md mt-2">
+        //     <div className="bg-red-500 text-white w-fit text-small-regular py-1 px-3 rounded-md mt-2">
         //       {error}
         //     </div>
         //   )}

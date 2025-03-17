@@ -183,7 +183,7 @@ const EditCategoryButton = (props: ReadOnly<EditCategoryButtonProps>) => {
         </DialogTrigger>
         <DialogContent className="bg-white sm:max-w-[425px] max-w-[95%] rounded-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold flex items-center text-gray-800">
+            <DialogTitle className="text-heading3-bold font-bold flex items-center text-gray-800">
               <Edit className="w-6 h-6 mr-2 text-blue-500" />
               Edit Category
             </DialogTitle>

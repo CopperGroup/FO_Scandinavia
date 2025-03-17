@@ -76,12 +76,12 @@ export function AddClientButton({ stringifiedUser }: { stringifiedUser: string }
         <DialogTrigger asChild>
           <Button variant="default" className="text-base-semibold text-white">
             <Plus className="size-5 mr-1" />
-            Add Client
+            Add User
           </Button>
         </DialogTrigger>
         <DialogContent className="bg-white sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-heading3-bold">Add New Client</DialogTitle>
+            <DialogTitle className="text-heading3-bold">Add New User</DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -161,7 +161,7 @@ export function AddClientButton({ stringifiedUser }: { stringifiedUser: string }
                 </div>
               )}
               <Button type="submit" className="w-full text-base-semibold text-white">
-                Add Client
+                Add User
               </Button>
             </form>
           </Form>

@@ -34,7 +34,6 @@ export default async function getProductsData(xmlString: string, config: Config)
   const categories = [] as { name: string, id: string, ref: string, parentCategoryId: string | null }[];
   const categoriesElements = getElementData({...config.paths.Start.categories, parent: xmlDocument.documentElement, many: true}) as Element[];
 
-  console.log(config.paths.Categories)
   for (let i = 0; i < categoriesElements.length; i++) {
     const categoryElement = categoriesElements[i];
 

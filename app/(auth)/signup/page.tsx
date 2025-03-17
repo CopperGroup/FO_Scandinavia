@@ -117,7 +117,7 @@ export default function SignupPage() {
                             placeholder="Password"
                         />
                         {error && (
-                        <div className="w-full bg-red-500 text-white text-sm py-1 px-3 rounded-md mt-2 mb-3">
+                        <div className="w-full bg-red-500 text-white text-small-regular py-1 px-3 rounded-md mt-2 mb-3">
                             {error}
                         </div>
                         )} 
@@ -180,7 +180,7 @@ export default function SignupPage() {
                         placeholder="Password"
                     />  
                     {error && (
-                      <div className="w-full bg-red-500 text-white text-sm py-1 px-3 rounded-md mt-2 mb-3">
+                      <div className="w-full bg-red-500 text-white text-small-regular py-1 px-3 rounded-md mt-2 mb-3">
                         {error}
                       </div>
                     )} 

@@ -47,7 +47,7 @@ export default function ProductVariantSelector({ selectParams, productId }: Prod
 
   return (
     <div>
-      <p className="text-xl font-semibold mb-4 text-gray-800">Варіації:</p>
+      <p className="text-heading4-medium font-semibold mb-4 text-gray-800">Варіації:</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 ml-2">
         {Object.entries(selectParams).map(([param, options]) => (
           <div key={param} className="space-y-2">

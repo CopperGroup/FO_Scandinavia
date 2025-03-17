@@ -55,21 +55,20 @@ export default function EventManagement({ _id, initialEvents }: { _id: string, i
       })
     }
     
-    console.log('Saving changes:', events)
   }
 
   return (
     <div className="space-y-8">
       <div>
-        <h3 className="text-lg font-semibold mb-2">Event Tracking</h3>
-        <p className="text-sm text-gray-600 mb-4">Select the events you would like to track for this pixel. Enabling an event allows you to gather data when that specific action occurs on your website.</p>
+        <h3 className="text-body-semibold mb-2">Event Tracking</h3>
+        <p className="text-small-regular text-gray-600 mb-4">Select the events you would like to track for this pixel. Enabling an event allows you to gather data when that specific action occurs on your website.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {Object.entries(events).map(([event, isEnabled]) => (
             <div
               key={event}
               className="flex items-center justify-between p-2 bg-white rounded-md border border-gray-200"
             >
-              <span className="text-small-medium font-medium text-gray-800 capitalize">{event.replace(/([A-Z])/g, ' $1').trim()}</span>
+              <span className="text-small-medium text-gray-800 capitalize">{event.replace(/([A-Z])/g, ' $1').trim()}</span>
               <Switch
                 checked={isEnabled}
                 disabled={event == "pageView"}
@@ -91,7 +90,7 @@ export default function EventManagement({ _id, initialEvents }: { _id: string, i
         </div>
       </div>
       <InDevelopment >
-        <h3 className="text-lg font-semibold">Pixel Analytics</h3>
+        <h3 className="text-body-semibold">Pixel Analytics</h3>
         <Analytics />
       </InDevelopment >
     </div>

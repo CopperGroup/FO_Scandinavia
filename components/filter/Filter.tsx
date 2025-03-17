@@ -369,7 +369,7 @@ return (
                                 />
                                 <label
                                   htmlFor={`${param}-${value}`}
-                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                  className="text-small-regular leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                 >
                                   {value}
                                 </label>

@@ -24,7 +24,7 @@ export default function SelectConfigurator() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">Choose Configurator</CardTitle>
+        <CardTitle className="text-heading3-bold font-bold">Choose Configurator</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">

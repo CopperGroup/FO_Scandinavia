@@ -138,7 +138,7 @@ export default function AdminLoading() {
           </text>
         </motion.svg>
         <motion.p
-          className="mt-4 text-xl font-semibold text-black dark:text-white"
+          className="mt-4 text-heading4-medium font-semibold text-black dark:text-white"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
