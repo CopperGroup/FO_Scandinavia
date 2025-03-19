@@ -92,11 +92,11 @@ export default function Categories() {
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full border border-[#e2e8f0]">
               <div className="flex flex-col lg:flex-row h-full">
                 <div className="lg:w-3/5 relative">
-                  <Link href={categories[0].href} className="block h-full">
+                  <Link href={categories[2].href} className="block h-full">
                     <div className="relative h-72 lg:h-full overflow-hidden">
                       <Image
-                        src={categories[0].image || "/placeholder.svg?height=500&width=400"}
-                        alt={categories[0].name}
+                        src={categories[2].image || "/placeholder.svg?height=500&width=400"}
+                        alt={categories[2].name}
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover transition-transform duration-700 ease-out hover:scale-105"
@@ -111,7 +111,7 @@ export default function Categories() {
                             Категорія
                           </span>
                         </div>
-                        <h3 className="text-heading2-bold text-white mb-2 drop-shadow-sm">{categories[0].name}</h3>
+                        <h3 className="text-heading2-bold text-white mb-2 drop-shadow-sm">{categories[2].name}</h3>
                       </div>
                     </div>
                   </Link>
@@ -119,7 +119,7 @@ export default function Categories() {
 
                 <div className="lg:w-2/5 p-8 flex flex-col justify-center">
                   <div className="space-y-4 mb-6">
-                  {categories[0].subcategories.map((subcategory, subIndex) => (
+                  {categories[2].subcategories.map((subcategory, subIndex) => (
                     <Link
                       key={subIndex}
                       href={subcategory.url}
@@ -134,7 +134,7 @@ export default function Categories() {
                   </div>
 
                   <Link
-                    href={categories[0].href}
+                    href={categories[2].href}
                     className="text-base-semibold text-[#006AA7] hover:text-[#005a8e] transition-colors duration-300 inline-flex items-center"
                   >
                     <span>Переглянути всі</span>
@@ -215,11 +215,11 @@ export default function Categories() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full border border-[#e2e8f0]">
-              <Link href={categories[2].href} className="block">
+              <Link href={categories[0].href} className="block">
                 <div className="relative h-56 overflow-hidden">
                   <Image
-                    src={categories[2].image || "/placeholder.svg?height=500&width=400"}
-                    alt={categories[2].name}
+                    src={categories[0].image || "/placeholder.svg?height=500&width=400"}
+                    alt={categories[0].name}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover transition-transform duration-700 ease-out hover:scale-105"
@@ -233,14 +233,14 @@ export default function Categories() {
                         Категорія
                       </span>
                     </div>
-                    <h3 className="text-heading3-bold text-white mb-1 drop-shadow-sm">{categories[2].name}</h3>
+                    <h3 className="text-heading3-bold text-white mb-1 drop-shadow-sm">{categories[0].name}</h3>
                   </div>
                 </div>
               </Link>
 
               <div className="p-6">
                 <div className="grid grid-cols-2 gap-3">
-                  {categories[2].subcategories.map((subcategory, subIndex) => (
+                  {categories[0].subcategories.map((subcategory, subIndex) => (
                     <Link
                       key={subIndex}
                       href={subcategory.url}
@@ -255,7 +255,7 @@ export default function Categories() {
                 </div>
 
                 <Link
-                  href={categories[2].href}
+                  href={categories[0].href}
                   className="text-small-semibold text-[#006AA7] hover:text-[#005a8e] transition-colors duration-300 inline-flex items-center mt-4"
                 >
                   <span>Переглянути всі</span>

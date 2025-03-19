@@ -28,8 +28,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { generateUniqueId, removeAllButOne, removeExtraLeadingCharacters } from "@/lib/utils";
 import { getCategoriesNamesAndIds, updateCategories } from "@/lib/actions/categories.actions";
 import { Store } from "@/constants/store";
-import { SearchableSelect } from "@/components/shared/SearchableSelect"
-import { ProductType } from "@/lib/types/types";
 import { Check, Loader2 } from "lucide-react";
 import { CategorySelect } from "./CategorySelect";
 
