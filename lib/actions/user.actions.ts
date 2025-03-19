@@ -23,7 +23,7 @@ export async function createUser({ username, email, password }: CreateUserParams
             selfCreated: false
         })
 
-        clearCache("createUser")
+        clearCache("createUser", undefined)
 
         return newUser
     } catch (error: any) {
@@ -59,7 +59,7 @@ export async function createuserByMyself(params: { name: string, email: string, 
             role: params.role
         })
 
-        clearCache("createUser")
+        clearCache("createUser", undefined)
 
         if(type === 'json'){
             return JSON.stringify(newUser)
@@ -102,7 +102,7 @@ export async function editUser(params: { userId: string, name: string, email: st
             { new: true, runValidators: true }
         )
 
-        clearCache("createUser")
+        clearCache("createUser", undefined)
 
         if(type === 'json'){
             return JSON.stringify(editedUser)
@@ -127,7 +127,7 @@ export async function populateSelfCreatedUser(params: CreateUserParams, type?: '
         { new: true, runValidators: true }
     ).select("-password");
 
-    clearCache("createUser")
+    clearCache("createUser", undefined)
     if(type === 'json'){
       return JSON.stringify(existingUser)
     } else {
