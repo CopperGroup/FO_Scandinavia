@@ -15,7 +15,7 @@ export type ProductType = {
     url: string,
     priceToShow: number,
     price: number,
-    category: string,
+    category: string[],
     vendor: string,
     description: string,
     articleNumber: string,
@@ -31,6 +31,7 @@ export type ProductType = {
 
 export type CategoryType = {
     _id: string,
+    id: string,
     name: string,
     products: string[],
     totalValue: number,
@@ -141,7 +142,7 @@ export type CreateUrlParams = {
         value: string | null
     }[],
     isFetched: boolean
-    category:string
+    category: string[]
 }
 
 export interface OrderRef {

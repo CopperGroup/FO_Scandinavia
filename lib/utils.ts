@@ -249,14 +249,22 @@ export function getFiltredProducts(products: ProductType[], searchParams: { [key
 
 function countByKey<T>(
   list: T[],
-  keyExtractor: (item: T) => string | undefined,
+  keyExtractor: (item: T) => (string | string[] | undefined),
   initialKey: string = ""
 ): { [key: string]: number } {
   return list.reduce((acc, item) => {
-    const key = keyExtractor(item);
-    if (key) {
-      acc[key] = (acc[key] || 0) + 1;
+    const keyOrKeys = keyExtractor(item);
+
+    if (Array.isArray(keyOrKeys)) {
+      keyOrKeys.forEach(key => {
+        if (key) {
+          acc[key] = (acc[key] || 0) + 1;
+        }
+      });
+    } else if (typeof keyOrKeys === 'string') {
+      acc[keyOrKeys] = (acc[keyOrKeys] || 0) + 1;
     }
+
     return acc;
   }, { [initialKey]: list.length });
 }
@@ -267,6 +275,7 @@ export function getCounts(filtredProducts: ProductType[]) {
       vendorsCount: countByKey(filtredProducts, product => product.vendor),
   };
 }
+
 
 export function removeAllButOne(inputString: string, charToKeep: string) {
   let firstOccurrence = false;

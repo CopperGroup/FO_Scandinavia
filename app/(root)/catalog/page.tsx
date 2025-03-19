@@ -38,12 +38,11 @@ const Catalog = async ({searchParams }:any) => {
 
   filtredProducts = filtredProducts.filter(product => {
 
-    const matchesCategories = searchedCategories ? categories.filter(cat => searchedCategories.includes(cat.categoryId)).map(cat => cat.name).includes(product.category): true
-  
-    // searchedCategories && (categories.filter(cat => searchedCategories.includes(cat.categoryId)).map(cat => cat.name).includes(product.category) && console.log(product.name))
+    const matchesCategories = searchedCategories ? categories.filter(cat => searchedCategories.includes(cat.categoryId)).map(cat => cat.categoryId).some(id => product.category.includes(id)) : true;
 
-    return matchesCategories
+    return matchesCategories;
   })
+
 
   const unitParams: Record<string, { totalProducts: number, type: string, min: number, max: number }> = {};
   const selectParams: Record<string, { totalProducts: number, type: string, values: { value: string, valueTotalProducts: number }[] }> = {};

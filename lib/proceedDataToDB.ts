@@ -2,7 +2,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createUrlProduct, createUrlProductsMany, deleteProduct, deleteUrlProducts, fetchUrlProducts, updateUrlProduct, updateUrlProductsMany } from "./actions/product.actions";
 import { clearCatalogCache } from "./actions/redis/catalog.actions";
 import { createUrlCategories, updateCategories } from "./actions/categories.actions";
-import { FetchedCategory, ProductType } from "./types/types";
+import { CategoryType, FetchedCategory, ProductType } from "./types/types";
 
 interface Product {
     _id: string,
@@ -38,10 +38,12 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
         const newProducts = [];
         const productsToUpdate = [];
 
-        await createUrlCategories(categories);
+        const result = await createUrlCategories({ categories }, "json");
+
+        const createdCategories: CategoryType[] = JSON.parse(result)
 
         for (const product of data) {
-            const categoryName = categories.find(cat => cat.id === product.categoryId)?.name || "No-category";
+            const category_id = createdCategories.find(cat => cat.id === product.categoryId)?._id || "No-category";
 
             if (product.id && selectedRowsIds.includes(product.id) && !processedIds.has(product.id)) {
                 const existingProductIndex = urlProducts.findIndex(urlProduct => urlProduct.articleNumber === product.articleNumber);
@@ -51,13 +53,13 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
                     productsToUpdate.push({
                         ...product,
                         _id: urlProducts[existingProductIndex]._id,
-                        category: categoryName,
+                        category: [category_id],
                     });
                 } else {
                     // Add to new products array
                     newProducts.push({
                         ...product,
-                        category: categoryName,
+                        category: [category_id],
                     });
                 }
 

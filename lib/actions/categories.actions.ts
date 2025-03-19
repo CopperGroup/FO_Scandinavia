@@ -1,63 +1,75 @@
 "use server";
 
-import { ObjectId } from "mongoose";
+import { ObjectId, startSession } from "mongoose";
 import Category from "../models/category.model";
 import Product from "../models/product.model";
 import { connectToDB } from "../mongoose";
 import { CategoriesParams, CategoryType, FetchedCategory, ProductType } from "../types/types";
 import clearCache from "./cache";
 import { clearCatalogCache } from "./redis/catalog.actions";
-import { deleteProduct } from "./product.actions";
+import { deleteManyProducts, deleteProduct } from "./product.actions";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import Filter from "../models/filter.model";
 import mongoose from "mongoose";
 
-export async function createUrlCategories(categories: FetchedCategory[]) {
-  // Sort categories to process parent categories first
-  const sortedCategories = [...categories].sort((a, b) => {
-      if (a.parentCategoryId && !b.parentCategoryId) return 1;
-      if (!a.parentCategoryId && b.parentCategoryId) return -1;
-      return 0;
-  });
+export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }): Promise<CategoryType[]>;
+export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type: 'json'): Promise<string>;
 
-  console.log(sortedCategories)
-  const categoryMap = new Map<string, mongoose.Types.ObjectId>();
+export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type?: 'json') {
+   try {
+      
+    const sortedCategories = [...categories].sort((a, b) => {
+        if (a.parentCategoryId && !b.parentCategoryId) return 1;
+        if (!a.parentCategoryId && b.parentCategoryId) return -1;
+        return 0;
+    });
 
-  for (const category of sortedCategories) {
-      // Check if the category already exists
-      const existingCategory = await Category.findOne({ id: category.id });
+    console.log(sortedCategories)
+    const categoryMap = new Map<string, mongoose.Types.ObjectId>();
 
-      if (existingCategory) {
-          // If category already exists, update the category map
-          categoryMap.set(category.id, existingCategory._id);
-          continue;
-      }
+    for (const category of sortedCategories) {
+        // Check if the category already exists
+        const existingCategory = await Category.findOne({ id: category.id });
 
-      // If the category doesn't exist, create it
-      const newCategory = new Category({
-          name: category.name,
-          id: category.id,
-          subCategories: [],
-      });
+        if (existingCategory) {
+            // If category already exists, update the category map
+            categoryMap.set(category.id, existingCategory._id);
+            continue;
+        }
 
-      if (category.parentCategoryId) {
-          const parentCategoryId = categoryMap.get(category.parentCategoryId);
+        // If the category doesn't exist, create it
+        const newCategory = new Category({
+            name: category.name,
+            id: category.id,
+            subCategories: [],
+        });
 
-          if (parentCategoryId) {
-              await Category.findByIdAndUpdate(parentCategoryId, {
-                  $push: { subCategories: newCategory._id }
-              });
-          }
-      }
+        if (category.parentCategoryId) {
+            const parentCategoryId = categoryMap.get(category.parentCategoryId);
 
-      await newCategory.save();
-      categoryMap.set(category.id, newCategory._id);
-  }
+            if (parentCategoryId) {
+                await Category.findByIdAndUpdate(parentCategoryId, {
+                    $push: { subCategories: newCategory._id }
+                });
+            }
+        }
 
-  return categoryMap; // Returning the map for future use if needed
+        await newCategory.save();
+        categoryMap.set(category.id, newCategory._id);
+    }
+
+    const updatedCategories =  await Category.find();
+
+    if(type === 'json'){
+      return JSON.stringify(updatedCategories)
+    } else {
+      return updatedCategories
+    }
+   } catch (error: any) {
+     throw new Error(`Erorr creating and ${error.message}`)
+   }
 }
-
 
 export async function updateCategories(
   products: ProductType[],
@@ -69,7 +81,7 @@ export async function updateCategories(
     // Fetch all existing categories only when necessary
     const existingCategories = await Category.find();
     const categoryMap = new Map(
-      existingCategories.map((cat) => [cat.name, cat])
+      existingCategories.map((cat) => [cat._id.toString(), cat])
     );
 
     // To track changes for recalculation
@@ -93,32 +105,30 @@ export async function updateCategories(
     };
 
     for (const product of products) {
-      const newCategoryName = product.category; // Updated category
+      const newCategoryIds = product.category; // Updated category IDs
 
       if (productOperation === "create") {
-        // For "create", simply add the product to its category
-        if (!categoriesToUpdate[newCategoryName]) {
-          const existingCategory = categoryMap.get(newCategoryName);
-          categoriesToUpdate[newCategoryName] = {
-            productIds: existingCategory ? [...existingCategory.products] : [],
-            totalValue: existingCategory ? await calculateTotalValue(existingCategory._id.toString()) : 0,
-          };
-        }
+        for (const categoryId of newCategoryIds) {
+          if (!categoriesToUpdate[categoryId]) {
+            const existingCategory = categoryMap.get(categoryId);
+            categoriesToUpdate[categoryId] = {
+              productIds: existingCategory ? [...existingCategory.products] : [],
+              totalValue: existingCategory ? await calculateTotalValue(categoryId) : 0,
+            };
+          }
 
-        const newCategory = categoriesToUpdate[newCategoryName];
-        if (!newCategory.productIds.includes(product._id)) {
-          newCategory.productIds.push(product._id);
-          newCategory.totalValue += product.priceToShow || 0;
+          const newCategory = categoriesToUpdate[categoryId];
+          if (!newCategory.productIds.includes(product._id)) {
+            newCategory.productIds.push(product._id);
+            newCategory.totalValue += product.priceToShow || 0;
+          }
         }
-
-        continue; // Skip the rest of the loop for "create"
+        continue;
       }
 
-      // For "update" and "delete" operations, handle old categories
-      for (const [categoryName, category] of categoryMap.entries()) {
+      for (const [categoryId, category] of categoryMap.entries()) {
         if (category.products.includes(product._id)) {
-          if (categoryName !== newCategoryName || productOperation === "delete") {
-            // Remove product from the old category
+          if (!newCategoryIds.includes(categoryId) || productOperation === "delete") {
             category.products = category.products.filter(
               (id: string) => id.toString() !== product._id.toString()
             );
@@ -132,8 +142,7 @@ export async function updateCategories(
               0
             );
 
-            // Track the changes for this category
-            categoriesToUpdate[categoryName] = {
+            categoriesToUpdate[categoryId] = {
               productIds: category.products,
               totalValue: category.totalValue,
             };
@@ -141,58 +150,49 @@ export async function updateCategories(
         }
       }
 
-      // Add the product to the new category for "update"
-      if (!categoriesToUpdate[newCategoryName]) {
-        const existingCategory = categoryMap.get(newCategoryName);
-        categoriesToUpdate[newCategoryName] = {
-          productIds: existingCategory ? [...existingCategory.products] : [],
-          totalValue: existingCategory ? existingCategory.totalValue : 0,
-        };
-      }
-
-      const newCategory = categoriesToUpdate[newCategoryName];
       if (productOperation === "update") {
-        if (!newCategory.productIds.includes(product._id)) {
-          newCategory.productIds.push(product._id);
+        for (const categoryId of newCategoryIds) {
+          if (!categoriesToUpdate[categoryId]) {
+            const existingCategory = categoryMap.get(categoryId);
+            categoriesToUpdate[categoryId] = {
+              productIds: existingCategory ? [...existingCategory.products] : [],
+              totalValue: existingCategory ? existingCategory.totalValue : 0,
+            };
+          }
 
-          // Recalculate totalValue for this category
-          const categoryProducts = await Product.find({
-            _id: { $in: newCategory.productIds },
-          });
-          newCategory.totalValue = categoryProducts.reduce(
-            (sum, prod) => sum + (prod.priceToShow || 0),
-            0
-          );
+          const newCategory = categoriesToUpdate[categoryId];
+          if (!newCategory.productIds.includes(product._id)) {
+            newCategory.productIds.push(product._id);
+
+            const categoryProducts = await Product.find({
+              _id: { $in: newCategory.productIds },
+            });
+            newCategory.totalValue = categoryProducts.reduce(
+              (sum, prod) => sum + (prod.priceToShow || 0),
+              0
+            );
+          }
         }
       }
     }
 
-    for (const categoryName in categoriesToUpdate) {
-      const category = categoriesToUpdate[categoryName];
-      category.productIds = Array.from(
-        new Set(category.productIds.map((id) => id.toString()))
-      );
+    for (const categoryId in categoriesToUpdate) {
+      const category = categoriesToUpdate[categoryId];
+      category.productIds = Array.from(new Set(category.productIds.map((id) => id.toString())));
     }
 
-    // Perform database updates
     const categoryOps = Object.entries(categoriesToUpdate).map(
-      async ([name, { productIds, totalValue }]) => {
-        if (categoryMap.has(name)) {
-          // Update existing category
+      async ([categoryId, { productIds, totalValue }]) => {
+        if (categoryMap.has(categoryId)) {
           await Category.updateOne(
-            { name },
+            { _id: categoryId },
             { products: productIds, totalValue }
           );
-        } else if (productOperation === "create" || productOperation === "update") {
-          // Create a new category
-          await Category.create({ name, products: productIds, totalValue });
         }
       }
     );
 
     await Promise.all(categoryOps);
-
-    // Clear cache if relevant
 
     clearCatalogCache();
     clearCache(["updateCategory", "updateProduct"], undefined);
@@ -202,6 +202,7 @@ export async function updateCategories(
     );
   }
 }
+
 
 export async function fetchAllCategories(): Promise<CategoryType[]>;
 export async function fetchAllCategories(type: 'json'): Promise<string>;
@@ -226,12 +227,6 @@ export async function fetchAllCategories(type?: 'json') {
 export async function fetchCategoriesProperties() {
   try {
     connectToDB();
-
-    // const skip = (page - 1) * limit;
-
-    // const query = search
-    //   ? { name: { $regex: search, $options: "i" } }
-    //   : {};
 
     const categories = await Category.find()
       .populate("products")
@@ -356,11 +351,6 @@ export async function changeCategoryName({ categoryId, newName }: { categoryId: 
     await category.save();
 
     // Update the category name in all associated products
-    await Product.updateMany(
-      { _id: { $in: category.products } }, // Find products linked to this category
-      { $set: { category: newName } } // Update their category name
-    );
-
     await clearCatalogCache();
 
     clearCache(["updateCategory","updateProduct"], undefined);
@@ -393,7 +383,7 @@ export async function moveProductsToCategory({
 
     await Product.updateMany(
       { _id: { $in: productIds } },
-      { $set: { category: targetCategory.name } }
+      { $addToSet: { category: targetCategory._id } }
     );
 
     targetCategory.products.push(...productIds);
@@ -482,6 +472,8 @@ export async function createNewCategory({ name, products, previousCategoryId }: 
 
     clearCatalogCache();
     clearCache(["createCategory", "updateProduct"], undefined);
+
+    return createdCategory
   } catch (error: any) {
     throw new Error(`Error creating new category: ${error.message}`)
   }
@@ -489,42 +481,63 @@ export async function createNewCategory({ name, products, previousCategoryId }: 
 
 type DeleteCategoryProps = {
   categoryId: string;
-  removeProducts: boolean
+  removeProducts: boolean;
 };
 
 export async function deleteCategory(props: DeleteCategoryProps) {
+  const session = await startSession();
+  session.startTransaction();
+
   try {
-      await connectToDB();
+    await connectToDB();
 
-      const category = await Category.findById(props.categoryId).populate("products");
+    const category = await Category.findById(props.categoryId).populate("products").session(session);
 
-      if (!category) {
-          throw new Error("Category not found.");
-      }
+    if (!category) {
+      throw new Error("Category not found.");
+    }
 
-      const productIds: string[] = category.products.map((product: any) => product._id.toString());
+    const productIds: string[] = category.products.map((product: any) => product._id.toString());
 
-      if (props.removeProducts) {
-          for (const productId of productIds) {
-              await deleteProduct({ product_id: productId });
-          }
-      }
+    if (props.removeProducts) {
+      // Delete products
+      await deleteManyProducts(productIds, "keep-catalog-cache");
 
-      // Exclude category from filter
-      await Filter.updateOne(
-          { "categories.categoryId": props.categoryId },
-          { $pull: { categories: { categoryId: props.categoryId } } }
+      // Remove products from other categories
+      await Category.updateMany(
+        { _id: { $in: category.products.map((p: { category: string[] }) => p.category).flat() } },
+        { $pull: { products: { $in: productIds } } },
+        { session }
       );
+    } else {
+      // Remove category reference from products
+      await Product.updateMany(
+        { category: { $in: category._id } },
+        { $pull: { category: category._id } },
+        { session }
+      );
+    }
 
-      // Delete category
-      await Category.findByIdAndDelete(props.categoryId);
+    // Exclude category from filter
+    await Filter.updateOne(
+      { "categories.categoryId": props.categoryId },
+      { $pull: { categories: { categoryId: props.categoryId } } },
+      { session }
+    );
 
-      // Clear cache
-      await clearCatalogCache();
-      clearCache(["deleteCategory", "updateProduct"], undefined);
+    // Delete the category
+    await Category.deleteOne({ _id: category._id }, { session });
+
+    await session.commitTransaction();
+
+    await clearCatalogCache();
+    clearCache(["deleteCategory", "updateProduct"], undefined);
 
   } catch (error: any) {
-      throw new Error(`Error deleting category: ${error.message}`);
+    await session.abortTransaction();
+    throw new Error(`Error deleting category: ${error.message}`);
+  } finally {
+    session.endSession();
   }
 }
 

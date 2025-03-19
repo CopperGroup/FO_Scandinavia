@@ -23,9 +23,11 @@ const productSchema = new mongoose.Schema({
     price: {
         type: Number
     },
-    category: {
-        type: String,
-    },
+    category: [
+        {
+            type: mongoose.Schema.Types.ObjectId
+        }
+    ],
     vendor: {
         type: String
     },

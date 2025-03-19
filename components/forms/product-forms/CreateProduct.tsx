@@ -6,7 +6,7 @@ import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { editProduct, findProductCategory, } from "@/lib/actions/product.actions";
+import { createProduct, findAllProductsCategories } from "@/lib/actions/product.actions";
 import {
   Form,
   FormControl,
@@ -19,39 +19,31 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProductValidation } from "@/lib/validations/product";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { CheckboxSmall } from "../ui/checkbox-small";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { CheckboxSmall } from "../../ui/checkbox-small";
 import { useUploadThing } from "@/lib/uploadthing";
 import { useDropzone } from "@uploadthing/react";
 import { generateClientDropzoneAccept } from "uploadthing/client";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
-import DeleteProductButton from "../interface/DeleteProductButton";
-import CopyButton from "../interface/CopyButton";
-import { removeAllButOne, removeExtraLeadingCharacters } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../../ui/dialog";
+import { generateUniqueId, removeAllButOne, removeExtraLeadingCharacters } from "@/lib/utils";
 import { getCategoriesNamesAndIds, updateCategories } from "@/lib/actions/categories.actions";
 import { Store } from "@/constants/store";
-import { CategoryType, ProductType } from "@/lib/types/types";
-import { SearchableSelect } from "../shared/SearchableSelect";
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { ProductType } from "@/lib/types/types";
+import { Check, Loader2 } from "lucide-react";
+import { CategorySelect } from "./CategorySelect";
 
 type DiscountType = "percentage" | "digits";
 type UploadingState = "initial" | "uploading" | "success" | "error";
-type Category = {
-  name: string;
-  categoryId: string
-}
 
-const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { stringifiedProduct: string, categories: Category[], stringifiedCategory: string }) => {
-  const product: ProductType = JSON.parse(stringifiedProduct);
-  const productCategory: CategoryType = JSON.parse(stringifiedCategory)
-  // console.log(product.priceToShow !== product.price ? 1 - (product.priceToShow / product.price) : 0)
-
+const CreateProduct = () => {
   const [ discountPrice, setDiscountPrice ] = useState<string>("");
-  const [ discountPercentage, setDiscountPercentage ] = useState<number>((product.priceToShow !== product.price ? parseFloat(((1 - (product.priceToShow / product.price)) * 100).toFixed(0)) : 0 )|| 0);
+  const [ discountPercentage, setDiscountPercentage ] = useState<number>(0);
   const [ focused, setFocused ] = useState(false);
   const [ discountType, setDiscountType ] = useState<DiscountType>("percentage");
   const [ noDiscount, setNoDiscount ] = useState<boolean>(false); 
 
-  const [ images, setImages ] = useState<string[]>(product.images || []);
+  const [ images, setImages ] = useState<string[]>([]);
   const [ files, setFiles ] = useState<File[]>([]);
   const [ uploadProgress, setUploadProgress ] = useState<number>(0);
   const [ uploadingState, setUploadingState ] = useState<UploadingState>("initial");
@@ -59,9 +51,11 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
   const [ inputValue, setInputValue ] = useState("");
   const [ hoveredIndex, setHoveredIndex ] = useState<number | null>(null);
 
+  const [ categories, setCategories ] = useState<{ name: string, categoryId: string}[]>([]);
   const [ isNewCategory, setIsNewCategory ] = useState<boolean>(false);
 
-  // console.log(product)
+  const [ creatingState, setCreatingState ] = useState<"Initial" | "Creating" | "Success" | "Error">("Initial")
+  
   const handleMouseEnter = (index: number) => {
     setHoveredIndex(index);
   };
@@ -71,12 +65,12 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
   };
 
   const router = useRouter();
-
+  
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(acceptedFiles);
     //console.log(files)
   }, [])
-
+  
   useEffect(() => {
     if(files.length > 0) {
       startUpload(files);
@@ -99,7 +93,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
       },
       onUploadError: () => {
         setUploadingState("error");
-
+        
         setTimeout(() => {
           setUploadingState("initial")
           setUploadProgress(0)
@@ -126,122 +120,113 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
   const handleImageAdding = () => {
       setImages([...images, inputValue]);
       setInputValue("");
-  }
+    }
 
-  const handleDeleteImage = (index: number| null) => {
+    const handleDeleteImage = (index: number| null) => {
     setImages(images.filter((_, i) => i !== index));
   }
 
   const fileTypes = permittedFileInfo?.config
     ? Object.keys(permittedFileInfo?.config)
     : [];
-
+    
     const {getRootProps, getInputProps} = useDropzone({
       onDrop,
       accept: fileTypes ? generateClientDropzoneAccept(fileTypes) : undefined
     })
+    
+    
+    const form = useForm<z.infer<typeof ProductValidation>>({
+      resolver: zodResolver(ProductValidation),
+      defaultValues: {
+        id: generateUniqueId(),
+        name: "",
+        price: `${Store.currency_sign}0`,
+        priceToShow: `${Store.currency_sign}0`,
+        description: "",
+        url: "",
+        quantity: "",
+        category: [],
+        vendor: "",
+        isAvailable: true,
+        customParams: []
+      }
+    });
 
-  const form = useForm<z.infer<typeof ProductValidation>>({
-    resolver: zodResolver(ProductValidation),
-    defaultValues: {
-      id: product.id,
-      name: product.name,
-      price: `${Store.currency_sign}${product.price}`,
-      priceToShow: `${Store.currency_sign}${product.priceToShow}`,
-      description: product.description,
-      url: product.url,
-      articleNumber: product.articleNumber,
-      quantity: product.quantity.toString(),
-      category: isNewCategory ? productCategory.name : productCategory._id,
-      vendor: product.vendor,
-      isAvailable: product.isAvailable,
-      customParams: product.params
-    }
-  });
+  const [isChecked, setIsChecked] = useState(form.getValues("isAvailable") ?? true); 
 
   const onSubmit = async (values: z.infer<typeof ProductValidation>) => {
 
-    console.log(values)
-    const result = await editProduct({
-      _id: product._id,
-      id: values.id,
-      name: values.name,
-      quantity: parseFloat(values.quantity),
-      images: images,
-      url: values.url ? values.url : "",
-      price: parseFloat(values.price.slice(1)),
-      priceToShow: parseFloat(values.priceToShow.slice(1)),
-      vendor: values.vendor || "Not specified",
-      articleNumber: values.articleNumber,
-      //category: "",
-      category: !isNewCategory ? categories.filter(category => category.categoryId === values.category)[0].name : values.category,
-      description: values.description,
-      isAvailable: values.isAvailable as boolean,
-      params: values.customParams || [],
-      customParams: values.customParams // FIXXXXXXXXXXXX FIXXXXXXXXXXXX FIXXXXXXXXXX
-    }, "json")
+    const existingCategoryIds = values.category.filter((cat) => categories.some((c) => c.categoryId === cat))
 
-    const editedProduct = JSON.parse(result);
+    const newCategoryNames = values.category.filter((cat) => !categories.some((c) => c.categoryId === cat))
+    
+    let createdProduct_id = ""
 
-    await updateCategories([editedProduct], "update");
-    router.back()
+    if(values.price.slice(1) && values.priceToShow.slice(1)) {
+      try {
+        setCreatingState("Creating");
+  
+        const result = await createProduct({
+          id: values.id,
+          name: values.name,
+          quantity: parseFloat(values.quantity),
+          images: images,
+          url: values.url ? values.url : "",
+          price: parseFloat(values.price.slice(1)),
+          priceToShow: parseFloat(values.priceToShow.slice(1)),
+          vendor: values.vendor || "Not specified",
+          category: existingCategoryIds,
+          articleNumber: values.articleNumber,
+          description: values.description,
+          isAvailable: isChecked,
+          params: values.customParams || [],
+          customParams: values.customParams ? values.customParams : [],
+          newCategories: newCategoryNames
+        }, 'json')
+  
+        const createdProduct = JSON.parse(result);
+    
+        createdProduct_id = createdProduct._id;
+      
+      } catch(error) {
+        setCreatingState("Error")
+      } finally {
+        setCreatingState("Success")
+  
+        setTimeout(() => setCreatingState("Initial"), 500)
+        
+        if(isChecked) {
+          if(createdProduct_id) {
+            router.push(`/catalog/${createdProduct_id}`);
+          }
+        } else {
+          router.push(`/admin/products`);
+        }
+      }
+    } else {
+      setCreatingState("Error")
+    }
   }
+
+  useEffect(() => {
+    const fetchProductCategories = async () => {
+      try {
+        const categories = await getCategoriesNamesAndIds();
+
+        setCategories(categories);
+      } catch (error: any) {
+        throw new Error(`Error appending existing product properities: ${error.message}`)
+      }
+    }
+        
+    fetchProductCategories();
+  }, [])
   
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "customParams",
   });
-
-  const handleNoDiscount = (value: boolean) => {
-    if(value) {
-      form.setValue("priceToShow", form.getValues("price"))
-      setDiscountPercentage(0);
-      setDiscountPrice(form.getValues("price"))
-      setDiscountType("percentage");
-    }
-  }
-
-  // useEffect(() => {
-  //   const fetchProductProperities = () => {
-  //       try {
-  //           const { properities: parsedProductProperities, params: fetchedParams, } = JSON.parse(productProperities as string)
-
-  //           parsedProductProperities.forEach(({ name, value }: { name: string, value: string | string[]}) => {
-  //             form.setValue(name as keyof ProductFormValues, value as string)
-
-  //             if(name === "price") {
-  //               form.setValue("price", `${Store.currency_sign}${value}`)
-  //             }
-  //             if(name === "priceToShow") {
-  //               form.setValue("priceToShow", `${Store.currency_sign}${value}`)
-  //             }
-  //             if(name === "images") {
-  //               setImages(value as string[])
-  //             }
-  //           })
-            
-  //           setCategories(categories);
-
-  //           remove();
-
-  //           fetchedParams.forEach(({ name, value }: { name: string, value: string }) => {
-  //               const valueName = mapFieldName(name);
-
-  //               if (params.some((param) => param.name === valueName)) {
-  //                   form.setValue(valueName as keyof ProductFormValues, value);
-  //               } else {
-  //                   append({ name, value });
-  //               }
-  //           });
-
-  //           //console.log("Category", form.getValues("category"));
-  //         } catch (error: any) {
-  //           throw new Error(`Error appending existing product properities: ${error.message}`)
-  //         }
-  //       }
-        
-  //       fetchProductProperities();
-  // }, [productProperities])
 
   const addCustomParam = () => {
     append({ name: "", value: "" });
@@ -260,26 +245,15 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
     );
   }, [customParams]);
   
-  const mapFieldName = (name: string) => {
-    switch(name) {
-      case "Ширина, см":
-        return "Width";
-      case "Висота, см":
-        return "Height";
-      case "Глибина, см":
-          return "Depth";
-          case "Вид":
-          return "Type";
-      case "Колір":
-        return "Color";
-      case "Товар":
-        return "Model";
-      default:
-        return name;
+  const handleNoDiscount = (value: boolean) => {
+    if(value) {
+      form.setValue("priceToShow", form.getValues("price"))
+      setDiscountPercentage(0);
+      setDiscountPrice(form.getValues("price"))
+      setDiscountType("percentage");
     }
   }
-        
-  
+
   return (
     <Form {...form}>
       <form
@@ -297,15 +271,12 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                     ID товару
                   </FormLabel>
                   <FormControl>
-                    <div className="w-full flex items-center gap-1">
-                      <Input
-                        type='text'
-                        className="text-small-regular text-gray-700 text-[13px] bg-neutral-100 ml-1 focus-visible:ring-black focus-visible:ring-[1px]"
-                        {...field}
-                        disabled
-                      />
-                      <CopyButton text={form.getValues("id")}/>
-                    </div>
+                    <Input
+                      type='text'
+                      className="text-small-regular text-gray-700 text-[13px] bg-neutral-100 ml-1 focus-visible:ring-black focus-visible:ring-[1px]"
+                      {...field}
+                      disabled
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -529,6 +500,18 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                         type='text'
                         className="text-small-regular text-gray-700 text-[13px] bg-neutral-100 ml-1 focus-visible:ring-black focus-visible:ring-[1px]"
                         {...field}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                      
+                          if (value === "") {
+                            form.setValue("quantity", "");
+                            return;
+                          }
+
+                          if (/^\d+$/.test(value)) {
+                            form.setValue("quantity", value);
+                          }
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -539,7 +522,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
         </div>
         
         <div className="w-1/2 h-fit flex flex-col gap-5 max-[900px]:w-full">
-        <div className="w-full h-fit pl-4 pr-5 py-4 border rounded-2xl">
+          <div className="w-full h-fit pl-4 pr-5 py-4 border rounded-2xl">
             <h4 className="w-full text-base-semibold text-[15px] mb-4">Ціни</h4>
             <div className="w-full flex flex-col gap-2">
               <FormField
@@ -559,12 +542,12 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
 
                             const rawValue = removeExtraLeadingCharacters(removeAllButOne(e.target.value.replace(/[^\d.]/g, ""), "."), "0");
                             let discount = (parseFloat(rawValue) - parseFloat(rawValue) * (discountPercentage / 100))
-                            console.log(rawValue, discount)
+                            // console.log(rawValue, discount)
                             if(isNaN(discount)) {
                               discount = 0
                             }
-                            form.setValue("price", `${Store.currency_sign}${rawValue}`);
-                            form.setValue("priceToShow", `${Store.currency_sign}${discount.toFixed(2)}`)
+                            form.setValue("price", `₴${rawValue}`);
+                            form.setValue("priceToShow", `₴${discount.toFixed(2)}`)
                             setDiscountPrice(discount.toFixed(2))
                           }}
                         />
@@ -601,9 +584,9 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                             
                               if (!isNaN(p)) {
                                 const discountValue = p - (numericValue / 100) * p;
-                                console.log("D", discountValue);
+                                // console.log("D", discountValue);
                             
-                                form.setValue("priceToShow", `${Store.currency_sign}${discountValue.toFixed(2)}`);
+                                form.setValue("priceToShow", `₴${discountValue.toFixed(2)}`);
                                 setDiscountPrice(discountValue.toFixed(2))
                               } else {
                                 console.error("Invalid price format.");
@@ -656,7 +639,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                                     rawValue = 0;
                                   }
                                   
-                                  form.setValue("priceToShow", `${Store.currency_sign}${rawInput}`);
+                                  form.setValue("priceToShow", `₴${rawInput}`);
                                   setDiscountPrice(rawValue.toFixed(2));
                                   
                                   let percentage = 0;
@@ -699,7 +682,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                 </div>
               </div>
             </div>
-          </div>         
+          </div>
           <div className="w-full h-fit pl-4 pr-5 py-4 border rounded-2xl">
             <h4 className="w-full text-base-semibold text-[15px] mb-4">Джерела</h4>
               <div className="w-full flex flex-col gap-2">
@@ -723,7 +706,6 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                   )}
                 />
 
-
                 <FormField
                   control={form.control}
                   name="articleNumber"
@@ -743,7 +725,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="url"
@@ -766,96 +748,19 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
               </div>
           </div>
 
-          <div className="w-full h-fit pl-4 pr-5 py-4 border rounded-2xl">
-            <h4 className="w-full text-base-semibold text-[15px] mb-4">Категорія</h4>
-              {isNewCategory ? (
-                <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <>
-                    <FormItem className='w-full'>
-                      <FormLabel className='text-small-medium text-[14px] text-dark-1'>
-                        Назва категоріЇ<span className="text-subtle-medium"> *</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          type='text'
-                          className="text-small-regular text-gray-700 text-[13px] bg-neutral-100 ml-1 focus-visible:ring-black focus-visible:ring-[1px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                    {categories.some((cat) => cat.name.trim() === form.getValues('category').trim()) && (
-                      <p className="text-subtle-medium text-yellow-600 mt-1.5 ml-2">
-                        Category already exists.{" "}
-                        <Button
-                          variant="link"
-                          className="h-fit p-0"
-                          onClick={() => {
-                            form.setValue(
-                              'category',
-                              categories.find(cat => cat.name === form.getValues('category'))?.categoryId || ''
-                            );
-                            setIsNewCategory(false);
-                          }}
-                        >
-                          Click here to select instead
-                        </Button>
-                      </p>
-                    )}
-                  </>
-                )}
-              />
-              ): (
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem className='w-full'>
-                      <FormLabel className='text-small-medium text-[14px] text-dark-1'>
-                        Категорія товару<span className="text-subtle-medium"> *</span>
-                      </FormLabel>
-                        <SearchableSelect
-                          isForm={true}
-                          items={categories}
-                          placeholder="Select category"
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          renderValue="name"
-                          searchValue="name"
-                          itemValue="categoryId"
-                          className="min-w-[300px] text-base-regular bg-white"
-                          triggerStyle="text-[13px] text-gray-700 font-normal bg-neutral-100"
-                        />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              <div className="w-full flex justify-end mt-2">
-                <Button 
-                  type="button" 
-                  className="text-subtle-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 py-0 px-0 -mb-3" 
-                  variant="destructive" 
-                  onClick={() => {setIsNewCategory(prev => !prev); form.setValue('category', '')}}>{isNewCategory ? "Вибрати існуючу?" : "Створити нову?"}
-                </Button>
-              </div>
-          </div>
+          <CategorySelect form={form} categories={categories} />
 
           <div className="w-full h-fit pl-4 pr-5 py-4 border rounded-2xl">
             <h4 className="w-full text-base-semibold text-[15px] mb-4">Параметри</h4>
             <div className="w-full grid grid-cols-2 gap-3 max-[425px]:grid-cols-1">
               {fields.map((field, index) => (
-                        <FormItem key={field.id} className='w-full'>
+                        <FormItem key={field.id} className="w-full bg-white">
                           <div className="relative w-full flex justify-end">
-                            <FormLabel className='w-full text-base-semibold text-dark-1 max-lg:w-full'>
+                            <FormLabel className='w-full text-base-semibold text-dark-1 bg-white max-lg:w-full'>
                                 <Input
                                     placeholder="Назва параметра"
                                     {...form.register(`customParams.${index}.name` as const)}
-                                    className='w-full appearance-none text-small-medium text-[14px] text-dark-1 bg-transparent rounded-none border-0 border-b ml-1 px-0 focus-visible:ring-0 focus-visible:border-black'
+                                    className='w-full appearance-none text-small-medium text-[14px] text-dark-1 bg-transparent rounded-none border-0 border-b ml-1 px-0 transition-all focus-visible:ring-0 focus-visible:border-black'
                                     // onChange={(e) => {field.name = e.target.value; console.log(field)}}
                                 />
                             </FormLabel>
@@ -889,12 +794,24 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
               </div>
             )}
           </div>
-          <div className="w-full flex gap-1">
-            <Button type='submit' className='w-full bg-green-500 hover:bg-green-400' size="sm" disabled={categories.map((cat) => cat.name).includes(form.getValues('category'))}>
-              Зберегти зміни
-            </Button>
-            <DeleteProductButton id={product.id} _id={product._id}/>
-          </div>
+          <Button type='submit' className='bg-green-500 hover:bg-green-400'>
+            {["Initial", "Error"].includes(creatingState) &&
+              "Додати товар"
+            }
+            {creatingState === "Creating" && (
+              <>
+                {creatingState}
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              </>
+            )}
+            {creatingState === "Success" && (
+              <>
+                {creatingState}
+                <Check className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+          <p className="text-subtle-medium text-red-500">{creatingState === "Error" && "All necessary fields must be filled"}</p>
           <div className="w-full flex justify-end">
             <FormField
               control={form.control}
@@ -905,11 +822,15 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
                     Доступний
                   </FormLabel>
                   <FormControl>
-                    <CheckboxSmall 
-                      className="size-3 rounded-[4px] border-neutral-600 data-[state=checked]:bg-black data-[state=checked]:text-white" 
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                  <CheckboxSmall
+                        className="size-3 rounded-[4px] border-neutral-600 data-[state=checked]:bg-black data-[state=checked]:text-white"
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          //console.log(checked)
+                          setIsChecked(checked as boolean); // Update the state when checked state changes
+                          field.onChange(checked); // Call field onChange to update form state
+                        }}
+                      />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -921,4 +842,4 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategory }: { 
     </Form>
 )}
 
-export default EditProduct;
+export default CreateProduct;

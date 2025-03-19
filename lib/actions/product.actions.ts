@@ -3,15 +3,14 @@
 import Product from "../models/product.model"
 import { connectToDB } from "../mongoose"
 import User from "../models/user.model";
-import { revalidatePath, revalidateTag } from "next/cache";
-import Value from "../models/value.model";
+import { revalidatePath } from "next/cache";
 import { CategoryType, CreateUrlParams, ProductType } from "../types/types";
 import { clearCatalogCache } from "./redis/catalog.actions";
 import Order from "../models/order.model";
 import clearCache from "./cache";
+import { createNewCategory, updateCategories } from "./categories.actions";
 import Category from "../models/category.model";
-import { updateCategories } from "./categories.actions";
-import { ObjectId } from "mongoose";
+import { startSession } from "mongoose";
 
 interface CreateParams {
     _id?: string,
@@ -23,7 +22,7 @@ interface CreateParams {
     price: number,
     priceToShow: number,
     vendor: string,
-    category?: string,
+    category: string[],
     description: string,
     isAvailable: boolean,
     articleNumber?: string,
@@ -35,6 +34,7 @@ interface CreateParams {
         name: string,
         value:string,
     }[]
+    newCategories?: string[]
 }
 
 
@@ -112,7 +112,7 @@ export async function updateUrlProductsMany(products: Partial<CreateUrlParams>[]
 export async function createProduct(params: CreateParams): Promise<ProductType>;
 export async function createProduct(params: CreateParams, type: "json"): Promise<string>;
 
-export async function createProduct({ id, name, quantity, images, url, priceToShow, price, vendor, category, articleNumber, description, isAvailable, customParams }: CreateParams, type?: "json"): Promise<ProductType | string>{
+export async function createProduct({ id, name, quantity, images, url, priceToShow, price, vendor, category, articleNumber, description, isAvailable, customParams, newCategories }: CreateParams, type?: "json"): Promise<ProductType | string>{
     try {
         connectToDB();
         
@@ -124,15 +124,39 @@ export async function createProduct({ id, name, quantity, images, url, priceToSh
             url: url,
             price: price,
             priceToShow: priceToShow,
-            category: category ? category : "",
+            category: category,
             vendor: vendor,
             description: description,
             articleNumber: articleNumber || "",
             isAvailable: isAvailable,
             params: customParams || []
         })
+        
+        const createdCategoriesIds = [];
 
-        await createdProduct.save();
+        if(newCategories) {
+            for(const newCategory of newCategories) {
+                const result = await createNewCategory({ name: newCategory, products: [createdProduct._id]})
+    
+                createdCategoriesIds.push(result._id)
+            }
+    
+            await Product.findByIdAndUpdate(
+                createdProduct._id,
+                {
+                    $addToSet: { categories: createdCategoriesIds }
+                }
+            )
+        }
+
+        for(const existingCategoryId of category) {
+            await Category.findByIdAndUpdate(
+                existingCategoryId,
+                {
+                    $addToSet: { products: createdProduct._id }
+                }
+            )
+        }
 
         await clearCatalogCache();
 
@@ -256,29 +280,6 @@ export async function fetchProductById( _id: string, type?: "json") {
         throw new Error(`Error fetching product by _id: ${error.message}`)
     }
 }
-export async function fetchLastProducts() {
-    try {
-        connectToDB();
-        
-
-        const last12Products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID }, isAvailable: true })
-        .populate({
-            path: 'likedBy',
-            model: User,
-            select: "_id email"
-        })
-        .sort({ _id: -1 }) // Сортуємо за спаданням _id (останні додані товари будуть першими)
-        .limit(12); // Обмежуємо результат до 12 товарів
-        
-
-        return last12Products;
-
-    } catch (error:any) {
-        throw new Error(`Error fetching all available products, ${error.message}`)
-    }
-}
-
-
 
 export async function addLike({ productId, email, path }: InterfaceProps) {
     try {
@@ -329,84 +330,32 @@ export async function fetchLikedProducts(userId: string){
     }
 }
 
-export async function getProductsProperities(productId: string, type?: "json") {
-    try {
-        connectToDB();
-
-        const products = await Product.find({});
-        const product = await Product.findOne({ _id: productId });
-
-        let allCategories: { [key: string]: number } = {};
-
-        for(const product of products) {
-
-            if(product.category){
-                if(!allCategories[`${product.category}`]) {
-                    allCategories[`${product.category}`] = 0
-                }
-        
-                allCategories[`${product.category}`] = product.id;
-            }
-        }
-
-        const categories = Object.entries(allCategories).map(([name, amount]) => ({
-            name,
-            amount,
-        }))
-
-        if(type === "json") {
-            return JSON.stringify({
-            properities: [
-                { name: "_id", value: product._id},
-                { name: "id", value: product.id }, 
-                { name: "name", value: product.name }, 
-                { name: "price", value: product.price.toString() }, 
-                { name: "priceToShow",  value: product.priceToShow.toString() }, 
-                { name: "description", value: product.description }, 
-                { name: "url", value: product.url }, 
-                { name: "quantity", value: product.quantity.toString() }, 
-                { name: "category", value: product.category }, 
-                { name: "vendor", value: product.vendor },
-                { name: "images", value: product.images },
-                { name: "isAvailable", value: product.isAvailable }
-            ], 
-            params: product.params,
-            categories: categories
-        })
-        } else {
-            return {
-                properities: [
-                    { name: "id", value: productId }, 
-                    { name: "name", value: product.name }, 
-                    { name: "price", value: product.price.toString() }, 
-                    { name: "priceToShow",  value: product.priceToShow.toString() }, 
-                    { name: "description", value: product.description }, 
-                    { name: "url", value: product.url }, 
-                    { name: "quantity", value: product.quantity.toString() }, 
-                    { name: "category", value: product.category }, 
-                    { name: "vendor", value: product.vendor },
-                    { name: "images", value: product.images },
-                    { name: "isAvailable", value: product.isAvailable }
-                ], 
-                params: product.params,
-                categories: categories
-            }
-        }
-    } catch (error: any) {
-        throw new Error(`Error fetching product properities: ${error.message}`)
-    }
-}
-
-
 export async function editProduct(params: CreateParams): Promise<ProductType>;
 export async function editProduct(params: CreateParams, type: "json"): Promise<string>;
 
-export async function editProduct({ _id, name, quantity, images, url, priceToShow, price, vendor, category, description, isAvailable, articleNumber, customParams }: CreateParams, type?: 'json') {
+export async function editProduct({ _id, name, quantity, images, url, priceToShow, price, vendor, category, description, isAvailable, articleNumber, customParams, newCategories }: CreateParams, type?: 'json') {
     try {
-        // Connect to the database
         await connectToDB();
 
-        // Define the update object
+        const createdCategoriesIds = [];
+
+        if(newCategories) {
+            for(const newCategory of newCategories) {
+                const result = await createNewCategory({ name: newCategory, products: []})
+    
+                createdCategoriesIds.push(result._id)
+            }
+        }
+
+        for(const existingCategoryId of category) {
+            await Category.findByIdAndUpdate(
+                existingCategoryId,
+                {
+                    $addToSet: { products: _id }
+                }
+            )
+        }
+
         const update = {
             name,
             quantity,
@@ -415,25 +364,21 @@ export async function editProduct({ _id, name, quantity, images, url, priceToSho
             priceToShow,
             price,
             vendor,
-            category: category || "",
+            category: [...category, ...createdCategoriesIds],
             description,
             isAvailable,
             articleNumber: articleNumber || "",
             params: customParams ? customParams.map(param => ({ name: param.name, value: param.value })) : []
         };
 
-        // Update the product using findOneAndUpdate
         const updatedProduct = await Product.findOneAndUpdate({ _id }, update, { new: true });
 
         if (!updatedProduct) {
             throw new Error(`No product found with id ${_id}`);
         }
 
-        // Clear the cache
         await clearCatalogCache();
         clearCache("updateProduct", _id as string);
-
-        // Return the updated product
         if (type === "json") {
             return JSON.stringify(updatedProduct);
         } else {
@@ -464,94 +409,110 @@ export async function productAddedToCart(id: string) {
 }
 
 export async function findAllProductsCategories(type?: "json") {
-  try {
-    connectToDB();
-
-    let allCategories: { [key: string]: number } = {};
-
-    const products = await Product.find({});
-
-    for(const product of products) {
-
-        if(product.category){
-            if(!allCategories[`${product.category}`]) {
-                allCategories[`${product.category}`] = 0
+    try {
+      connectToDB();
+  
+      let allCategories: { [key: string]: number } = {};
+  
+      const products = await Product.find({});
+  
+      for (const product of products) {
+        if (Array.isArray(product.category)) {
+          for (const categoryId of product.category) {
+            const categoryIdStr = categoryId.toString();
+  
+            if (!allCategories[categoryIdStr]) {
+              allCategories[categoryIdStr] = 0;
             }
-    
-            allCategories[`${product.category}`] = product.id;
+            
+            allCategories[categoryIdStr] += 1;
+          }
         }
-    }
-
-    const categories = Object.entries(allCategories).map(([name, amount]) => ({
+      }
+  
+      const categories = Object.entries(allCategories).map(([name, amount]) => ({
         name,
         amount,
-    }))
-
-    //console.log("Categories", allCategories);
-
-    if(type === "json") {
+      }));
+  
+      if (type === "json") {
         return JSON.stringify(categories);
-    } else {
-        return categories
-    }
-  } catch (error: any) {
-    throw new Error(`${error.message}`)
-  }
-}
-
-export async function deleteManyProducts(_ids: string[], cache?: "keep-catalog-cache") {
-    try {
-        connectToDB();
-
-        // Find products by their IDs
-        const products = await Product.find({ _id: { $in: _ids}});
-
-        if (!products.length) {
-            throw new Error("No products found for deletion");
-        }
-
-        // Loop over the products to handle likes and orders before deletion
-        for (const product of products) {
-            const deletedProductId = product._id;
-
-            const usersWhoLikedProduct = await User.find({ _id: { $in: product.likedBy }});
-
-            if (usersWhoLikedProduct) {
-                for (const user of usersWhoLikedProduct) {
-                    user.likes.pull(product._id);
-                    await user.save();
-                }
-            }
-
-            const orders = await Order.find({ 'products.product': product._id });
-
-            for (const order of orders) {
-                for (const orderedProduct of order.products) {
-                    orderedProduct.product = DELETEDPRODUCT_ID;
-                }
-
-                await order.save();
-            }
-
-            // Delete the product
-            await Product.deleteOne({ _id: product._id });
-
-            clearCache("deleteProduct", undefined);
-        }
-
-        if (!cache) {
-            await clearCatalogCache();
-        } else {
-            console.log("Catalog cache cleared.");
-        }
-
-        console.log("Deleted products")
-
+      } else {
+        return categories;
+      }
     } catch (error: any) {
-        throw new Error(`Error deleting products: ${error.message}`);
+      throw new Error(`${error.message}`);
     }
-}
-
+  }
+  
+  export async function deleteManyProducts(_ids: string[], cache?: "keep-catalog-cache") {
+    const session = await startSession();
+    session.startTransaction();
+  
+    try {
+      await connectToDB();
+  
+      // Find products by their IDs
+      const products = await Product.find({ _id: { $in: _ids } }).session(session);
+  
+      if (!products.length) {
+        throw new Error("No products found for deletion");
+      }
+  
+      // Loop over the products to handle likes and orders before deletion
+      for (const product of products) {
+        const deletedProductId = product._id;
+  
+        // Handle users who liked the product
+        const usersWhoLikedProduct = await User.find({ _id: { $in: product.likedBy } }).session(session);
+  
+        if (usersWhoLikedProduct) {
+          for (const user of usersWhoLikedProduct) {
+            user.likes.pull(product._id);
+            await user.save({ session });
+          }
+        }
+  
+        // Handle orders that include the product
+        const orders = await Order.find({ 'products.product': product._id }).session(session);
+  
+        for (const order of orders) {
+          for (const orderedProduct of order.products) {
+            if (orderedProduct.product.toString() === product._id.toString()) {
+              orderedProduct.product = DELETEDPRODUCT_ID;
+            }
+          }
+  
+          await order.save({ session });
+        }
+  
+        // Update categories
+        await updateCategories(products, "delete");
+  
+        // Delete the product
+        await Product.deleteOne({ _id: product._id }).session(session);
+  
+        clearCache("deleteProduct", undefined);
+      }
+  
+      // If cache is not kept, clear the catalog cache
+      if (!cache) {
+        await clearCatalogCache();
+      } else {
+        console.log("Catalog cache cleared.");
+      }
+  
+      await session.commitTransaction();
+      console.log("Deleted products");
+  
+    } catch (error: any) {
+      await session.abortTransaction();
+      throw new Error(`Error deleting products: ${error.message}`);
+    } finally {
+      session.endSession();
+    }
+  }
+  
 
 export async function deleteProduct(id: { productId: string} | {product_id: string}, cache?: "keep-catalog-cache") {
   try {
@@ -605,15 +566,6 @@ export async function deleteProduct(id: { productId: string} | {product_id: stri
                 await order.save();
             }
 
-            // for(let category of categories) {
-
-            //     console.log("Category products: ", category.products);
-            //     category.products = category.products.filter((categoryProductId: ObjectId) => categoryProductId.toString() !== product._id.toString())
-            //     console.log("Category products: ", category.products);
-
-            //     await category.save()
-            // }
-
             if(searchParam === "id") {
                 await Product.deleteOne({ id: productId });
             } else if(searchParam === "_id") {
@@ -632,34 +584,6 @@ export async function deleteProduct(id: { productId: string} | {product_id: stri
   } catch (error: any) {
     throw new Error(`Error deleting product: ${id} ${error.message}`)
   }
-}
-
-export async function findProductCategory(product: ProductType): Promise<CategoryType>;
-export async function findProductCategory(product: ProductType, type: "json"): Promise<string>;
-
-export async function findProductCategory(product: ProductType, type?: "json"): Promise<CategoryType | string> {
-    try {
-        const categories = await Category.find({ name: product.category });
-
-        let category = { _id: "", name: "", products: [], totalValue: 0, subCategories: []};
-
-        if (categories.length !== 0) {
-            for (const cat of categories) {
-                if (cat.products.includes(product._id)) {
-                    category = cat;
-                    break;
-                }
-            }
-        }
-
-        if (type === "json") {
-            return JSON.stringify(category);
-        } else {
-            return category;
-        }
-    } catch (error: any) {
-        throw new Error(`Error finding product's category: ${error.message}`);
-    }
 }
 
 type ParamDifference = {
@@ -742,7 +666,7 @@ export async function fetchProductAndRelevantParams(
       selectParams: paramDifferences,
     };
   } catch (error: any) {
-    throw new Error(`${error.message}`);
+    throw new Error(`Error fetching product and it's select params: ${error.message}`);
   }
 }
 
@@ -754,11 +678,11 @@ export async function fetchPreviewProduct({ param }: { param: string }, type?: '
    try {
     connectToDB();
 
-    const [category, paramName] = param.split("&");
+    // TODO: Update
+    const [categories, paramName] = param.split("&");
 
-    console.log(category, paramName)
     const products = await Product.find({
-      category,
+      category: { $in: categories },
       params: {
         $elemMatch: { name: paramName }
       }
@@ -773,3 +697,19 @@ export async function fetchPreviewProduct({ param }: { param: string }, type?: '
      throw new Error(`Error finding preview product: ${error.message}`)
    }
 }
+
+// export async function findProductCategories({ productId }: { productId: string }): Promise<CategoryType[]>;
+// export async function findProductCategories({ productId }: { productId: string }, type: 'json'): Promise<string>;
+
+// export async function findProductCategories({ productId }: { productId: string }, type?: 'json') {
+//    try {
+      
+//     if(type === 'json'){
+//       return JSON.stringify(params)
+//     } else {
+//       return params
+//     }
+//    } catch (error: any) {
+//      throw new Error(`${error.message}`)
+//    }
+// }
