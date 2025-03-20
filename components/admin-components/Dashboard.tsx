@@ -232,25 +232,6 @@ const Dashboard = ({ stringifiedData }: { stringifiedData: string }) => {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-base-semibold">Загальний дохід</CardTitle>
-            <CardDescription className="text-small-medium">
-              {
-                timePeriodOptions.find(
-                  (o) =>
-                    o.value ===
-                    (timePeriod === data.dayStats
-                      ? "day"
-                      : timePeriod === data.weekStats
-                        ? "week"
-                        : timePeriod === data.monthStats
-                          ? "month"
-                          : timePeriod === data.threeMonthsStats
-                            ? "threeMonths"
-                            : timePeriod === data.sixMonthsStats
-                              ? "sixMonths"
-                              : "year"),
-                )?.label
-              }
-            </CardDescription>
           </div>
           <div className="hidden sm:flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -514,7 +495,7 @@ const Dashboard = ({ stringifiedData }: { stringifiedData: string }) => {
           </CardHeader>
           <CardContent>
             <Link
-              href={`/catalog/${timePeriod.mostPopularProduct.searchParam}`}
+              href={`/catalog/${timePeriod.mostPopularProduct.id}`}
               className="text-heading4-medium sm:text-heading3-bold hover:underline truncate block"
               target="_blank"
             >
