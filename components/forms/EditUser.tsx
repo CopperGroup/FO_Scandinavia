@@ -195,7 +195,7 @@ export function EditUserForm({
             <div className="flex items-start">
               <User className="h-4 w-4 mt-0.5 mr-2 text-slate-500" />
               <div>
-                <p className="text-small-regular text-slate-500">Повне ім'я</p>
+                <p className="text-small-regular text-slate-500">Повне ім&apos;я</p>
                 <p className="text-base-medium text-slate-800">
                   {user.name} {user.surname}
                 </p>
