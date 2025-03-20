@@ -1,279 +1,592 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis } from "recharts"
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "../ui/chart"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import { useEffect, useState } from "react"
-import { DatePickerWithRange } from "../ui/date-range-picker"
-import { Calendar } from "../ui/calendar"
-import Image from "next/image"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "../ui/carousel"
-import Link from "next/link"
+import { useState, useEffect } from "react"
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { type ChartConfig, ChartContainer } from "@/components/ui/chart"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowDown, ArrowUp, ArrowUpRight, Calendar, Package, ShoppingCart, TrendingUp } from "lucide-react"
 import { Store } from "@/constants/store"
+import Link from "next/link"
 
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-]
-
+// Define chart configuration
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
+  totalOrders: {
+    label: "Замовлення",
     color: "#2563eb",
-  },
-  mobile: {
-    label: "Mobile",
-    color: "#60a5fa",
   },
 } satisfies ChartConfig
 
+// TypeScript interfaces
 interface Order {
   products: {
-    product: string,
+    product: string
     amount: number
-  } [],
-  userId: string;
-  value: number;
-  name: string;
-  surname: string;
-  phoneNumber: string;
-  email: string;
-  paymentType: string;
-  deliveryMethod: string;
-  city: string;
-  adress: string;
-  postalCode: string;
-  comment: string | undefined;
-  paymentStatus: string;
-  deliveryStatus: string;
-  data: Date;
+  }[]
+  userId: string
+  value: number
+  name: string
+  surname: string
+  phoneNumber: string
+  email: string
+  paymentType: string
+  deliveryMethod: string
+  city: string
+  adress: string
+  postalCode: string
+  comment: string | undefined
+  paymentStatus: string
+  deliveryStatus: string
+  data: Date
 }
 
 interface TimePeriod {
-  dateName: string;
-  orders: Order[];
-  totalValue: number;
-  totalOrders: number;
+  dateName: string
+  orders: Order[]
+  totalValue: number
+  totalOrders: number
 }
 
-interface Stats{
-  data: TimePeriod[],
-  totalValue: number;
-  totalOrders: number;
-  totalProductsSold: number;
-  averageOrderValue: number;
+interface Stats {
+  data: TimePeriod[]
+  totalValue: number
+  totalOrders: number
+  totalProductsSold: number
+  averageOrderValue: number
   mostPopularProduct: {
-    name: string,
-    id: string,
-    searchParam: string,
+    name: string
+    id: string
+    searchParam: string
     quantity: number
-  },
+  }
   percentageStats: {
-    totalValue: number;
-    totalOrders: number;
-    totalProductsSold: number;
-    averageOrderValue: number;
-  },
+    totalValue: number
+    totalOrders: number
+    totalProductsSold: number
+    averageOrderValue: number
+  }
   numericStats: {
-    totalValue: number;
-    totalOrders: number;
-    totalProductsSold: number;
-    averageOrderValue: number;
+    totalValue: number
+    totalOrders: number
+    totalProductsSold: number
+    averageOrderValue: number
   }
 }
 
 interface Data {
-  dayStats: Stats;
-  weekStats: Stats;
-  monthStats: Stats;
-  threeMonthsStats: Stats;
-  sixMonthsStats: Stats;
-  yearStats: Stats;
+  dayStats: Stats
+  weekStats: Stats
+  monthStats: Stats
+  threeMonthsStats: Stats
+  sixMonthsStats: Stats
+  yearStats: Stats
 }
 
+// Time period options
+const timePeriodOptions = [
+  { value: "day", label: "За сьогодні" },
+  { value: "week", label: "Останній тиждень" },
+  { value: "month", label: "Місяць" },
+  { value: "threeMonths", label: "Три місяці" },
+  { value: "sixMonths", label: "Шість місяців" },
+  { value: "year", label: "Цього року" },
+]
+
 const Dashboard = ({ stringifiedData }: { stringifiedData: string }) => {
-  const data: Data = JSON.parse(stringifiedData);
-  const [ timePeriod, setTimePeriod ] = useState(data.dayStats);
-  const [ previewMode, setPreviewMode ] = useState("Percentage");
-  
-  const selectTimePeriod = (element: string) => {
-    if(element === "day") {
-      setTimePeriod(data.dayStats);
-    } else if(element === "week") {
-      setTimePeriod(data.weekStats)
-    } else if(element === "month") {
-      setTimePeriod(data.monthStats)
-    } else if(element === "threeMonths") {
-      setTimePeriod(data.threeMonthsStats)
-    } else if(element === "sixMonths") {
-      setTimePeriod(data.sixMonthsStats)
-    } else if(element === "year") {
-      setTimePeriod(data.yearStats)
+  const data: Data = JSON.parse(stringifiedData)
+  const [timePeriod, setTimePeriod] = useState<Stats>(data.dayStats)
+  const [viewMode, setViewMode] = useState<"percentage" | "numeric">("percentage")
+  const [isMobile, setIsMobile] = useState(false)
+  const [chartHeight, setChartHeight] = useState(300)
+
+  // Check if mobile on mount and on resize
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+
+      // Adjust chart height based on screen width
+      if (window.innerWidth < 480) {
+        setChartHeight(220)
+      } else if (window.innerWidth < 768) {
+        setChartHeight(260)
+      } else {
+        setChartHeight(300)
+      }
+    }
+
+    checkIfMobile()
+    window.addEventListener("resize", checkIfMobile)
+    return () => window.removeEventListener("resize", checkIfMobile)
+  }, [])
+
+  // Function to select time period
+  const selectTimePeriod = (value: string) => {
+    switch (value) {
+      case "day":
+        setTimePeriod(data.dayStats)
+        break
+      case "week":
+        setTimePeriod(data.weekStats)
+        break
+      case "month":
+        setTimePeriod(data.monthStats)
+        break
+      case "threeMonths":
+        setTimePeriod(data.threeMonthsStats)
+        break
+      case "sixMonths":
+        setTimePeriod(data.sixMonthsStats)
+        break
+      case "year":
+        setTimePeriod(data.yearStats)
+        break
     }
   }
 
+  // Helper function to format numbers
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat("uk-UA", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num)
+  }
+
+  // Helper function to get trend indicator
+  const getTrendIndicator = (value: number, mode: "percentage" | "numeric") => {
+    const isPositive = value >= 0
+    const formattedValue = mode === "percentage" ? `${Math.abs(value).toFixed(0)}%` : formatNumber(Math.abs(value))
+
+    return {
+      icon: isPositive ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />,
+      value: mode === "percentage" ? formattedValue : isPositive ? `+${formattedValue}` : `-${formattedValue}`,
+      color: isPositive ? "text-emerald-500" : "text-rose-500",
+      bgColor: isPositive ? "bg-emerald-50" : "bg-rose-50",
+    }
+  }
+
+  // Prepare chart data - limit data points for mobile
+  const prepareChartData = () => {
+    if (isMobile && timePeriod.data.length > 5) {
+      // For mobile, if we have more than 5 data points, show only every nth item
+      const step = Math.ceil(timePeriod.data.length / 5)
+      return timePeriod.data.filter((_, index) => index % step === 0)
+    }
+    return timePeriod.data
+  }
+
+  // Format X-axis tick for mobile
+  const formatXAxisTick = (value: string) => {
+    if (isMobile) {
+      // Shorten labels on mobile
+      if (value.length > 6) {
+        return value.substring(0, 6) + "..."
+      }
+    }
+    return value
+  }
+
   return (
-    <div className="w-full h-full py-5 px-2 sm:py-20 sm:px-4 pb-20 max-[425px]:px-0">
-      <div className="w-full h-fit flex justify-between items-end max-lg:flex-col max-lg:items-start max-lg:justify-center">
-        <div className="w-fit h-fit flex items-start mb-4 sm:mb-0">
-          <h2 className="text-[48px] lg:text-[64px] font-semibold max-md:text-[40px] max-[425px]:text-[36px]">{Store.currency_sign}{timePeriod.totalValue.toFixed(2)}</h2>
-          <Image
-            src={previewMode === "Percentage" ? (timePeriod.percentageStats.totalValue >= 0 ? "/assets/arrow-right-up-zig-zag.svg" : "/assets/arrow-right-down-zig-zag-red.svg"): timePeriod.numericStats.totalValue >= 0 ? "/assets/arrow-right-up-zig-zag.svg" : "/assets/arrow-right-down-zig-zag-red.svg"}
-            height={24}
-            width={24}
-            alt="Total value"
-            className="mt-3 ml-2 max-md:mt-0"
-          />
-          <p className={`text-subtle-medium sm:text-small-semibold md:text-subtle-semibold font-extrabold ${previewMode === "Percentage" ? (timePeriod.percentageStats.totalValue >= 0 ? "text-green-500" : "text-red-500"): timePeriod.numericStats.totalValue >= 0 ? "text-green-500" : "text-red-500"} mt-4 ml-1 max-md:mt-0`}>
-            {previewMode === "Percentage" ? 
-              `${timePeriod.percentageStats.totalValue.toFixed(0)}%` :
-              timePeriod.numericStats.totalValue >= 0 ? `+${timePeriod.numericStats.totalValue.toFixed(2)}` : `${timePeriod.numericStats.totalValue.toFixed(2)}`
-            }
+    <div className="w-full space-y-4 sm:space-y-6 p-3 sm:p-6 pb-16">
+      {/* Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-heading3-bold md:text-heading2-bold">Дашбоард</h1>
+          <p className="text-small-medium md:text-base-medium text-muted-foreground">
+            Коротка аналітика продажів та замовлень
           </p>
         </div>
-        <div className="w-full flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-7">
-          <Select onValueChange={(element) => selectTimePeriod(element)} defaultValue="day">
-            <SelectTrigger className="w-full min-w-32 max-w-40 mb-3 border-0 border-b-2 border-black rounded-none font-semibold px-1 focus:ring-0 text-small-semibold">
-              <SelectValue placeholder="Time period"/>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select onValueChange={selectTimePeriod} defaultValue="day">
+            <SelectTrigger className="w-full sm:w-[180px] text-small-medium">
+              <SelectValue placeholder="Період часу" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="day">За сьогодні</SelectItem>
-              <SelectItem value="week">Останній тиждень</SelectItem>
-              <SelectItem value="month">Місяць</SelectItem>
-              <SelectItem value="threeMonths">Три місяці</SelectItem>
-              <SelectItem value="sixMonths">Шість місяців</SelectItem>
-              <SelectItem value="year">Цього року</SelectItem>
+              {timePeriodOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value} className="text-small-medium">
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Select onValueChange={(element) => setPreviewMode(element)} defaultValue="Percentage">
-            <SelectTrigger className="w-full min-w-32 max-w-40 mb-3 border-0 border-b-2 border-black rounded-none font-semibold px-1 focus:ring-0 text-small-semibold">
-              <SelectValue placeholder="Preview mode"/>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Percentage">Відсотки</SelectItem>
-              <SelectItem value="Numeric">Числа</SelectItem>
-            </SelectContent>
-          </Select>
+
+          <Tabs
+            defaultValue="percentage"
+            className="w-full sm:w-[180px]"
+            onValueChange={(v) => setViewMode(v as "percentage" | "numeric")}
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="percentage" className="text-small-medium">
+                Відсотки
+              </TabsTrigger>
+              <TabsTrigger value="numeric" className="text-small-medium">
+                Числа
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
-      <div className="w-full h-64 sm:h-1/2 flex border-red-500">
-        <div className="w-full h-full rounded-xl mt-3 pb-5 pt-12 px-2">
-          <div className="w-full flex justify-end">
+
+      {/* Main Stats Card */}
+      <Card className="overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-base-semibold">Загальний дохід</CardTitle>
+            <CardDescription className="text-small-medium">
+              {
+                timePeriodOptions.find(
+                  (o) =>
+                    o.value ===
+                    (timePeriod === data.dayStats
+                      ? "day"
+                      : timePeriod === data.weekStats
+                        ? "week"
+                        : timePeriod === data.monthStats
+                          ? "month"
+                          : timePeriod === data.threeMonthsStats
+                            ? "threeMonths"
+                            : timePeriod === data.sixMonthsStats
+                              ? "sixMonths"
+                              : "year"),
+                )?.label
+              }
+            </CardDescription>
           </div>
-          <ResponsiveContainer>
-            <ChartContainer config={chartConfig} className="w-full h-full text-subtle-medium sm:text-small-medium">
+          <div className="hidden sm:flex items-center space-x-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-subtle-medium text-muted-foreground">Порівняння з минулим періодом</span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-baseline space-x-2">
+            <h2 className="text-heading2-bold md:text-heading1-bold">
+              {Store.currency_sign}
+              {formatNumber(timePeriod.totalValue)}
+            </h2>
+
+            {/* Trend indicator */}
+            <div
+              className={`flex items-center rounded-md px-2 py-1 text-small-semibold ${
+                getTrendIndicator(
+                  viewMode === "percentage"
+                    ? timePeriod.percentageStats.totalValue
+                    : timePeriod.numericStats.totalValue,
+                  viewMode,
+                ).bgColor
+              } ${
+                getTrendIndicator(
+                  viewMode === "percentage"
+                    ? timePeriod.percentageStats.totalValue
+                    : timePeriod.numericStats.totalValue,
+                  viewMode,
+                ).color
+              }`}
+            >
+              {
+                getTrendIndicator(
+                  viewMode === "percentage"
+                    ? timePeriod.percentageStats.totalValue
+                    : timePeriod.numericStats.totalValue,
+                  viewMode,
+                ).icon
+              }
+              <span className="ml-1">
+                {
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalValue
+                      : timePeriod.numericStats.totalValue,
+                    viewMode,
+                  ).value
+                }
+              </span>
+            </div>
+          </div>
+        </CardContent>
+
+        {/* Chart */}
+        <div className={`h-[${chartHeight}px] w-full px-1 sm:px-4 overflow-x-auto`}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <ChartContainer config={chartConfig}>
               <BarChart
-                accessibilityLayer
-                data={timePeriod.data}
-                margin={{
-                  left: 5,
-                  right: 5,
-                }}
-                >
-                <CartesianGrid vertical={false} horizontal={false} syncWithTicks/>
+                data={prepareChartData()}
+                margin={
+                  isMobile ? { top: 20, right: 10, left: 0, bottom: 20 } : { top: 20, right: 20, left: 20, bottom: 20 }
+                }
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
                 <XAxis
                   dataKey="dateName"
-                  tickLine={false}
                   axisLine={false}
+                  tickLine={false}
                   tickMargin={10}
-                  minTickGap={30}
+                  className="text-tiny-medium sm:text-small-medium"
+                  tickFormatter={formatXAxisTick}
+                  interval={isMobile ? 0 : "preserveStartEnd"}
+                  angle={isMobile ? -45 : 0}
+                  textAnchor={isMobile ? "end" : "middle"}
+                  height={isMobile ? 50 : 30}
                 />
-                <ChartTooltip
-                  content={
-                    <CustomTooltip timePeriod={timePeriod} />
-                  }
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tickMargin={5}
+                  tickFormatter={(value) => (isMobile && value > 999 ? `${Math.floor(value / 1000)}k` : `${value}`)}
+                  className="text-tiny-medium sm:text-small-medium"
+                  width={isMobile ? 25 : 40}
                 />
-                <Bar dataKey="totalOrders" fill="var(--color-desktop)" radius={[36, 36, 0, 0]} minPointSize={2}/>
+                <Tooltip content={<CustomTooltip isMobile={isMobile} />} />
+                <Bar
+                  dataKey="totalOrders"
+                  fill="var(--color-totalOrders)"
+                  radius={[4, 4, 0, 0]}
+                  barSize={isMobile ? 20 : 30}
+                />
               </BarChart>
             </ChartContainer>
           </ResponsiveContainer>
         </div>
+      </Card>
+
+      {/* Stats Grid */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
+        {/* Total Orders */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+            <CardTitle className="text-small-semibold sm:text-base-semibold">Всього замовлень</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-heading4-medium sm:text-heading3-bold">{timePeriod.totalOrders}</div>
+            <div className="flex items-center pt-1">
+              <div
+                className={`mr-2 rounded-sm p-1 ${
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalOrders
+                      : timePeriod.numericStats.totalOrders,
+                    viewMode,
+                  ).bgColor
+                }`}
+              >
+                {
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalOrders
+                      : timePeriod.numericStats.totalOrders,
+                    viewMode,
+                  ).icon
+                }
+              </div>
+              <div
+                className={`text-subtle-medium sm:text-small-semibold ${
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalOrders
+                      : timePeriod.numericStats.totalOrders,
+                    viewMode,
+                  ).color
+                }`}
+              >
+                {
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalOrders
+                      : timePeriod.numericStats.totalOrders,
+                    viewMode,
+                  ).value
+                }
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Products Sold */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+            <CardTitle className="text-small-semibold sm:text-base-semibold">Продано товарів</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-heading4-medium sm:text-heading3-bold">{timePeriod.totalProductsSold}</div>
+            <div className="flex items-center pt-1">
+              <div
+                className={`mr-2 rounded-sm p-1 ${
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalProductsSold
+                      : timePeriod.numericStats.totalProductsSold,
+                    viewMode,
+                  ).bgColor
+                }`}
+              >
+                {
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalProductsSold
+                      : timePeriod.numericStats.totalProductsSold,
+                    viewMode,
+                  ).icon
+                }
+              </div>
+              <div
+                className={`text-subtle-medium sm:text-small-semibold ${
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalProductsSold
+                      : timePeriod.numericStats.totalProductsSold,
+                    viewMode,
+                  ).color
+                }`}
+              >
+                {
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.totalProductsSold
+                      : timePeriod.numericStats.totalProductsSold,
+                    viewMode,
+                  ).value
+                }
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Average Order Value */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+            <CardTitle className="text-small-semibold sm:text-base-semibold">Середня ціна</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-heading4-medium sm:text-heading3-bold">
+              {Store.currency_sign}
+              {formatNumber(timePeriod.averageOrderValue)}
+            </div>
+            <div className="flex items-center pt-1">
+              <div
+                className={`mr-2 rounded-sm p-1 ${
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.averageOrderValue
+                      : timePeriod.numericStats.averageOrderValue,
+                    viewMode,
+                  ).bgColor
+                }`}
+              >
+                {
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.averageOrderValue
+                      : timePeriod.numericStats.averageOrderValue,
+                    viewMode,
+                  ).icon
+                }
+              </div>
+              <div
+                className={`text-subtle-medium sm:text-small-semibold ${
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.averageOrderValue
+                      : timePeriod.numericStats.averageOrderValue,
+                    viewMode,
+                  ).color
+                }`}
+              >
+                {
+                  getTrendIndicator(
+                    viewMode === "percentage"
+                      ? timePeriod.percentageStats.averageOrderValue
+                      : timePeriod.numericStats.averageOrderValue,
+                    viewMode,
+                  ).value
+                }
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Most Popular Product */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2">
+            <CardTitle className="text-small-semibold sm:text-base-semibold">Популярний товар</CardTitle>
+            <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <Link
+              href={`/catalog/${timePeriod.mostPopularProduct.searchParam}`}
+              className="text-heading4-medium sm:text-heading3-bold hover:underline truncate block"
+              target="_blank"
+            >
+              {timePeriod.mostPopularProduct.name}
+            </Link>
+            <div className="flex items-center justify-between pt-1">
+              <div className="text-subtle-medium sm:text-small-medium text-muted-foreground">Продано</div>
+              <div className="rounded-full bg-emerald-100 px-2 py-0.5 text-subtle-medium sm:text-small-semibold text-emerald-700">
+                {timePeriod.mostPopularProduct.quantity}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-      <div className="w-full h-auto sm:h-1/3 border-red-500 mt-5">
-        <Carousel className="w-full h-full border-green-500">
-          <CarouselContent className="pr-5">
-            {[
-              { title: "Всього замовлень", value: timePeriod.totalOrders, stat: timePeriod.percentageStats.totalOrders, numericStat: timePeriod.numericStats.totalOrders, gradient: "gradient-1" },
-              { title: "Всього продано продукції", value: timePeriod.totalProductsSold, stat: timePeriod.percentageStats.totalProductsSold, numericStat: timePeriod.numericStats.totalProductsSold },
-              { title: "Середня ціна замовлення", value: timePeriod.averageOrderValue.toFixed(2), stat: timePeriod.percentageStats.averageOrderValue, numericStat: timePeriod.numericStats.averageOrderValue },
-              { title: "Найпопулярніший продукт", value: timePeriod.mostPopularProduct.name, quantity: timePeriod.mostPopularProduct.quantity, searchParam: timePeriod.mostPopularProduct.searchParam }
-            ].map((item, index) => (
-              <CarouselItem key={index} className="basis-1/4 h-40 flex justify-center items-center border-violet-500 cursor-grab active:cursor-grabbing max-[1650px]:basis-1/3 max-[1450px]:basis-1/2 max-[1250px]:basis-3/5 max-[890px]:basis-4/5 max-[480px]:basis-full">
-                <article className={`w-full h-full text-${item.gradient ? 'white' : 'black'} shadow-xl rounded-2xl ${item.gradient || 'border'} py-4 px-4`}>
-                  <div className="w-full h-2/5 flex justify-between items-end border-indigo-500 px-2">
-                    <p className="text-base-semibold font-bold sm:text-body-semibold">{item.title}</p>
-                    <Image
-                      src={item.gradient ? "/assets/arrow-right-up-white.svg" : "/assets/arrow-right-up.svg"}
-                      height={24}
-                      width={24}
-                      alt="arrow-right-up"
-                      className={previewMode === "Percentage" ? (item.stat && item.stat >= 0 ? "" : "rotate-90") : item.numericStat && item.numericStat >= 0 ? "" : "rotate-90"}
-                    />
-                  </div>
-                  <div className="w-full h-3/5 flex justify-between items-center border-indigo-500 px-2">
-                    {item.searchParam !== undefined ? (
-                      <Link href={`/catalog/${item.searchParam}`} target="_blank" className="text-body-semibold md:text-heading3-bold font-bold max-[425px]:text-base-semibold">{item.value}</Link>
-                    ) : (
-                      <p className="text-body-semibold sm:text-heading3-bold md:text-heading2-bold">{item.value}</p>
-                    )}
-                    {item.quantity !== undefined ? (
-                      <div className="min-w-14 h-6 text-green-500 flex justify-center items-center bg-black/10 rounded-full px-2">
-                        <p className="text-subtle-medium sm:text-small-medium font-regular">{item.quantity}</p>
-                      </div>
-                    ) : (
-                      <div className={`min-w-14 h-6 ${previewMode === "Percentage" ? (item.stat >= 0 ? "text-green-500" : "text-red-500") : (item.numericStat >= 0 ? "text-green-500" : "text-red-500")} flex justify-between items-center bg-black/10 rounded-full px-2`}>
-                        <Image
-                          src={previewMode === "Percentage" ? (item.stat >= 0 ? "/assets/arrow-up-green.svg" : "/assets/arrow-down-red.svg") : item.numericStat >= 0 ? "/assets/arrow-up-green.svg" : "/assets/arrow-down-red.svg"}
-                          height={12}
-                          width={12}
-                          alt="arrow-up-white"
-                        />
-                        <p className="text-subtle-medium sm:text-small-medium font-regular">
-                          {previewMode === "Percentage" ? 
-                            `${item.stat.toFixed(0)}%` :
-                            item.numericStat >= 0 ? `+${item.numericStat.toFixed(2)}` : `${item.numericStat.toFixed(2)}`
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </article>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-        <p className="w-full text-subtle-medium sm:text-small-semibold text-center sm:text-end px-2 sm:px-10 mt-4 sm:mt-7 max-md:pb-20"><span className="text-small-semibold sm:text-base-semibold text-green-500">{previewMode === "Percentage" ? "% ": "+ "}</span>Порівняння з минулим відповідним періодом | Враховуються тільки оплачені і доставлені замовлення</p>
+
+      {/* Footer note */}
+      <div className="text-x-small-semibold sm:text-subtle-medium text-muted-foreground text-center md:text-right mt-2 sm:mt-4">
+        <p>
+          <span className="text-emerald-500 text-small-semibold">{viewMode === "percentage" ? "% " : "+ "}</span>
+          Порівняння з минулим періодом | Тільки оплачені і доставлені замовлення
+        </p>
       </div>
     </div>
   )
 }
 
-export default Dashboard;
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-
-  let totalProductsSold = 0;
-
+// Custom tooltip component for the chart
+const CustomTooltip = ({ active, payload, label, isMobile }: any) => {
   if (active && payload && payload.length) {
-    payload[0].payload.orders.forEach((order: Order) => {
-      order.products.forEach((product) => {
-        totalProductsSold += product.amount;
-    })});
+    const data = payload[0].payload
 
-    const averageOrderValue = payload[0].payload.totalValue > 0 ? payload[0].payload.totalValue / payload[0].value : 0;
+    let totalProductsSold = 0
+    data.orders.forEach((order: Order) => {
+      order.products.forEach((product) => {
+        totalProductsSold += product.amount
+      })
+    })
+
+    const averageOrderValue = data.totalValue > 0 ? data.totalValue / data.totalOrders : 0
+
     return (
-      <div className="bg-white/70 rounded-xl shadow-lg p-3">
-        <p className="text-small-semibold">{label}</p>
-        <p className="text-subtle-medium">Всього замовлень: {payload[0].value}</p>
-        <p className="text-subtle-medium">Загальна ціна: <span className="font-semibold text-green-500">{payload[0].payload.totalValue.toFixed(2)}</span></p>
-        <p className="text-subtle-medium">Продано товару: {totalProductsSold}</p>
-        <p className="text-subtle-medium">Середня вартість: <span className="text-green-500">{averageOrderValue.toFixed(2)}</span></p>
+      <div className={`rounded-lg border bg-background p-2 sm:p-3 shadow-md max-w-[${isMobile ? "200px" : "300px"}]`}>
+        <div className="text-small-semibold sm:text-base-semibold">{label}</div>
+        <div className="grid grid-cols-2 gap-1 sm:gap-2 mt-1 sm:mt-2">
+          <div className="text-tiny-medium sm:text-small-medium text-muted-foreground">Замовлень:</div>
+          <div className="text-tiny-medium sm:text-small-semibold text-right">{data.totalOrders}</div>
+
+          <div className="text-tiny-medium sm:text-small-medium text-muted-foreground">Загальна ціна:</div>
+          <div className="text-tiny-medium sm:text-small-semibold text-emerald-600 text-right">
+            {new Intl.NumberFormat("uk-UA", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }).format(data.totalValue)}
+          </div>
+
+          <div className="text-tiny-medium sm:text-small-medium text-muted-foreground">Продано товару:</div>
+          <div className="text-tiny-medium sm:text-small-semibold text-right">{totalProductsSold}</div>
+
+          <div className="text-tiny-medium sm:text-small-medium text-muted-foreground">Середня вартість:</div>
+          <div className="text-tiny-medium sm:text-small-semibold text-emerald-600 text-right">
+            {new Intl.NumberFormat("uk-UA", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }).format(averageOrderValue)}
+          </div>
+        </div>
       </div>
-    );
+    )
   }
-  return null;
-};
+
+  return null
+}
+
+export default Dashboard
+

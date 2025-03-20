@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
@@ -12,7 +12,7 @@ import { userSchema } from "@/lib/validations/user"
 import { Label } from "@/components/ui/label"
 import OwnerContent from "../admin-components/OwnerContent"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, X } from "lucide-react"
+import { Edit, X, User, Mail, Phone, ShieldCheck } from 'lucide-react'
 import { editUser } from "@/lib/actions/user.actions"
 
 type FormData = z.infer<typeof userSchema> & { role: "User" | "Admin" }
@@ -43,8 +43,8 @@ export function EditUserForm({
   })
 
   const handleSubmit = async (values: FormData) => {
-    if (roleChanged && values.role === "Admin" && adminConfirmation !== "Yes") {
-      form.setError("role", { message: 'Please type "Yes" to confirm admin role' })
+    if (roleChanged && values.role === "Admin" && adminConfirmation !== "Так") {
+      form.setError("role", { message: 'Введіть "Так" для підтвердження ролі адміністратора' })
       return
     }
 
@@ -68,152 +68,180 @@ export function EditUserForm({
   }
 
   return (
-    <div className="w-full mt-10 bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-heading2-bold text-gray-900">Особиста інформація</h2>
-        <Button onClick={() => setIsEditing(!isEditing)} className="text-base-semibold text-white">
-          {isEditing ? <><X className="size-5 mr-2"/>Cancel</> :  <><Edit className="size-5 mr-2"/>Edit</>}
+    <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <div className="flex justify-between items-center px-4 py-3 bg-slate-50 border-b border-slate-200">
+        <h2 className="text-heading3-bold text-slate-800">Особиста інформація</h2>
+        <Button 
+          onClick={() => setIsEditing(!isEditing)} 
+          variant={isEditing ? "outline" : "default"}
+          size="sm"
+          className={`text-small-semibold ${isEditing ? "border-slate-200 text-slate-700" : "text-white"}`}
+        >
+          {isEditing ? <><X className="h-4 w-4 mr-1.5"/>Скасувати</> : <><Edit className="h-4 w-4 mr-1.5"/>Редагувати</>}
         </Button>
       </div>
 
       {isEditing ? (
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-base-semibold text-gray-700">Ім&apos;я</FormLabel>
-                  <FormControl>
-                    <Input {...field} className="text-body-normal" />
-                  </FormControl>
-                  <FormMessage className="text-small-regular text-red-500" />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="surname"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-base-semibold text-gray-700">Прізвище</FormLabel>
-                  <FormControl>
-                    <Input {...field} className="text-body-normal" />
-                  </FormControl>
-                  <FormMessage className="text-small-regular text-red-500" />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-base-semibold text-gray-700">Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" {...field} className="text-body-normal" />
-                  </FormControl>
-                  <FormMessage className="text-small-regular text-red-500" />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-base-semibold text-gray-700">Номер телефону</FormLabel>
-                  <FormControl>
-                    <Input type="tel" {...field} className="text-body-normal" />
-                  </FormControl>
-                  <FormMessage className="text-small-regular text-red-500" />
-                </FormItem>
-              )}
-            />
-            <OwnerContent role={currentUser.role}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="role"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base-semibold text-gray-700">Role</FormLabel>
-                    <Select onValueChange={(value) => {field.onChange(value), setRoleChanged(true)}} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="text-body-normal">
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="User">User</SelectItem>
-                        <SelectItem value="Admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="text-small-regular text-red-500" />
+                    <FormLabel className="text-small-semibold text-slate-700">Ім&apos;я</FormLabel>
+                    <FormControl>
+                      <Input {...field} className="text-small-medium h-9" />
+                    </FormControl>
+                    <FormMessage className="text-subtle-medium text-red-500" />
                   </FormItem>
                 )}
               />
-              {roleChanged && form.getValues("role") === "Admin" && (
-                <div className="space-y-2 mt-4">
-                  <Label htmlFor="admin-confirmation" className="text-base-medium text-gray-700">
-                    Type <span className="text-red-500">Yes</span> to confirm
-                  </Label>
-                  <Input
-                    id="admin-confirmation"
-                    value={adminConfirmation}
-                    onChange={(e) => setAdminConfirmation(e.target.value)}
-                    placeholder="Type 'Yes' to confirm"
-                    className="text-body-normal"
-                  />
-                </div>
-              )}
+              <FormField
+                control={form.control}
+                name="surname"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-small-semibold text-slate-700">Прізвище</FormLabel>
+                    <FormControl>
+                      <Input {...field} className="text-small-medium h-9" />
+                    </FormControl>
+                    <FormMessage className="text-subtle-medium text-red-500" />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-small-semibold text-slate-700">Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} className="text-small-medium h-9" />
+                    </FormControl>
+                    <FormMessage className="text-subtle-medium text-red-500" />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-small-semibold text-slate-700">Номер телефону</FormLabel>
+                    <FormControl>
+                      <Input type="tel" {...field} className="text-small-medium h-9" />
+                    </FormControl>
+                    <FormMessage className="text-subtle-medium text-red-500" />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <OwnerContent role={currentUser.role}>
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-small-semibold text-slate-700 flex items-center">
+                        <ShieldCheck className="h-4 w-4 mr-1.5 text-slate-500" />
+                        Роль користувача
+                      </FormLabel>
+                      <Select onValueChange={(value) => {field.onChange(value), setRoleChanged(true)}} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="text-small-medium h-9 w-full md:w-1/2">
+                            <SelectValue placeholder="Оберіть роль" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="User" className="text-small-medium">Користувач</SelectItem>
+                          <SelectItem value="Admin" className="text-small-medium">Адміністратор</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-subtle-medium text-red-500" />
+                    </FormItem>
+                  )}
+                />
+                {roleChanged && form.getValues("role") === "Admin" && (
+                  <div className="mt-3 w-full md:w-1/2">
+                    <Label htmlFor="admin-confirmation" className="text-small-medium text-slate-700">
+                      Введіть <span className="text-red-500 font-medium">Так</span> для підтвердження
+                    </Label>
+                    <Input
+                      id="admin-confirmation"
+                      value={adminConfirmation}
+                      onChange={(e) => setAdminConfirmation(e.target.value)}
+                      placeholder="Введіть 'Так' для підтвердження"
+                      className="text-small-medium h-9 mt-1"
+                    />
+                  </div>
+                )}
+              </div>
             </OwnerContent>
-            <Button type="submit" className="w-full text-base-semibold text-white">
-              Save
-            </Button>
+            
+            <div className="mt-4 flex justify-end">
+              <Button type="submit" size="sm" className="text-small-semibold text-white">
+                Зберегти зміни
+              </Button>
+            </div>
           </form>
         </Form>
       ) : (
-        <div className="space-y-4">
-          {user.name && (
-            <p className="text-body-medium text-gray-800">
-              Ім&apos;я: <span className="text-body-semibold">{user.name}</span>
-            </p>
-          )}
-          {user.surname && (
-            <p className="text-body-medium text-gray-800">
-              Прізвище: <span className="text-body-semibold">{user.surname}</span>
-            </p>
-          )}
-          <p className="text-body-medium text-gray-800">
-            Email:{" "}
-            <Link
-              href={`mailto:${user.email}`}
-              className="text-primary-experimental hover:underline text-body-semibold"
-            >
-              {user.email}
-            </Link>
-          </p>
-          {user.phoneNumber && (
-            <p className="text-body-medium text-gray-800">
-              Номер телефону:{" "}
-              <Link
-                href={`tel:${user.phoneNumber}`}
-                className="text-primary-experimental hover:underline text-body-semibold"
-              >
-                {user.phoneNumber}
-              </Link>
-            </p>
-          )}
-          <p className="text-body-medium text-gray-800">
-            Role:{" "}
-            <span className={`text-body-semibold ${user.role === "Admin" ? "text-red-500" : "text-green-500"}`}>
-              {user.role}
-            </span>
-          </p>
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6">
+            <div className="flex items-start">
+              <User className="h-4 w-4 mt-0.5 mr-2 text-slate-500" />
+              <div>
+                <p className="text-small-regular text-slate-500">Повне ім'я</p>
+                <p className="text-base-medium text-slate-800">
+                  {user.name} {user.surname}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start">
+              <Mail className="h-4 w-4 mt-0.5 mr-2 text-slate-500" />
+              <div>
+                <p className="text-small-regular text-slate-500">Email</p>
+                <Link
+                  href={`mailto:${user.email}`}
+                  className="text-base-medium text-primary-experimental hover:underline"
+                >
+                  {user.email}
+                </Link>
+              </div>
+            </div>
+            
+            {user.phoneNumber && (
+              <div className="flex items-start">
+                <Phone className="h-4 w-4 mt-0.5 mr-2 text-slate-500" />
+                <div>
+                  <p className="text-small-regular text-slate-500">Номер телефону</p>
+                  <Link
+                    href={`tel:${user.phoneNumber}`}
+                    className="text-base-medium text-primary-experimental hover:underline"
+                  >
+                    {user.phoneNumber}
+                  </Link>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex items-start">
+              <ShieldCheck className="h-4 w-4 mt-0.5 mr-2 text-slate-500" />
+              <div>
+                <p className="text-small-regular text-slate-500">Роль користувача</p>
+                <p className={`text-base-medium ${user.role === "Admin" ? "text-red-500" : "text-green-500"}`}>
+                  {user.role === "Admin" ? "Адміністратор" : "Користувач"}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
   )
 }
-

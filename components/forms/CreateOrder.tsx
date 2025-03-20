@@ -71,34 +71,34 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
   }));
 
   const onSubmit = async (values: z.infer<typeof OrderValidation>) => {
-    // const createdOrder = await createOrder({
-    //   products: products,
-    //   userId: userId,
-    //   value: priceToPay,
-    //   name: values.name,
-    //   surname: values.surname,
-    //   phoneNumber: values.phoneNumber,
-    //   email: values.email,
-    //   paymentType: values.paymentType,
-    //   deliveryMethod: values.deliveryMethod,
-    //   city: values.city,
-    //   adress: values.adress,
-    //   postalCode: values.postalCode,
-    //   comment: values.comment,
-    // }, "json");
+    const createdOrder = await createOrder({
+      products: products,
+      userId: userId,
+      value: priceToPay,
+      name: values.name,
+      surname: values.surname,
+      phoneNumber: values.phoneNumber,
+      email: values.email,
+      paymentType: values.paymentType,
+      deliveryMethod: values.deliveryMethod,
+      city: values.city,
+      adress: values.adress,
+      postalCode: values.postalCode,
+      comment: values.comment,
+    }, "json");
 
-    // const order = JSON.parse(createdOrder);
+    const order = JSON.parse(createdOrder);
 
-    // trackFacebookEvent("Purchase", {
-    //   value: priceToPay,
-    //   currency: "UAH",
-    //   content_ids: cartData.map((product: CartProduct) => product.id),
-    // });
+    trackFacebookEvent("Purchase", {
+      value: priceToPay,
+      currency: "UAH",
+      content_ids: cartData.map((product: CartProduct) => product.id),
+    });
     
     window.scrollTo({ top: 0, behavior: "smooth" })
     setCartData([]);
     setIsOrderCreated(true);
-    // setOrderId(order.id);
+    setOrderId(order.id);
     setTimeout(() => setShowThankYou(true), 3000);
     setTimeout(() => setShowConfetti(true), 3500);
   };

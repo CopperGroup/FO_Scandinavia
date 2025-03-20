@@ -122,10 +122,9 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
   }
 
   return (
-    <div className="w-full max-md:pb-12 bg-white rounded-lg shadow-sm">
+    <div className="w-full max-md:pb-12 bg-white rounded-lg">
       <div className="p-6 border-b">
-        <h2 className="text-heading3-bold mb-2">Управління товарами</h2>
-        <p className="text-base-regular text-muted-foreground">Перегляд, фільтрація та управління товарами</p>
+        <h2 className="text-heading3-bold mb-2">Додавання товарів з xml</h2>
       </div>
 
       <div className="p-6">
