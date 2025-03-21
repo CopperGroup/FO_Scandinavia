@@ -16,7 +16,6 @@ import {
   Tag,
   Package,
   ShoppingCart,
-  PlusCircle,
   Layers,
   ArrowUpDown,
   MoreHorizontal,
@@ -221,9 +220,9 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
   )
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0 max-w-full">
       <div className="border-b border-slate-200 pb-4 sm:pb-8 pt-4 sm:pt-6 -mx-2 sm:-mx-0 px-2 sm:px-0">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-full mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-4">
             <div>
               <h1 className="text-heading3-bold sm:text-heading2-bold">Ваш склад</h1>
@@ -361,8 +360,8 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
               </div>
             ) : (
               // Десктопний вигляд таблиці
-              <div className="overflow-x-auto rounded-md border border-slate-200">
-                <Table>
+              <div className="w-full overflow-auto rounded-md border border-slate-200">
+                <Table className="min-w-full">
                   <TableHeader className="bg-slate-50">
                     <TableRow className="text-small-semibold text-slate-700 hover:bg-slate-50">
                       <TableHead className="w-[50px] text-center">
@@ -372,13 +371,13 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                           className="border-slate-300"
                         />
                       </TableHead>
-                      <TableHead className="text-small-semibold">ID</TableHead>
-                      <TableHead className="text-small-semibold">Постачальник</TableHead>
+                      <TableHead className="text-small-semibold w-[80px]">ID</TableHead>
+                      <TableHead className="text-small-semibold w-[120px]">Постачальник</TableHead>
                       <TableHead className="text-small-semibold">Назва</TableHead>
-                      <TableHead className="text-small-semibold">Доступність</TableHead>
-                      <TableHead className="text-small-semibold text-right">Ціна без знижки</TableHead>
-                      <TableHead className="text-small-semibold text-right">Ціна зі знижкою</TableHead>
-                      <TableHead className="text-small-semibold">Артикул</TableHead>
+                      <TableHead className="text-small-semibold w-[100px]">Доступність</TableHead>
+                      <TableHead className="text-small-semibold text-right w-[120px]">Ціна без знижки</TableHead>
+                      <TableHead className="text-small-semibold text-right w-[120px]">Ціна зі знижкою</TableHead>
+                      <TableHead className="text-small-semibold w-[100px]">Артикул</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -396,9 +395,15 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                               className="border-slate-300"
                             />
                           </TableCell>
-                          <TableCell className="text-small-medium text-slate-600">{product.id}</TableCell>
-                          <TableCell className="text-small-medium text-slate-600">{product.vendor}</TableCell>
-                          <TableCell className="text-small-medium font-medium text-slate-800">{product.name}</TableCell>
+                          <TableCell className="text-small-medium text-slate-600 truncate max-w-[80px]">
+                            {product.id}
+                          </TableCell>
+                          <TableCell className="text-small-medium text-slate-600 truncate max-w-[120px]">
+                            {product.vendor}
+                          </TableCell>
+                          <TableCell className="text-small-medium font-medium text-slate-800 truncate max-w-[200px]">
+                            {product.name}
+                          </TableCell>
                           <TableCell>
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -408,17 +413,19 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                               {product.isAvailable ? "Так" : "Ні"}
                             </span>
                           </TableCell>
-                          <TableCell className="text-small-medium text-right text-slate-600">
+                          <TableCell className="text-small-medium text-right text-slate-600 whitespace-nowrap">
                             {formatter.format(product.price)}
                           </TableCell>
                           <TableCell
-                            className={`text-small-medium text-right ${
+                            className={`text-small-medium text-right whitespace-nowrap ${
                               product.priceToShow < product.price ? "text-red-600 font-medium" : "text-slate-600"
                             }`}
                           >
                             {formatter.format(product.priceToShow)}
                           </TableCell>
-                          <TableCell className="text-small-medium text-slate-600">{product.articleNumber}</TableCell>
+                          <TableCell className="text-small-medium text-slate-600 truncate max-w-[100px]">
+                            {product.articleNumber}
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (

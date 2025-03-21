@@ -502,7 +502,9 @@ export function filterProductsByKey<T extends keyof ProductType>(
   products: ProductType[],
   key: T,
   splitChar?: string,
-  index?: number
+  index?: number,
+  minLength: number = 0,
+  mode: "cut" | "take" = "cut"
 ): ProductType[] {
   const seenValues = new Set<string>();
 
@@ -517,17 +519,73 @@ export function filterProductsByKey<T extends keyof ProductType>(
 
     if (splitChar && index !== undefined) {
       const splitParts = keyValue.split(splitChar);
-      valueToCompare = splitParts[index === -1 ? splitParts.length - 1 : index] ?? keyValue;
+      const selectedPart = splitParts[index === -1 ? splitParts.length - 1 : index] ?? keyValue;
+
+      if (mode === "cut") {
+        const cutValue = splitParts.slice(0, -1).join(splitChar); // Remove the last part
+        valueToCompare = cutValue.length >= minLength ? cutValue : selectedPart;
+      } 
+      
+      if (mode === "take") {
+        if (selectedPart.length >= minLength) {
+          valueToCompare = selectedPart;
+        } else {
+          const remainingParts = splitParts.slice(0, -1).join(splitChar);
+          valueToCompare = remainingParts.length >= minLength ? remainingParts : keyValue;
+        }
+      }
+
+      if (valueToCompare.length < minLength) {
+        for (const part of splitParts) {
+          if (part.length >= minLength) {
+            valueToCompare = part;
+            break;
+          }
+        }
+      }
     }
 
     if (!seenValues.has(valueToCompare)) {
       seenValues.add(valueToCompare);
-      return true; // Keep the first product with this value
+      return true;
     }
 
-    return false; // Skip duplicates
+    return false;
   });
 }
+
+
+export function groupProducts(
+  products: ProductType[]
+): ProductType[] {
+  const seenValues = new Set<string>();
+
+  return products.filter((product) => {
+    const { articleNumber, name } = product;
+
+    if (typeof articleNumber !== "string" || typeof name !== "string") {
+      return true; // Skip filtering if the key values are not strings
+    }
+
+    // Extract relevant parts for comparison
+    const articleParts = articleNumber.split("-");
+    const lastPart = articleParts.pop()!;
+    const baseArticleNumber = articleParts.join("-");
+
+    const firstWordOfName = name.split(" ")[0];
+
+    // Combine the base article number and first word of the name
+    const valueToCompare = `${baseArticleNumber}::${firstWordOfName}`;
+
+    if (!seenValues.has(valueToCompare)) {
+      seenValues.add(valueToCompare);
+      return true;
+    }
+
+    return false;
+  });
+}
+
 
 export function pretifyProductName(productName: string, params: { name: string, value: string }[], articleNumber: string, index: number): string {
   let cleanedName = productName;

@@ -1,58 +1,156 @@
-"use client";
+"use client"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { ChevronDown, StoreIcon } from "lucide-react"
+import { Store } from "@/constants/store"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  useSidebar,
+} from "@/components/ui/sidebar"
+import { sidebarLinkGroups } from "@/constants/adminSidebarLinks"
 
-import { sidebarLinks } from "@/constants";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { Store as StoreIcon } from "lucide-react";
-import { Store } from "@/constants/store";
+export function AdminSidebar() {
+  const pathname = usePathname()
+  const { state } = useSidebar()
+  const isCollapsed = state === "collapsed"
 
+  return (
+    <Sidebar variant="sidebar" collapsible="icon">
+      <SidebarHeader>
+        <div className="flex items-center justify-center gap-2 p-4 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:pt-4">
+          <div className="flex items-center justify-center h-8 w-8 bg-black text-white rounded-full ">
+            <StoreIcon className="h-5 w-5 " />
+          </div>
+          <span className="text-xl font-semibold group-data-[collapsible=icon]:hidden">{Store.name}</span>
+        </div>
+        <p className="text-sm font-medium text-muted-foreground px-4 mb-2 group-data-[collapsible=icon]:hidden">
+          Адмін
+        </p>
+      </SidebarHeader>
+      <SidebarContent>
+        {sidebarLinkGroups.map((group) => {
+          const hasItems = group.items.length > 0
+          const isCollapsible = group.collapsible !== false && group.items.length > 1
 
-const AdminSidebar = () => {
-    const pathname = usePathname();
+          return (
+            <SidebarGroup key={group.title}>
+              {isCollapsible ? (
+                <Collapsible defaultOpen className="group/collapsible">
+                  <SidebarGroupLabel asChild className="group-data-[collapsible=icon]:hidden">
+                    <CollapsibleTrigger className="flex w-full items-center text-sm font-medium px-3 py-2">
+                      {group.title}
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </CollapsibleTrigger>
+                  </SidebarGroupLabel>
+                  <CollapsibleContent>
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {group.items.map((link) => {
+                          const isActive =
+                            (pathname.includes(link.route) && link.route.length > 1) || pathname === link.route
 
-    return (
-        <section className="admin-panel-scrollbar leftsidebar">
-            <div className="flex w-full flex-1 flex-col gap-3 pl-5 max-lg:pl-0">
-                <div className="flex gap-2 items-center">
-                    <Link href="/" className="text-heading3-bold pl-3 max-lg:hidden">{Store.name}</Link>
-                    <Link href="/" className="w-full flex justify-center lg:hidden"><StoreIcon className="size-8 bg-black text-white rounded-full p-1"/></Link>
-                </div>
-                <p className="text-small-x-semibold text-dark-4 pl-3 mt-10 max-lg:hidden">Адмін</p>
-                {sidebarLinks.map((link) => {
-                    const isActive = (pathname.includes(link.route) && link.route.length > 1) || pathname === link.route;
-
-                    return (
-                        <Link
-                            href={link.route}
-                            key={link.label}
-                            className={`leftsidebar_link ${isActive && "bg-muted-normal border-r-[3px] border-black max-lg:border-r-0"}`}
-                        >
-                            <div className="flex gap-2 items-center max-lg:ml-1">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    width={40}
-                                    height={40}
-                                    className={`rounded-full py-2 ml-2 ${isActive ? "stroke-white bg-black" : "stroke-black"}`}
+                          return (
+                            <SidebarMenuItem key={link.label}>
+                              <SidebarMenuButton asChild isActive={isActive} tooltip={link.label}>
+                                <Link
+                                  href={link.route}
+                                  className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center"
                                 >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={1.5}
-                                        d={link.svgPath}
-                                    />
-                                </svg>
-                                <p className={`w-40 max-lg:hidden text-black text-small-x-semibold h-fit ${!isActive && "-ml-2"}`}>{link.label}</p>
-                            </div>
-                        </Link>
-                    );
-                })}     
-            </div>
-        </section>
-    );
-};
+                                  <div
+                                    className={`rounded-full p-1.5 flex items-center justify-center ${isActive ? "bg-black text-white" : "bg-muted"} group-data-[collapsible=icon]:mx-auto`}
+                                  >
+                                    <link.icon className="h-4 w-4" />
+                                  </div>
+                                  <span className="group-data-[collapsible=icon]:hidden">{link.label}</span>
+                                </Link>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          )
+                        })}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <>
+                  {group.items.length === 1 ? (
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {group.items.map((link) => {
+                          const isActive =
+                            (pathname.includes(link.route) && link.route.length > 1) || pathname === link.route
 
-export default AdminSidebar;
+                          return (
+                            <SidebarMenuItem key={link.label}>
+                              <SidebarMenuButton asChild isActive={isActive} tooltip={link.label}>
+                                <Link
+                                  href={link.route}
+                                  className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center"
+                                >
+                                  <div
+                                    className={`rounded-full p-1.5 flex items-center justify-center ${isActive ? "bg-black text-white" : "bg-muted"} group-data-[collapsible=icon]:mx-auto`}
+                                  >
+                                    <link.icon className="h-4 w-4" />
+                                  </div>
+                                  <span className="group-data-[collapsible=icon]:hidden">{link.label}</span>
+                                </Link>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          )
+                        })}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  ) : (
+                    <>
+                      <SidebarGroupLabel className="text-sm font-medium px-3 py-2 group-data-[collapsible=icon]:hidden">
+                        {group.title}
+                      </SidebarGroupLabel>
+                      <SidebarGroupContent>
+                        <SidebarMenu>
+                          {group.items.map((link) => {
+                            const isActive =
+                              (pathname.includes(link.route) && link.route.length > 1) || pathname === link.route
+
+                            return (
+                              <SidebarMenuItem key={link.label}>
+                                <SidebarMenuButton asChild isActive={isActive} tooltip={link.label}>
+                                  <Link
+                                    href={link.route}
+                                    className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center"
+                                  >
+                                    <div
+                                      className={`rounded-full p-1.5 flex items-center justify-center ${isActive ? "bg-black text-white" : "bg-muted"} group-data-[collapsible=icon]:mx-auto`}
+                                    >
+                                      <link.icon className="h-4 w-4" />
+                                    </div>
+                                    <span className="group-data-[collapsible=icon]:hidden">{link.label}</span>
+                                  </Link>
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
+                            )
+                          })}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </>
+                  )}
+                </>
+              )}
+            </SidebarGroup>
+          )
+        })}
+      </SidebarContent>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+

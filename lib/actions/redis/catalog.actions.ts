@@ -103,7 +103,7 @@ export async function fetchAndCreateCatalogChunks() {
     try {
         let filtredProducts = await fetchAllProducts();
 
-        filtredProducts = filterProductsByKey(filtredProducts as ProductType[], "articleNumber", "-", 0)
+        // filtredProducts = filterProductsByKey(filtredProducts as ProductType[], "articleNumber", "-", -1, 3)
 
         await clearCatalogCache();
 

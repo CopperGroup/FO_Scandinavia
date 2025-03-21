@@ -58,7 +58,7 @@ const Loader = () => {
         animate={{ opacity: 0.7 }}
         transition={{ delay: 1, duration: 1 }}
       >
-        © Copper Group E-commerce | 2025 | {Store.name}
+        © Copper Group E-commerce | {new Date().getFullYear()} | {Store.name}
       </motion.div>
     </div>
   )

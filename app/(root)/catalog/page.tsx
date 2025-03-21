@@ -7,7 +7,7 @@ import PaginationForCatalog from '@/components/shared/PaginationForCatalog'
 import { getSession } from '@/lib/getServerSession'
 import BannerSmall from '@/components/banner/BannerSmall'
 import { fetchCatalogWithCache } from '@/lib/actions/redis/catalog.actions'
-import { filterProductsByKey, getCounts, getFiltredProducts, pretifyProductName, processProductParams } from '@/lib/utils'
+import { getCounts, getFiltredProducts, groupProducts, pretifyProductName, processProductParams } from '@/lib/utils'
 import { Metadata } from 'next';
 import { FilterSettingsData } from '@/lib/types/types'
 
@@ -25,7 +25,9 @@ const Catalog = async ({searchParams }:any) => {
 
   // filtredProducts = filterProductsByKey(filtredProducts, "articleNumber", "-", 0);
   
-  const { filterSettings, delay } = filterSettingsData
+  let { filterSettings, delay } = filterSettingsData
+
+  filtredProducts = groupProducts(filtredProducts)
   const email = await getSession()
 
   if(searchParams.sort === 'low_price'){

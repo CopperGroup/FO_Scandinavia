@@ -48,7 +48,7 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
               alt={`Product image ${index + 1}`}
               width={800}
               height={800}
-              className="w-full h-auto object-cover aspect-square"
+              className="w-full h-auto object-contain aspect-square"
               loading={index === 0 ? "eager" : "lazy"}
               priority={index === 0}
             />
