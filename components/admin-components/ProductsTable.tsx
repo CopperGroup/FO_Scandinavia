@@ -220,7 +220,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
   )
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0 max-w-full">
+    <div className="space-y-4 sm:space-y-6 px-3 sm:px-6 max-w-full">
       <div className="border-b border-slate-200 pb-4 sm:pb-8 pt-4 sm:pt-6 -mx-2 sm:-mx-0 px-2 sm:px-0">
         <div className="max-w-full mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-4">

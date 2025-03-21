@@ -5,11 +5,9 @@ const Page = async () => {
   const dashboardData = await getDashboardData()
 
   return (
-    <div className="w-full">
-      <section className="w-full px-5 py-10 max-[420px]:px-0">
-        <Dashboard stringifiedData={JSON.stringify(dashboardData)} />
-      </section>
-    </div>
+    <section className="w-full px-5 py-10 pt-3 max-[420px]:px-2">
+      <Dashboard stringifiedData={JSON.stringify(dashboardData)} />
+    </section>
   )
 }
 
