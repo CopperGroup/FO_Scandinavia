@@ -11,6 +11,8 @@ import { getSession } from "@/lib/getServerSession";
 import { fetchUserByEmail } from "@/lib/actions/user.actions";
 import FacebookPixel from "@/components/pixel/FacebookPixel";
 import PageView from "@/components/pixel/PageView";
+import PurchaseNotification from "@/components/shared/PurhaseNotification";
+import { fetchPurchaseNotificationsInfoCache } from "@/lib/actions/cache";
 
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
@@ -35,7 +37,7 @@ export default async function RootLayout({
   const email = await getSession();
 
   const user = await fetchUserByEmail({email});
-  
+
   return (
       <html lang="uk">
         <body className={inter.className}>

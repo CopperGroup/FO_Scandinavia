@@ -270,3 +270,15 @@ export type PageFilterType = {
     unitParamsValues: string[]
   }
   
+export interface ParsedElement {
+  id: string
+  type: string
+  className?: string
+  style?: Record<string, string>
+  textContent?: string
+  attributes?: Record<string, string>
+  children?: ParsedElement[]
+  originalTag?: string
+  parent?: string
+}
+

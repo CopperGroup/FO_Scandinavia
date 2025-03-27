@@ -8,8 +8,11 @@ import { sleep } from "@/lib/utils";
 import Categories from "@/components/landing/Categories";
 import History from "@/components/landing/History";
 import Brand from "@/components/landing/Brand";
+import { fetchPurchaseNotificationsInfoCache } from "@/lib/actions/cache";
+import PurchaseNotification from "@/components/shared/PurhaseNotification";
 
 export default async function Home() {
+  const products = await fetchPurchaseNotificationsInfoCache();
   
   return (
     <>
@@ -21,6 +24,7 @@ export default async function Home() {
       <Brand/> */}
       {/* <Map/>   */}
       {/* I love Liza❤️‍🔥 */}
+      <PurchaseNotification products={products} minInterval={30000} maxInterval={45000} maxNotifications={3} />
     </>
   );
 }

@@ -560,7 +560,7 @@ export function groupProducts(
 ): ProductType[] {
   const seenValues = new Set<string>();
 
-  return products.filter((product) => {
+  return products.sort((a, b) => a.articleNumber.length - b.articleNumber.length).filter((product) => {
     const { articleNumber, name } = product;
 
     if (typeof articleNumber !== "string" || typeof name !== "string") {
@@ -569,13 +569,11 @@ export function groupProducts(
 
     // Extract relevant parts for comparison
     const articleParts = articleNumber.split("-");
-    const lastPart = articleParts.pop()!;
-    const baseArticleNumber = articleParts.join("-");
 
     const firstWordOfName = name.split(" ")[0];
 
     // Combine the base article number and first word of the name
-    const valueToCompare = `${baseArticleNumber}::${firstWordOfName}`;
+    const valueToCompare = `${articleParts[0]}::${firstWordOfName}`;
 
     if (!seenValues.has(valueToCompare)) {
       seenValues.add(valueToCompare);

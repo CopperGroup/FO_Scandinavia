@@ -27,12 +27,12 @@ export function AdminSidebar() {
   return (
     <Sidebar variant="sidebar" collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center justify-center gap-2 p-4 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:pt-4">
+        <Link href="/" className="flex items-center justify-center gap-2 p-4 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:pt-4">
           <div className="flex items-center justify-center h-8 w-8 bg-black text-white rounded-full ">
             <StoreIcon className="h-5 w-5 " />
           </div>
           <span className="text-xl font-semibold group-data-[collapsible=icon]:hidden">{Store.name}</span>
-        </div>
+        </Link>
         <p className="text-sm font-medium text-muted-foreground px-4 mb-2 group-data-[collapsible=icon]:hidden">
           Адмін
         </p>

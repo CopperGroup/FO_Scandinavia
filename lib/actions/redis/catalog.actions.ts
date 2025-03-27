@@ -5,7 +5,7 @@ import { fetchAllProducts } from "../product.actions";
 import { getCategoriesNamesIdsTotalProducts } from "../categories.actions";
 import { getFilterSettingsAndDelay } from "../filter.actions";
 import { FilterSettingsData, ProductType } from "@/lib/types/types";
-import { filterProductsByKey } from "@/lib/utils";
+import { filterProductsByKey, groupProducts } from "@/lib/utils";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { cache } from "react";
 
@@ -101,10 +101,11 @@ export async function fetchCatalog () {
 
 export async function fetchAndCreateCatalogChunks() {
     try {
-        let filtredProducts = await fetchAllProducts();
+        let filtredProducts: any = await fetchAllProducts();
 
         // filtredProducts = filterProductsByKey(filtredProducts as ProductType[], "articleNumber", "-", -1, 3)
-
+        filtredProducts = groupProducts(filtredProducts)
+        
         await clearCatalogCache();
 
         return filtredProducts;

@@ -10,6 +10,7 @@ import { fetchCatalogWithCache } from '@/lib/actions/redis/catalog.actions'
 import { getCounts, getFiltredProducts, groupProducts, pretifyProductName, processProductParams } from '@/lib/utils'
 import { Metadata } from 'next';
 import { FilterSettingsData } from '@/lib/types/types'
+import PurchaseNotification from '@/components/shared/PurhaseNotification'
 
 export const metadata: Metadata = {
   title: "Catalog",
@@ -27,7 +28,7 @@ const Catalog = async ({searchParams }:any) => {
   
   let { filterSettings, delay } = filterSettingsData
 
-  filtredProducts = groupProducts(filtredProducts)
+  // filtredProducts = groupProducts(filtredProducts)
   const email = await getSession()
 
   if(searchParams.sort === 'low_price'){
@@ -90,54 +91,57 @@ const Catalog = async ({searchParams }:any) => {
       max = min+12
   } 
   return (
-    <section className='relative'>
-      <BannerSmall/>
-      <div className="relative flex mt-12">
-        <Filter  
-         category={searchParams.category} 
-         minPrice={minPrice} 
-         maxPrice={maxPrice} 
-         categories={categories}
-         checkParams={{vendors}} 
-         selectParams={selectParams}
-         unitParams={unitParams}
-         delay={delay}
-         counts={counts}
-        />
-        <div className='w-full'>
-          <div className='w-full flex gap-2 justify-center items-center px-6 ml-auto max-md:w-full max-[560px]:px-10 max-[450px]:px-4'>
-            <Search initialSearchText={searchParams.search}/>
-            
-          </div> 
-        
-          <div className='grid auto-cols-max gap-4 mt-8 grid-cols-4 px-4 max-2xl:grid-cols-3 max-lg:grid-cols-2 max-[560px]:grid-cols-1 max-[560px]:px-10 max-[450px]:px-4'>
-            {filtredProducts
-            .slice(min, max)
-            .map((product) =>(
-              <div key={product.id}>
-               
-                <ProductCard 
-                  id={product._id}
-                  productId={product.id}
-                  email={email}
-                  url={product._id} 
-                  price={product.price} 
-                  imageUrl={product.images[0]} 
-                  description={product.description.replace(/[^а-яА-ЯіІ]/g, ' ').substring(0, 35) + '...'}  
-                  priceToShow={product.priceToShow} 
-                  name={pretifyProductName(product.name, [], product.articleNumber || "", 0)}
-                  // @ts-ignore
-                  likedBy={product.likedBy}
-                />
-             
-              </div>
+    <>
+      <section className='relative'>
+        <BannerSmall/>
+        <div className="relative flex mt-12">
+          <Filter  
+          category={searchParams.category} 
+          minPrice={minPrice} 
+          maxPrice={maxPrice} 
+          categories={categories}
+          checkParams={{vendors}} 
+          selectParams={selectParams}
+          unitParams={unitParams}
+          delay={delay}
+          counts={counts}
+          />
+          <div className='w-full'>
+            <div className='w-full flex gap-2 justify-center items-center px-6 ml-auto max-md:w-full max-[560px]:px-10 max-[450px]:px-4'>
+              <Search initialSearchText={searchParams.search}/>
+              
+            </div> 
+          
+            <div className='grid auto-cols-max gap-4 mt-8 grid-cols-4 px-4 max-2xl:grid-cols-3 max-lg:grid-cols-2 max-[560px]:grid-cols-1 max-[560px]:px-10 max-[450px]:px-4'>
+              {filtredProducts
+              .slice(min, max)
+              .map((product) =>(
+                <div key={product.id}>
+                
+                  <ProductCard 
+                    id={product._id}
+                    productId={product.id}
+                    email={email}
+                    url={product._id} 
+                    price={product.price} 
+                    imageUrl={product.images[0]} 
+                    description={product.description.replace(/[^а-яА-ЯіІ]/g, ' ').substring(0, 35) + '...'}  
+                    priceToShow={product.priceToShow} 
+                    name={pretifyProductName(product.name, [], product.articleNumber || "", 0)}
+                    // @ts-ignore
+                    likedBy={product.likedBy}
+                  />
+              
+                </div>
 
-            ))}        
+              ))}        
+            </div>
+            <PaginationForCatalog minPrice={minPrice} maxPrice={maxPrice} countOfPages={countOfPages} />
           </div>
-          <PaginationForCatalog minPrice={minPrice} maxPrice={maxPrice} countOfPages={countOfPages} />
         </div>
-      </div>
-    </section>
+      </section>
+      <PurchaseNotification products={filtredProducts.map(p => ({ id: p._id.toString(), name: pretifyProductName(p.name, [], p.articleNumber || "", 0), image: p.images[0] }))} minInterval={30000} maxInterval={45000} maxNotifications={3} />
+    </>
   )
 };
 

@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cache } from "react";
 import { ProductType } from "../types/types";
-import { fetchProductAndRelevantParams } from "./product.actions";
+import { fetchProductAndRelevantParams, fetchPurchaseNotificationsInfo } from "./product.actions";
 import { Store } from "@/constants/store";
 
 const paths = {
@@ -195,5 +195,17 @@ export const fetchProductPageInfo = cache(
     }
   );
   
-  
+export const fetchPurchaseNotificationsInfoCache = cache(
+    unstable_cache(
+        async () => {
+            const info = await fetchPurchaseNotificationsInfo();
+
+            return info
+        },
+        ['purchaseNotificationsInfo'],
+        { 
+          tags: [`${Store.name}-product`],
+        }
+    )
+)
   

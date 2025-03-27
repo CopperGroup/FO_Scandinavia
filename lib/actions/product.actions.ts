@@ -11,6 +11,7 @@ import clearCache from "./cache";
 import { createNewCategory, updateCategories } from "./categories.actions";
 import Category from "../models/category.model";
 import { startSession } from "mongoose";
+import { pretifyProductName } from "../utils";
 
 interface CreateParams {
     _id?: string,
@@ -605,33 +606,25 @@ export async function fetchProductAndRelevantParams(
     }
 
     let valueToCompare = currentProduct[key] as string;
-    if (splitChar && index !== undefined) {
-      const splitParts = valueToCompare.split(splitChar);
-      valueToCompare = splitParts[index === -1 ? splitParts.length - 1 : index] ?? valueToCompare;
-    }
 
     // Find products with the same base value (excluding the current product)
     const similarProducts = await Product.find({
         _id: { $ne: currentProductId },
         isAvailable: true,
-        $expr: index === -1 
-          ? {
-              $eq: [
-                { $arrayElemAt: [
-                    { $split: [`$${key}`, splitChar] }, 
-                    { $subtract: [{ $size: { $split: [`$${key}`, splitChar] } }, 1] }
-                  ] 
+        $expr: {
+            $eq: [
+                { 
+                    $concat: [
+                        { $arrayElemAt: [{ $split: [`$${key}`, splitChar] }, 0] },
+                        "::",
+                        { $arrayElemAt: [{ $split: ["$name", " "] }, 0] }
+                    ] 
                 },
-                valueToCompare
-              ]
-            }
-          : {
-              $eq: [
-                { $arrayElemAt: [{ $split: [`$${key}`, splitChar] }, index] },
-                valueToCompare
-              ]
-            }
-      });
+                `${valueToCompare.split("-")[0]}::${currentProduct.name.split(" ")[0]}`
+            ]
+        }
+    });
+
 
     const paramCounts: Record<string, Set<string>> = {};
 
@@ -648,17 +641,19 @@ export async function fetchProductAndRelevantParams(
     
     const paramDifferences: ParamDifference = {};
     
+    const allowedParams = ["Розмір", "розмір", "Size", "size"] 
     // Keep only params with more than one unique value
     for (const [paramName, values] of Object.entries(paramCounts)) {
-      if (values.size > 1) {
-        paramDifferences[paramName] = Array.from(values).map((value) => ({
-          _id: similarProducts.find((p) =>
-            p.params?.some((param: { name: string; value: string; }) => param.name === paramName && param.value === value)
-          )?._id.toString() || currentProduct._id.toString(),
-          value,
-        }));
+      if (values.size > 1 && allowedParams.includes(paramName)) {  // Only include allowed params
+          paramDifferences[paramName] = Array.from(values).map((value) => ({
+              _id: similarProducts.find((p) =>
+                  p.params?.some((param: { name: string; value: string; }) => param.name === paramName && param.value === value)
+              )?._id.toString() || currentProduct._id.toString(),
+              value,
+          }));
       }
     }
+  
     
 
     return {
@@ -713,3 +708,15 @@ export async function fetchPreviewProduct({ param }: { param: string }, type?: '
 //      throw new Error(`${error.message}`)
 //    }
 // }
+
+export async function fetchPurchaseNotificationsInfo(): Promise<{ id: string, name: string, image: string }[]> {
+  try {
+    await connectToDB();
+
+    const products = await Product.find({_id: {$ne: DELETEDPRODUCT_ID}, isAvailable: true, quantity: { $gt: 0 }})
+
+    return products.map(p => ({ id: p._id.toString(), name: pretifyProductName(p.name, [], p.articleNumber || "", 0), image: p.images[0] }))
+  } catch (error: any) {
+    throw new Error(`Error finding purchase notifications info: ${error.message}`)
+  }
+}

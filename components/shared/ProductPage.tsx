@@ -69,7 +69,7 @@ export default function ProductPage({ productJson, selectParams }: { productJson
                         <div className="space-y-6">
                             <div>
                                 <h1 className="text-heading2-bold mb-2" itemProp="name">{pretifiedName}</h1>
-                                <p className="text-base-regular text-gray-600" itemProp="category">{product.category}</p>
+                                {/* <p className="text-base-regular text-gray-600" itemProp="category">{product.category}</p> */}
                             </div>
 
                             <div className="flex items-center space-x-4 flex-wrap">
