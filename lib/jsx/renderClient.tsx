@@ -29,6 +29,7 @@ const importedComponentsRef: Record<string, FC> = {};
 const preloadComponents = (imports: Record<string, string>) => {
   Object.entries(imports).forEach(([name, path]) => {
     if (!importedComponentsRef[name]) {
+    // @ts-ignore
       importedComponentsRef[name] = dynamic(
         () => import(`@/components/ui/${path}`).then((module) => ({ default: module[name] })),
         { ssr: false }
@@ -90,5 +91,7 @@ const JSXRenderer: FC<JSXRendererProps> = memo(({ jsxString, imports }) => {
     </Suspense>
   );
 });
+
+JSXRenderer.displayName = "JSXRenderer";
 
 export default JSXRenderer;
