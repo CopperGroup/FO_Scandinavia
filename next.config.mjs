@@ -4,7 +4,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-      domains: ['shop.juventa.ua', 'utfs.io', 'uploadthing.com', "www.sveamoda.com.ua"], // Add the external hostname here
+      domains: ['shop.juventa.ua', 'utfs.io', 'uploadthing.com', "www.sveamoda.com.ua", "sveamoda.com.ua"], // Add the external hostname here
       remotePatterns: [
         {
           protocol: "https",

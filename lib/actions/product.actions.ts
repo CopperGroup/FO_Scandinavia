@@ -601,8 +601,8 @@ export async function fetchProductAndRelevantParams(
     connectToDB();
 
     const currentProduct = await Product.findById(currentProductId);
-    if (!currentProduct || typeof currentProduct[key] !== "string") {
-      throw new Error("Current product not found or key is not a string");
+    if (!currentProduct) {
+      throw new Error("Current product not found");
     }
 
     let valueToCompare = currentProduct[key] as string;
