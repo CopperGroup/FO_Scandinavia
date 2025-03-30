@@ -1,4 +1,6 @@
 import JSXRenderer from "@/lib/jsx/renderClient";
+import { headers } from "next/headers";
+
 
 export const Page = () => {
   const imports: Record<string, string> = {

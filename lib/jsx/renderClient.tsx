@@ -12,7 +12,6 @@ interface JSXRendererProps {
 
 const componentCache = new Map<string, FC>(); // Cache compiled components
 let globalWorker: Worker | null = null; // Singleton Worker
-let lastJSXString = "";
 
 const getWorker = () => {
   if (!globalWorker) {
@@ -46,16 +45,16 @@ const JSXRenderer: FC<JSXRendererProps> = memo(({ jsxString, imports }) => {
   }, [imports]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || jsxString === lastJSXString) return;
-
+    if (typeof window === "undefined") return;
+  
+    // Remove the lastJSXString check so it always re-renders
     if (componentCache.has(jsxString)) {
       setComponent(() => componentCache.get(jsxString)!);
       return;
     }
-
-    lastJSXString = jsxString;
+  
     const worker = getWorker();
-    
+  
     worker.onmessage = (event: MessageEvent) => {
       const { compiledCode, error } = event.data;
       if (error) {
@@ -72,16 +71,21 @@ const JSXRenderer: FC<JSXRendererProps> = memo(({ jsxString, imports }) => {
           ...Object.keys(importedComponentsRef),
           `return ${compiledCode}`
         )(React, useState, useEffect, Image, Link, ...Object.values(importedComponentsRef));
-        
+  
         componentCache.set(jsxString, DynamicComponent);
         setComponent(() => DynamicComponent);
       } catch (err) {
         console.error("Error constructing component:", err);
       }
     };
-    
+  
     worker.postMessage({ jsxString, imports });
+  
+    return () => {
+      worker.onmessage = null; // Clean up
+    };
   }, [jsxString, imports]);
+  
 
   if (!Component) return <p>Loading...</p>;
 
