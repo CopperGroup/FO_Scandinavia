@@ -9,7 +9,7 @@ import ConnectionLine from './ConnectionLine'
 import { Config, Connection } from '@/lib/types/types'
 import { generateConfigurator } from '@/lib/xml-parser/generateConfigurator'
 import { stages } from '@/components/admin-components/parseXML/XMLParser'
-import { useXmlParser } from '@/app/admin/context'
+import { useXmlParser } from '@/app/admin/(root)/context'
 import { connectionCardsDefault } from '@/constants/connection.cards'
 import generateSample from '@/lib/xml-parser/generateSample'
 
