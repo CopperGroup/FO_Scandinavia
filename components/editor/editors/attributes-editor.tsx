@@ -470,7 +470,7 @@ const AttributesEditor: React.FC<AttributesEditorProps> = ({ element, updateElem
           </div>
         ) : (
           <div className="text-xs text-gray-500 p-3 border rounded-md bg-gray-50 text-center">
-            No optional attributes set. Click "Add Attribute" to add one.
+            No optional attributes set. Click &quot;Add Attribute&quot; to add one.
           </div>
         )}
       </div>
