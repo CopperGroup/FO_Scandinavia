@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/use-toast"
 import type { stages } from "./XMLParser"
 import getTagsMap from "@/lib/xml-parser/getTagsMap"
-import { useXmlParser } from "@/app/admin/context"
+import { useXmlParser } from "@/app/admin/(root)/context"
 import axios from "axios"
 
 export default function XmlProcessor({

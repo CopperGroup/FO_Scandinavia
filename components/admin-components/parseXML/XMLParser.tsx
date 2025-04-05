@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
 import XmlProcessor from './XMLProcessor';
 import Connector from '@/components/interface/connector/Connector';
 import SelectConfigurator from './SelectConfigurator';

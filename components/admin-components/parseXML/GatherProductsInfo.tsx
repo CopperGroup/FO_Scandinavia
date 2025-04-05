@@ -1,13 +1,13 @@
 "use client";
 
-import { columns } from "@/app/admin/fetchUrl/columns";
-import { DataTable } from "@/app/admin/fetchUrl/data-table";
+import { columns } from "@/app/admin/(root)/fetchUrl/columns";
+import { DataTable } from "@/app/admin/(root)/fetchUrl/data-table";
 import { useState, useEffect } from 'react';
 import { Skeleton } from "../../ui/skeleton";
 import axios from "axios";
 import Connector from "../../interface/connector/Connector";
 import getProductsData from "@/lib/xml-parser/fetchProducts";
-import { useXmlParser } from "@/app/admin/context";
+import { useXmlParser } from "@/app/admin/(root)/context";
 import { Config, FetchedCategory } from "@/lib/types/types";
 
 interface Product {

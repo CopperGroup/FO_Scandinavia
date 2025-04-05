@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useXmlParser } from '@/app/admin/context'
+import { useXmlParser } from '@/app/admin/(root)/context'
 import { stages } from './XMLParser'
 import { Store } from '@/constants/store'
 
