@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { CategoriesParams, FilterType, ProductType, TypeScriptPrimitiveTypes } from "./types/types";
+import { PageType } from "./models/page.model";
 
 
 export function cn(...inputs: ClassValue[]) {
@@ -616,3 +617,31 @@ export function pretifyProductName(productName: string, params: { name: string, 
 }
 
 
+type DataInputItem = Readonly<{ name: string; value?: string | null | undefined }>;
+
+export function transformPageDataInputs<
+    T extends ReadonlyArray<DataInputItem>
+>(
+    dataInputs: T | undefined | null
+): {
+    [P in T[number]['name']]: Extract<T[number], { name: P }>['value'];
+} {
+    if (!dataInputs) {
+        return {} as any;
+    }
+
+    console.log(dataInputs)
+    const transformedObject = dataInputs.reduce<Record<string, string | undefined | null>>((accumulator, currentInput) => {
+        const key = currentInput?.name;
+        const value = currentInput?.value;
+
+        if (key) {
+            accumulator[key] = value;
+        }
+        return accumulator;
+    }, {});
+
+    return transformedObject as {
+        [P in T[number]['name']]: Extract<T[number], { name: P }>['value'];
+    };
+}

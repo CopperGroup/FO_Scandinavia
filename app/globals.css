@@ -3,6 +3,19 @@
 @tailwind utilities;
 @import '@fortawesome/fontawesome-free/css/all.min.css';
 
+@theme {
+  --color-blue-50: oklch(0.97 0.014 254.604);
+  --color-blue-100: oklch(0.932 0.032 255.585);
+  --color-blue-200: oklch(0.882 0.059 254.128);
+  --color-blue-300: oklch(0.809 0.105 251.813);
+  --color-blue-400: oklch(0.707 0.165 254.624);
+  --color-blue-500: oklch(0.623 0.214 259.815);
+  --color-blue-600: oklch(0.546 0.245 262.881);
+  --color-blue-700: oklch(0.488 0.243 264.376);
+  --color-blue-800: oklch(0.424 0.199 265.638);
+  --color-blue-900: oklch(0.379 0.146 265.522);
+  --color-blue-950: oklch(0.282 0.091 267.935);
+}
 
 @layer components {
   /* main */
@@ -431,75 +444,6 @@ h1{
 
 /* Додаткові стилі для країв та плавності прокрутки */
 
-
-.theme-light {
-  --brand-primary: rgb(47, 112, 193);
-  --brand-secondary: rgb(116, 97, 195);
-  --brand-alternative: rgb(19, 120, 134);
-  --background-site: rgb(249, 249, 249);
-  --background-code: rgb(244, 244, 244);
-  --text-body: rgb(54, 49, 61);
-  --text-comment: rgb(99, 94, 105);
-  --text-high-contrast: rgb(49, 49, 49);
-  --text-medium-contrast: rgb(99, 94, 105);
-  --text-low-contrast: rgb(116, 109, 118);
-  --detail-high-contrast: rgb(192, 192, 192);
-  --detail-medium-contrast: rgb(234, 234, 234);
-  --detail-low-contrast: rgb(240, 240, 242);
-  --admonition-note: rgb(46, 109, 188);
-  --admonition-warning: rgb(255, 196, 9);
-  --admonition-danger: rgb(220, 38, 38);
-  --brand-primary-rgb-value: 47, 112, 193;
-  --brand-secondary-rgb-value: 116, 97, 195;
-  --brand-alternative-rgb-value: 19, 120, 134;
-  --background-site-rgb-value: 249, 249, 249;
-  --background-code-rgb-value: 244, 244, 244;
-  --text-body-rgb-value: 54, 49, 61;
-  --text-comment-rgb-value: 99, 94, 105;
-  --text-high-contrast-rgb-value: 49, 49, 49;
-  --text-medium-contrast-rgb-value: 99, 94, 105;
-  --text-low-contrast-rgb-value: 116, 109, 118;
-  --detail-high-contrast-rgb-value: 192, 192, 192;
-  --detail-medium-contrast-rgb-value: 234, 234, 234;
-  --detail-low-contrast-rgb-value: 240, 240, 242;
-  --admonition-note-rgb-value: 46, 109, 188;
-  --admonition-warning-rgb-value: 255, 196, 9;
-  --admonition-danger-rgb-value: 220, 38, 38;
-}
-.theme-dark {
-  --brand-primary: rgb(138, 180, 248);
-  --brand-secondary: rgb(193, 168, 226);
-  --brand-alternative: rgb(136, 186, 191);
-  --background-site: rgb(0, 0, 0);
-  --background-code: rgb(12, 12, 12);
-  --text-body: rgb(222, 222, 222);
-  --text-comment: rgb(170, 170, 170);
-  --text-high-contrast: rgb(230, 230, 230);
-  --text-medium-contrast: rgb(202, 202, 202);
-  --text-low-contrast: rgb(170, 170, 170);
-  --detail-high-contrast: rgb(101, 101, 101);
-  --detail-medium-contrast: rgb(25, 25, 25);
-  --detail-low-contrast: rgb(21, 21, 21);
-  --admonition-note: rgb(138, 180, 248);
-  --admonition-warning: rgb(253, 186, 116);
-  --admonition-danger: rgb(220, 38, 38);
-  --brand-primary-rgb-value: 138, 180, 248;
-  --brand-secondary-rgb-value: 193, 168, 226;
-  --brand-alternative-rgb-value: 136, 186, 191;
-  --background-site-rgb-value: 0, 0, 0;
-  --background-code-rgb-value: 12, 12, 12;
-  --text-body-rgb-value: 222, 222, 222;
-  --text-comment-rgb-value: 170, 170, 170;
-  --text-high-contrast-rgb-value: 230, 230, 230;
-  --text-medium-contrast-rgb-value: 202, 202, 202;
-  --text-low-contrast-rgb-value: 170, 170, 170;
-  --detail-high-contrast-rgb-value: 101, 101, 101;
-  --detail-medium-contrast-rgb-value: 25, 25, 25;
-  --detail-low-contrast-rgb-value: 21, 21, 21;
-  --admonition-note-rgb-value: 138, 180, 248;
-  --admonition-warning-rgb-value: 253, 186, 116;
-  --admonition-danger-rgb-value: 220, 38, 38;
-}
 @layer base {
   :root {
     --sidebar-background: 0 0% 98%;
@@ -614,3 +558,297 @@ section {
   width: 100%;
   max-width: 100%;
 }
+
+/* Editor specific styles */
+.transform-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.transform-container > div {
+  position: relative;
+  left: 0;
+  top: 0;
+}
+
+/* Editor workspace styles */
+.outline-mode * {
+  @apply outline-dashed outline-1 outline-gray-300;
+}
+
+.grid-mode {
+  background-size: 20px 20px;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+}
+
+.bg-grid-pattern {
+  background-color: white;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Preview transitions */
+.jsx-preview {
+  transition: all 0.3s ease-in-out;
+}
+
+.jsx-preview-refreshing {
+  opacity: 0.5;
+}
+
+/* Element tree styles */
+.element-tree-node {
+  transition: background-color 0.2s ease;
+}
+
+.element-tree-node:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.element-tree-node.selected {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.element-tree-node .node-actions {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.element-tree-node:hover .node-actions {
+  opacity: 1;
+}
+
+/* Animation styles */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Device frame styles */
+.device-frame {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.device-frame-mobile {
+  border-radius: 16px;
+}
+
+.device-frame-tablet {
+  border-radius: 12px;
+}
+
+/* Add these styles to ensure proper scrolling in the preview area */
+.content-container {
+  transition: all 0.3s ease-in-out;
+  min-height: 100%;
+}
+
+/* Ensure the preview container can scroll when needed */
+.preview-container {
+  overflow: auto;
+  max-height: 100%;
+  width: 100%;
+}
+
+/* Improve scrollbars for the preview area */
+.preview-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.preview-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.preview-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.preview-container::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Ensure the workspace container can handle oversized content */
+.workspace-container {
+  overflow: auto;
+  position: relative;
+}
+
+/* Add styles for large screen simulation */
+.large-screen-container {
+  overflow-x: auto;
+  padding-bottom: 20px; /* Space for horizontal scrollbar */
+}
+
+/* Styles for scaled preview */
+.scale-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  overflow: visible;
+}
+
+.scaled-content-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  overflow: visible;
+}
+
+.scaled-container {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+/* Improve the scale indicator */
+.scale-indicator {
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Add a subtle grid background to make scaled content more visible */
+.scaled-content-wrapper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Responsive preview container styles */
+.responsive-preview-container {
+  height: 100%;
+  overflow: auto;
+}
+
+/* Custom media query handling for preview mode */
+[data-preview-container] .sm\:hidden {
+  display: none;
+}
+
+[data-preview-container].preview-sm .sm\:hidden {
+  display: block;
+}
+
+[data-preview-container].preview-sm .sm\:block {
+  display: block;
+}
+
+[data-preview-container].preview-md .md\:hidden {
+  display: none;
+}
+
+[data-preview-container].preview-md .md\:block {
+  display: block;
+}
+
+[data-preview-container].preview-lg .lg\:hidden {
+  display: none;
+}
+
+[data-preview-container].preview-lg .lg\:block {
+  display: block;
+}
+
+[data-preview-container].preview-xl .xl\:hidden {
+  display: none;
+}
+
+[data-preview-container].preview-xl .xl\:block {
+  display: block;
+}
+
+/* Grid styles for different breakpoints */
+[data-preview-container].preview-md .md\:grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-preview-container].preview-lg .lg\:grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Background colors for different breakpoints */
+[data-preview-container].preview-sm .sm\:bg-green-100 {
+  background-color: rgb(220, 252, 231);
+}
+
+[data-preview-container].preview-md .md\:bg-yellow-100 {
+  background-color: rgb(254, 249, 195);
+}
+
+[data-preview-container].preview-lg .lg\:bg-purple-100 {
+  background-color: rgb(243, 232, 255);
+}
+
+[data-preview-container].preview-xl .xl\:bg-pink-100 {
+  background-color: rgb(252, 231, 243);
+}
+
+/* Scale wrapper styles */
+.scale-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+}
+
+.scaled-content-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: visible;
+}
+
+.scaled-container {
+  transform-origin: top center;
+  position: relative;
+}
+
+.scale-indicator {
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+

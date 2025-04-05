@@ -5,56 +5,10 @@ import { motion, useAnimation, useInView } from "framer-motion"
 import Link from "next/link"
 import Image from "next/image"
 import { ChevronRight } from "lucide-react"
+import { transformPageDataInputs } from "@/lib/utils"
 
-const categories = [
-  {
-    name: "Одяг",
-    image: "/assets/1.jpg",
-    href: "/catalog",
-    subcategories: [
-      { name: "Жіночий одяг", url: "/catalog" },
-      { name: "Чоловічий одяг", url: "/catalog" },
-      { name: "Дитячий одяг", url: "/catalog" }
-    ],
-    featured: true,
-  },
-  {
-    name: "Взуття",
-    image: "/assets/2.jpg",
-    href: "/catalog",
-    subcategories: [
-      { name: "Дитяче", url: "/catalog" },
-      { name: "Жіноче", url: "/catalog" },
-      { name: "Чоловіче", url: "/catalog" }
-    ],
-    featured: false,
-  },
-  {
-    name: "Продукти",
-    image: "/assets/3.jpg",
-    href: "/catalog",
-    subcategories: [
-      { name: "Консерви", url: "/catalog" },
-      { name: "Напої", url: "/catalog" },
-      { name: "Солодощі", url: "/catalog" }
-    ],
-    featured: false,
-  },
-  {
-    name: "Все для дому",
-    image: "/assets/4.jpg",
-    href: "/catalog",
-    subcategories: [
-      { name: "Постільна білизна", url: "/catalog" },
-      { name: "Декор", url: "/catalog" },
-      { name: "Домашній текстиль", url: "/catalog" }
-    ],
-    featured: true,
-  },
-]
-
-
-export default function Categories() {
+export default function Categories({ stringifiedData }: { stringifiedData: string }) {
+  const data = transformPageDataInputs(JSON.parse(stringifiedData).dataInputs)
   const controls = useAnimation()
   const sectionRef = useRef<HTMLElement>(null)
   const isInView = useInView(sectionRef, { once: true, amount: 0.1 })
@@ -92,11 +46,11 @@ export default function Categories() {
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full border border-[#e2e8f0]">
               <div className="flex flex-col lg:flex-row h-full">
                 <div className="lg:w-3/5 relative">
-                  <Link href={categories[2].href} className="block h-full">
+                  <Link href={data["Продукти"]} className="block h-full">
                     <div className="relative h-72 lg:h-full overflow-hidden">
                       <Image
-                        src={categories[2].image || "/placeholder.svg?height=500&width=400"}
-                        alt={categories[2].name}
+                        src="/assets/3.jpg"
+                        alt="Продукти"
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover transition-transform duration-700 ease-out hover:scale-105"
@@ -111,7 +65,7 @@ export default function Categories() {
                             Категорія
                           </span>
                         </div>
-                        <h3 className="text-heading2-bold text-white mb-2 drop-shadow-sm">{categories[2].name}</h3>
+                        <h3 className="text-heading2-bold text-white mb-2 drop-shadow-sm">Продукти</h3>
                       </div>
                     </div>
                   </Link>
@@ -119,22 +73,37 @@ export default function Categories() {
 
                 <div className="lg:w-2/5 p-8 flex flex-col justify-center">
                   <div className="space-y-4 mb-6">
-                  {categories[2].subcategories.map((subcategory, subIndex) => (
                     <Link
-                      key={subIndex}
-                      href={subcategory.url}
+                      href={data["Консерви"]}
                       className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
                     >
                       <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
                         <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
                       </span>
-                      <span>{subcategory.name}</span>
+                      <span>Консерви</span>
                     </Link>
-                  ))}
+                    <Link
+                      href={data["Напої"]}
+                      className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                    >
+                      <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                        <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                      </span>
+                      <span>Напої</span>
+                    </Link>
+                    <Link
+                      href={data["Солодощі"]}
+                      className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                    >
+                      <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                        <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                      </span>
+                      <span>Солодощі</span>
+                    </Link>
                   </div>
 
                   <Link
-                    href={categories[2].href}
+                    href={data["Продукти"]}
                     className="text-base-semibold text-[#006AA7] hover:text-[#005a8e] transition-colors duration-300 inline-flex items-center"
                   >
                     <span>Переглянути всі</span>
@@ -155,11 +124,11 @@ export default function Categories() {
             transition={{ duration: 0.5, delay: 0.1 }}
           >
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full border border-[#e2e8f0]">
-              <Link href={categories[1].href} className="block">
+              <Link href={data["Взуття"]} className="block">
                 <div className="relative h-56 overflow-hidden">
                   <Image
-                    src={categories[1].image || "/placeholder.svg?height=500&width=400"}
-                    alt={categories[1].name}
+                    src="/assets/2.jpg"
+                    alt="Взуття"
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover transition-transform duration-700 ease-out hover:scale-105"
@@ -173,29 +142,44 @@ export default function Categories() {
                         Категорія
                       </span>
                     </div>
-                    <h3 className="text-heading3-bold text-white mb-1 drop-shadow-sm">{categories[1].name}</h3>
+                    <h3 className="text-heading3-bold text-white mb-1 drop-shadow-sm">Взуття</h3>
                   </div>
                 </div>
               </Link>
 
               <div className="p-6">
                 <div className="grid grid-cols-2 gap-3">
-                  {categories[1].subcategories.map((subcategory, subIndex) => (
-                    <Link
-                      key={subIndex}
-                      href={subcategory.url}
-                      className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
-                    >
-                      <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
-                        <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
-                      </span>
-                      <span>{subcategory.name}</span>
-                    </Link>
-                  ))}
+                  <Link
+                    href={data["Дитяче"]}
+                    className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                  >
+                    <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                      <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                    </span>
+                    <span>Дитяче</span>
+                  </Link>
+                  <Link
+                    href={data["Жіноче"]}
+                    className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                  >
+                    <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                      <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                    </span>
+                    <span>Жіноче</span>
+                  </Link>
+                  <Link
+                    href={data["Чоловіче"]}
+                    className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                  >
+                    <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                      <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                    </span>
+                    <span>Чоловіче</span>
+                  </Link>
                 </div>
 
                 <Link
-                  href={categories[1].href}
+                  href={data["Взуття"]}
                   className="text-small-semibold text-[#006AA7] hover:text-[#005a8e] transition-colors duration-300 inline-flex items-center mt-4"
                 >
                   <span>Переглянути всі</span>
@@ -215,11 +199,11 @@ export default function Categories() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full border border-[#e2e8f0]">
-              <Link href={categories[0].href} className="block">
+              <Link href={data["Одяг"]} className="block">
                 <div className="relative h-56 overflow-hidden">
                   <Image
-                    src={categories[0].image || "/placeholder.svg?height=500&width=400"}
-                    alt={categories[0].name}
+                    src="/assets/1.jpg"
+                    alt="Одяг"
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover transition-transform duration-700 ease-out hover:scale-105"
@@ -233,29 +217,44 @@ export default function Categories() {
                         Категорія
                       </span>
                     </div>
-                    <h3 className="text-heading3-bold text-white mb-1 drop-shadow-sm">{categories[0].name}</h3>
+                    <h3 className="text-heading3-bold text-white mb-1 drop-shadow-sm">Одяг</h3>
                   </div>
                 </div>
               </Link>
 
               <div className="p-6">
                 <div className="grid grid-cols-2 gap-3">
-                  {categories[0].subcategories.map((subcategory, subIndex) => (
-                    <Link
-                      key={subIndex}
-                      href={subcategory.url}
-                      className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
-                    >
-                      <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
-                        <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
-                      </span>
-                      <span>{subcategory.name}</span>
-                    </Link>
-                  ))}
+                  <Link
+                    href={data["Жіночий одяг"]}
+                    className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                  >
+                    <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                      <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                    </span>
+                    <span>Жіночий одяг</span>
+                  </Link>
+                  <Link
+                    href={data["Чоловічий одяг"]}
+                    className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                  >
+                    <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                      <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                    </span>
+                    <span>Чоловічий одяг</span>
+                  </Link>
+                  <Link
+                    href={data["Дитячий одяг"]}
+                    className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                  >
+                    <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                      <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                    </span>
+                    <span>Дитячий одяг</span>
+                  </Link>
                 </div>
 
                 <Link
-                  href={categories[0].href}
+                  href={data["Одяг"]}
                   className="text-small-semibold text-[#006AA7] hover:text-[#005a8e] transition-colors duration-300 inline-flex items-center mt-4"
                 >
                   <span>Переглянути всі</span>
@@ -278,22 +277,37 @@ export default function Categories() {
               <div className="flex flex-col lg:flex-row h-full">
                 <div className="lg:w-2/5 p-8 flex flex-col justify-center order-2 lg:order-1">
                   <div className="space-y-4 mb-6">
-                    {categories[3].subcategories.map((subcategory, subIndex) => (
-                      <Link
-                        key={subIndex}
-                        href={subcategory.url}
-                        className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
-                      >
-                        <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
-                          <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
-                        </span>
-                        <span>{subcategory.name}</span>
-                      </Link>
-                    ))}
+                    <Link
+                      href={data["Постільна білизна"]}
+                      className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                    >
+                      <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                        <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                      </span>
+                      <span>Постільна білизна</span>
+                    </Link>
+                    <Link
+                      href={data["Декор"]}
+                      className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                    >
+                      <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                        <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                      </span>
+                      <span>Декор</span>
+                    </Link>
+                    <Link
+                      href={data["Домашній текстиль"]}
+                      className="flex items-center text-base-medium text-[#4a5568] hover:text-[#006AA7] transition-colors duration-300 group"
+                    >
+                      <span className="w-5 h-5 rounded-full border border-[#e2e8f0] flex items-center justify-center mr-3 group-hover:border-[#006AA7] transition-colors duration-300">
+                        <ChevronRight className="w-3 h-3 text-[#FECC02] opacity-0 transform transition-all duration-300 group-hover:opacity-100" />
+                      </span>
+                      <span>Домашній текстиль</span>
+                    </Link>
                   </div>
 
                   <Link
-                    href={categories[3].href}
+                    href={data["Все для дому"]}
                     className="text-base-semibold text-[#006AA7] hover:text-[#005a8e] transition-colors duration-300 inline-flex items-center"
                   >
                     <span>Переглянути всі</span>
@@ -302,11 +316,11 @@ export default function Categories() {
                 </div>
 
                 <div className="lg:w-3/5 relative order-1 lg:order-2">
-                  <Link href={categories[3].href} className="block h-full">
+                  <Link href={data["Все для дому"]} className="block h-full">
                     <div className="relative h-72 lg:h-full overflow-hidden">
                       <Image
-                        src={categories[3].image || "/placeholder.svg?height=500&width=400"}
-                        alt={categories[3].name}
+                        src="/assets/4.jpg"
+                        alt="Все для дому"
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover transition-transform duration-700 ease-out hover:scale-105"
@@ -320,7 +334,7 @@ export default function Categories() {
                           </span>
                           <div className="w-8 h-1 bg-[#FECC02] ml-3"></div>
                         </div>
-                        <h3 className="text-heading2-bold text-white mb-2 drop-shadow-sm">{categories[3].name}</h3>
+                        <h3 className="text-heading2-bold text-white mb-2 drop-shadow-sm">Все для дому</h3>
                       </div>
                     </div>
                   </Link>

@@ -239,7 +239,8 @@ module.exports = {
   	extend: {
   		colors: {
   			'theme-3': 'rgb(254, 204, 2)',
-  			'primary-500': 'rgba(37,99,235,0.9)',
+  			'primary': '#171717',
+			'primary-foreground': "#ffffff",
   			'secondary-500': '#FFB620',
   			'primary-experimental': 'rgba(37,99,235,0.9)',
   			'secondary-experimental': '#0a3a40',
@@ -257,6 +258,17 @@ module.exports = {
   			'light-3': '#7878A3',
   			'light-4': '#5C5C7B',
   			'gray-1': '#697C89',
+			'blue-50': 'oklch(0.97 0.014 254.604)',
+			'blue-100': 'oklch(0.932 0.032 255.585)',
+			'blue-200': 'oklch(0.882 0.059 254.128)',
+			'blue-300': 'oklch(0.809 0.105 251.813)',
+			'blue-400': 'oklch(0.707 0.165 254.624)',
+			'blue-500': 'oklch(0.623 0.214 259.815)',
+			'blue-600': 'oklch(0.546 0.245 262.881)',
+			'blue-700': 'oklch(0.488 0.243 264.376)',
+			'blue-800': 'oklch(0.424 0.199 265.638)',
+			'blue-900': 'oklch(0.379 0.146 265.522)',
+			'blue-950': 'oklch(0.282 0.091 267.935)',
   			glassmorphism: 'rgba(16, 16, 18, 0.60)',
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
@@ -339,5 +351,8 @@ module.exports = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+	require("tailwindcss-animate"), 
+	require('@tailwindcss/container-queries')
+  ],
 };

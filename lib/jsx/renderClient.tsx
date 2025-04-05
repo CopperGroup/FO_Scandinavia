@@ -1,9 +1,11 @@
 "use client";
 
-import React, { lazy, memo, Suspense, useEffect, useRef, useState, FC } from "react";
+import React, { memo, Suspense, useEffect, useRef, useState, FC } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { motion, useAnimation, useInView } from "framer-motion"
 import dynamic from "next/dynamic";
+import DynamicIcon from "@/components/ui/dynamic-icon";
 
 interface JSXRendererProps {
   jsxString: string;
@@ -66,11 +68,16 @@ const JSXRenderer: FC<JSXRendererProps> = memo(({ jsxString, imports }) => {
           "React",
           "useState",
           "useEffect",
+          "useRef",
           "Image",
           "Link",
+          "motion",
+          "useAnimation",
+          "useInView",
+          "DynamicIcon",
           ...Object.keys(importedComponentsRef),
           `return ${compiledCode}`
-        )(React, useState, useEffect, Image, Link, ...Object.values(importedComponentsRef));
+        )(React, useState, useEffect, useRef, Image, Link, motion, useAnimation, useInView, DynamicIcon, ...Object.values(importedComponentsRef));
   
         componentCache.set(jsxString, DynamicComponent);
         setComponent(() => DynamicComponent);

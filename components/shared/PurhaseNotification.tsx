@@ -134,7 +134,6 @@ export default function PurchaseNotification({
   const isFemaleName = (name: string) => {
     if (femaleNames.has(name)) return true
     if (maleNames.has(name)) return false
-    return name.endsWith("а") || name.endsWith("я") // Fallback rule
   }
   
   if (!notifications.length) return null
@@ -155,7 +154,7 @@ export default function PurchaseNotification({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {notification.name} {notification.surname && notification.surname} 
+              {notification.name} {notification.surname && notification.surname}{" "}
               придбав{isFemaleName(notification.name) ? "ла" : ""} {notification.product.name}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{notification.location}</p>

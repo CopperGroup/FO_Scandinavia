@@ -5,6 +5,7 @@ import { cache } from "react";
 import { ProductType } from "../types/types";
 import { fetchProductAndRelevantParams, fetchPurchaseNotificationsInfo } from "./product.actions";
 import { Store } from "@/constants/store";
+import { fetchPageDataByName } from "./page.actions";
 
 const paths = {
     categories: "/admin/categories",
@@ -194,7 +195,7 @@ export const fetchProductPageInfo = cache(
       )();
     }
   );
-  
+
 export const fetchPurchaseNotificationsInfoCache = cache(
     unstable_cache(
         async () => {
@@ -208,4 +209,18 @@ export const fetchPurchaseNotificationsInfoCache = cache(
         }
     )
 )
+
+export const fetchPageDataByNameCache = cache(
+    async (name: string) => {
+      return unstable_cache(
+        async () => {
+          const data = await fetchPageDataByName({ name }, 'json');
+          return data;
+        },
+        [`${name}-page`],
+        { tags: [`${name}-page`] }
+      )();
+    }
+  );
+
   
