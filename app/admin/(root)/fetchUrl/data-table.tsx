@@ -30,6 +30,14 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import type { FetchedCategory } from "@/lib/types/types"
 import { Plus, Search, Columns, ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export type Product = {
   _id: string
@@ -68,6 +76,10 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
     add: { text: "Додати", isProcessing: false },
     update: { text: "Оновити", isProcessing: false },
   })
+
+  const [showConfirmModal, setShowConfirmModal] = React.useState(false)
+  const [confirmText, setConfirmText] = React.useState("")
+  const [pendingData, setPendingData] = React.useState<Product[] | null>(null)
 
   const router = useRouter()
 
@@ -259,7 +271,10 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
               <Button
                 variant="default"
                 size="sm"
-                onClick={() => handleProceed(data, true)}
+                onClick={() => {
+                  setPendingData(data)
+                  setShowConfirmModal(true)
+                }}
                 disabled={isProceedDisabled || buttonStates.add.isProcessing}
                 className="text-small-medium flex-1 sm:flex-none bg-green-600 text-white hover:bg-green-500"
               >
@@ -276,6 +291,49 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
           </div>
         </div>
       </div>
+      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Підтвердження оновлення</DialogTitle>
+            <DialogDescription>
+              Ця дія замінить всі попередні товари на вибрані вами. Для підтвердження введіть "Так, оновити".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-y-4 py-4">
+            <Input
+              placeholder="Так, оновити"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowConfirmModal(false)
+                setConfirmText("")
+              }}
+            >
+              Скасувати
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                if (confirmText === "Так, оновити" && pendingData) {
+                  setShowConfirmModal(false)
+                  setConfirmText("")
+                  handleProceed(pendingData, true)
+                }
+              }}
+              disabled={confirmText !== "Так, оновити"}
+              className="bg-green-600 text-white hover:bg-green-500"
+            >
+              Підтвердити
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
