@@ -296,7 +296,7 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
           <DialogHeader>
             <DialogTitle>Підтвердження оновлення</DialogTitle>
             <DialogDescription>
-              Ця дія замінить всі попередні товари на вибрані вами. Для підтвердження введіть "Так, оновити".
+              Ця дія замінить всі попередні товари на вибрані вами. Для підтвердження введіть &quot;Так, оновити&quot;.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center space-y-4 py-4">
