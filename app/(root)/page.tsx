@@ -25,7 +25,7 @@ export default async function Home() {
       <Brand/> */}
       {/* <Map/>   */}
       {/* I love Liza❤️‍🔥 */}
-      <PurchaseNotification products={products} minInterval={30000} maxInterval={45000} maxNotifications={3} />
+      {/* <PurchaseNotification products={products} minInterval={30000} maxInterval={45000} maxNotifications={3} /> */}
     </>
   );
 }

@@ -140,7 +140,7 @@ const Catalog = async ({searchParams }:any) => {
           </div>
         </div>
       </section>
-      <PurchaseNotification products={filtredProducts.map(p => ({ id: p._id.toString(), name: pretifyProductName(p.name, [], p.articleNumber || "", 0), image: p.images[0] }))} minInterval={30000} maxInterval={45000} maxNotifications={3} />
+      {/* <PurchaseNotification products={filtredProducts.map(p => ({ id: p._id.toString(), name: pretifyProductName(p.name, [], p.articleNumber || "", 0), image: p.images[0] }))} minInterval={30000} maxInterval={45000} maxNotifications={3} /> */}
     </>
   )
 };
