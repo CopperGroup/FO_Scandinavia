@@ -172,14 +172,17 @@ export default async function clearCache<T extends typeof adminPaths[number]["na
 
     if(shouldClearCatalogCache) {
         revalidateTag("catalog-data");
+        revalidatePath("/catalog")
     }
 
     if(productId) {
         revalidateTag(`${Store.name}-product-${productId}`)
+        revalidatePath("/catalog")
     }
 
     if(shouldClearAllProductPagesCache) {
         revalidateTag(`${Store.name}-product`)
+        revalidatePath("/catalog")
     }
 }
 
@@ -194,8 +197,8 @@ export const fetchProductPageInfo = cache(
         { tags: [`${Store.name}-product-${currentProductId}`, `${Store.name}-product`] }
       )();
     }
-  );
-
+);
+ 
 export const fetchPurchaseNotificationsInfoCache = cache(
     unstable_cache(
         async () => {

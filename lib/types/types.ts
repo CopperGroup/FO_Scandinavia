@@ -282,3 +282,4 @@ export interface ParsedElement {
   parent?: string
 }
 
+export type ProductSelectParams = Record<string, {_id: string, value: string}[]>

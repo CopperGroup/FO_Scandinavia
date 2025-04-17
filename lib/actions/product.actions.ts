@@ -74,19 +74,32 @@ export async function createUrlProduct({ id, name, isAvailable, quantity, url, p
     }
 }
 
-export async function createUrlProductsMany(products: CreateUrlParams[]) {
+export async function updateUrlProductsOneByOne(products: Partial<CreateUrlParams>[]) {
     try {
-      connectToDB();
+      await connectToDB();
   
-      const createdProducts = await Product.insertMany(products);
+      const updatedProducts = [];
   
-      await updateCategories(createdProducts, "update")
+      for (const product of products) {
+        if (!product._id) continue; // skip if no ID
+  
+        const updated = await Product.findByIdAndUpdate(
+          product._id,
+          { $set: product },
+          { new: true }
+        );
+  
+        if (updated) {
+          updatedProducts.push(updated);
+        }
+      }
+  
+      await updateCategories(updatedProducts, "update");
       clearCache("createProduct", undefined);
     } catch (error: any) {
-      throw new Error(`Error creating url-product, ${error.message}`);
+      throw new Error(`Error updating url-products one by one, ${error.message}`);
     }
-  }
-  
+  }  
 
 export async function updateUrlProductsMany(products: Partial<CreateUrlParams>[]) {
     try {

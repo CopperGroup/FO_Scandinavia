@@ -12,7 +12,7 @@ import { fetchPageDataByNameCache, fetchPurchaseNotificationsInfoCache } from "@
 import PurchaseNotification from "@/components/shared/PurhaseNotification";
 
 export default async function Home() {
-  const products = await fetchPurchaseNotificationsInfoCache();
+  // const products = await fetchPurchaseNotificationsInfoCache();
   const result = await fetchPageDataByNameCache("Home");
 
   return (

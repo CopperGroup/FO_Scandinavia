@@ -15,7 +15,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="uk">
       <body className={inter.className}>
         {children}
       </body>

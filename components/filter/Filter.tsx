@@ -98,7 +98,7 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
       await sleep(delay);
       
       const searchString = createSearchString({
-        pNumber: filter.page, // Reset to page 1 on filter change
+        pNumber: "1", // Reset to page 1 on filter change
         sort: catalogData.sort,
         categories: filter.categories,
         vendors: filter.vendors,
@@ -119,7 +119,7 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
   
   const handleApplyFilter = () => {
     const searchString = createSearchString({
-      pNumber: filter.page,
+      pNumber: "1",
       sort: catalogData.sort,
       categories: filter.categories,
       vendors: filter.vendors,

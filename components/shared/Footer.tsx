@@ -1,51 +1,50 @@
-import Image from "next/image"
-import Link from "next/link"
-import { Facebook, Instagram, Linkedin } from "lucide-react"
-import { Store } from "@/constants/store"
+"use client"
 
-const Footer = () => {
+import Link from "next/link"
+import { Store } from "@/constants/store"
+import { useEffect, useState } from "react"
+import { transformPageDataInputs } from "@/lib/utils"
+
+interface FooterProps {
+  stringifiedData: string
+}
+
+const Footer = ({ stringifiedData }: FooterProps) => {
+  const [is404, setIs404] = useState(false)
   const currentYear = new Date().getFullYear()
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        staggerChildren: 0.1,
-      },
-    },
-  }
+  // Transform the stringified data into a usable object
+  const data = transformPageDataInputs(JSON.parse(stringifiedData).dataInputs)
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5 },
-    },
-  }
+  useEffect(() => {
+    const meta404 = document.querySelector('meta[name="isNotFoundPage"]')?.getAttribute("content")
+    setIs404(meta404 === "true")
+  }, [])
+
+  if (is404) return null
 
   return (
     <footer className="bg-[#006AA7] text-white z-40 pt-16 pb-8 w-full min-w-[320px]">
       <div className="max-w-screen-2xl mx-auto px-4 lg:px-8 w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           <div className="w-full">
             <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Фіз. особам</h3>
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               <li>
-                <Link href="info/contacts" className="text-white hover:text-[#FECC02] transition-colors">
+                <Link href="info/contacts" className="text-white hover:text-[#FECC02] transition-colors duration-300">
                   Контакти
                 </Link>
               </li>
               <li>
-                <Link href="info/delivery-payment" className="hover:text-[#FECC02] transition-colors">
+                <Link href="info/delivery-payment" className="hover:text-[#FECC02] transition-colors duration-300">
                   Доставка та оплата
                 </Link>
               </li>
               <li>
-                <Link href="info/warranty-services" className="text-white hover:text-[#FECC02] transition-colors">
+                <Link
+                  href="info/warranty-services"
+                  className="text-white hover:text-[#FECC02] transition-colors duration-300"
+                >
                   Гарантія та сервіс
                 </Link>
               </li>
@@ -53,32 +52,42 @@ const Footer = () => {
           </div>
 
           <div className="w-full">
-            <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Дизайн</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/presentations" className="text-white hover:text-[#FECC02] transition-colors">
-                  Презентації
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div className="w-full">
             <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Каталоги</h3>
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               <li>
-                <Link href="/catalog" className="hover:text-[#FECC02] transition-colors" title="Каталог">
-                  Смаколики
+                <Link
+                  href={data["Каталог 'Продукти'"]}
+                  className="hover:text-[#FECC02] transition-colors duration-300"
+                  title="Каталог"
+                >
+                  Продукти
                 </Link>
               </li>
               <li>
-                <Link href="/catalog" className="text-white hover:text-[#FECC02] transition-colors" title="Каталог">
-                  Смаколики
+                <Link
+                  href={data["Каталог 'Взуття'"]}
+                  className="text-white hover:text-[#FECC02] transition-colors duration-300"
+                  title="Каталог"
+                >
+                  Взуття
                 </Link>
               </li>
               <li>
-                <Link href="/catalog" className="hover:text-[#FECC02] transition-colors" title="Каталог">
-                  Смаколики
+                <Link
+                  href={data["Каталог 'Одяг'"]}
+                  className="hover:text-[#FECC02] transition-colors duration-300"
+                  title="Каталог"
+                >
+                  Одяг
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={data["Каталог 'Все для дому'"]}
+                  className="hover:text-[#FECC02] transition-colors duration-300"
+                  title="Каталог"
+                >
+                  Все для дому
                 </Link>
               </li>
             </ul>
@@ -86,19 +95,13 @@ const Footer = () => {
 
           <div className="w-full">
             <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Контакти</h3>
-            <p className="mb-2 text-white">Phone:</p>
-            <p className="mb-4">Email: </p>
-            <h4 className="text-heading4-medium font-semibold mb-2 text-[#FECC02]">Ми в соцмережах</h4>
-            <div className="flex space-x-4">
-              <a href="#" className="text-white hover:text-[#FECC02] transition-colors" title="Facebook">
-                <Facebook size={24} />
-              </a>
-              <a href="#" className="text-[#FECC02] hover:text-white transition-colors" title="Instagram">
-                <Instagram size={24} />
-              </a>
-              <a href="#" className="text-white hover:text-[#FECC02] transition-colors" title="Linkedin">
-                <Linkedin size={24} />
-              </a>
+            <div className="space-y-3">
+              <p className="flex items-center gap-2">
+                <span className="font-medium">Телефон:</span> {data["'Телефон'"]}
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-medium">Email:</span> {data["'Email'"]}
+              </p>
             </div>
           </div>
         </div>
@@ -109,17 +112,7 @@ const Footer = () => {
               © {currentYear} <span className="font-semibold text-[#FECC02]">{Store.name}</span>. Всі права захищені.
             </p>
             <div className="flex flex-col items-center lg:items-end space-y-2 lg:space-y-0">
-              <span className="text-small-regular text-white text-center lg:text-right">Солодко</span>
-              {/* <div className="flex space-x-2 mt-2 lg:mt-1">
-                <Image
-                  className="h-6 w-auto"
-                  width={88}
-                  height={18}
-                  src="/assets/botticelli.png"
-                  alt="Botticelli logo"
-                />
-                <Image className="h-6 w-auto" width={55} height={18} src="/assets/juventa.png" alt="Juventa logo" />
-              </div> */}
+              <p className="text-xs text-[#e0e0e0] mt-1">Розроблено з ❤️ в Україні</p>
             </div>
           </div>
         </div>
@@ -129,4 +122,3 @@ const Footer = () => {
 }
 
 export default Footer
-

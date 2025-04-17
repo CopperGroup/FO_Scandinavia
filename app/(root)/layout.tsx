@@ -11,14 +11,16 @@ import { getSession } from "@/lib/getServerSession";
 import { fetchUserByEmail } from "@/lib/actions/user.actions";
 import FacebookPixel from "@/components/pixel/FacebookPixel";
 import PageView from "@/components/pixel/PageView";
+import { fetchPageDataByNameCache } from "@/lib/actions/cache";
+import { Store } from "@/constants/store";
 
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "Sveamoda",
-    template: "%s - Sveamoda"
+    default: Store.name,
+    template: `%s - ${Store.name}`
   },
   description: "",
   twitter: {
@@ -36,6 +38,8 @@ export default async function RootLayout({
 
   const user = await fetchUserByEmail({email});
 
+  const footerData = await fetchPageDataByNameCache("Footer")
+
   return (
       <html lang="uk">
         <body className={inter.className}>
@@ -52,7 +56,7 @@ export default async function RootLayout({
                 </main>
                 <StickyCart/>
             </AppWrapper>
-          <Footer/>
+          <Footer stringifiedData={footerData}/>
           </Provider>
           <SpeedInsights/>
         </body>

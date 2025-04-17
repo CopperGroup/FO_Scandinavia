@@ -10,6 +10,7 @@ import CartPage from "./CartPage"
 export default function StickyCart() {
   const [isOpened, setIsOpened] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [is404, setIs404] = useState(false);
   const { cartData } = useAppContext()
   const cartButtonRef = useRef<HTMLDivElement>(null)
   const prevCartLength = useRef(cartData.length)
@@ -38,6 +39,13 @@ export default function StickyCart() {
     prevCartLength.current = cartData.length
   }, [cartData])
 
+  useEffect(() => {
+    const meta404 = document.querySelector('meta[name="isNotFoundPage"]')?.getAttribute('content');
+    setIs404(meta404 === 'true');
+  }, []);
+
+  if (is404) return null;
+  
   return (
     <>
       <motion.div

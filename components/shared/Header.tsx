@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import Auth from "./Auth"
 import AdminLink from "./AdminLink"
@@ -23,6 +23,7 @@ const Links = [
 const infoNames = ["Контакти", "Доставка та оплата", "Гаратнія та сервіси"]
 
 export default function Header({ email, user }: { email: string; user: string }) {
+  const [is404, setIs404] = useState(false);
   const pathname = usePathname()
   const headerRef = useRef<HTMLElement>(null)
   const userInfo = JSON.parse(user)
@@ -32,6 +33,13 @@ export default function Header({ email, user }: { email: string; user: string })
       lead_type: label,
     })
   }
+
+  useEffect(() => {
+    const meta404 = document.querySelector('meta[name="isNotFoundPage"]')?.getAttribute('content');
+    setIs404(meta404 === 'true');
+  }, []);
+
+  if (is404) return null;
 
   return (
     <header ref={headerRef} className="w-full min-w-[320px] bg-[#006AA7] shadow-md border-b border-[#004d7a]">
