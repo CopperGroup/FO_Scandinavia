@@ -85,7 +85,7 @@ const ProductCard = ({
                 {priceToShow}
               </p>
             </div>
-            <AddToCart id={id} image={imageUrl} name={name} price={priceToShow} priceWithoutDiscount={price} />
+            <AddToCart id={id} image={imageUrl} name={name} price={priceToShow} priceWithoutDiscount={price} url={url}/>
           </div>
         </div>
       </Link>

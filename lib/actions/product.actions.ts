@@ -613,7 +613,10 @@ export async function fetchProductAndRelevantParams(
   try {
     connectToDB();
 
-    const currentProduct = await Product.findById(currentProductId);
+    const currentProduct = await Product.findById(currentProductId).populate({
+      path: "category",
+      model: Category
+    });
     if (!currentProduct) {
       throw new Error("Current product not found");
     }
@@ -731,5 +734,17 @@ export async function fetchPurchaseNotificationsInfo(): Promise<{ id: string, na
     return products.map(p => ({ id: p._id.toString(), name: pretifyProductName(p.name, [], p.articleNumber || "", 0), image: p.images[0] }))
   } catch (error: any) {
     throw new Error(`Error finding purchase notifications info: ${error.message}`)
+  }
+}
+
+export async function getProductPageUrlByFirstImageUrl(image: string): Promise<string> {
+  try {
+    const product = await Product.findOne({images: image});
+
+    const id = product._id
+
+    return id.toString()
+  } catch (error: any) {
+    throw new Error(`Error getting product page url by url: ${error.message}`)
   }
 }

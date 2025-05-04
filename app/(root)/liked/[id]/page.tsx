@@ -25,7 +25,7 @@ const Page = async ({ params }: { params: { id: string } }) => {
                                 id = {product._id}
                                 productId={product.id}
                                 email={user.email}
-                                url={product.params[0].value}
+                                url={product.url}
                                 price={product.price}
                                 imageUrl={product.images[0]}
                                 description={product.description.replace(/[^а-яА-ЯіІ]/g,' ').substring(0, 35) + '...'} 

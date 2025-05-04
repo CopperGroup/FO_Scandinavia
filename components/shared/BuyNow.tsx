@@ -13,7 +13,8 @@ const BuyNow = ({
   image,
   price,
   priceWithoutDiscount,
-}: { id: string; name: string; image: string; price: number; priceWithoutDiscount: number }) => {
+  url
+}: { id: string; name: string; image: string; price: number; priceWithoutDiscount: number, url: string }) => {
   //@ts-ignore
   const { cartData, setCartData } = useAppContext()
 
@@ -33,7 +34,7 @@ const BuyNow = ({
     if (exist == 0) {
       setCartData((prev: any) => [
         ...prev,
-        { id: id, name: name, image: image, price: price, priceWithoutDiscount: priceWithoutDiscount, quantity: 1 },
+        { id: id, name: name, image: image, price: price, priceWithoutDiscount: priceWithoutDiscount, quantity: 1, url },
       ])
 
       await productAddedToCart(id)

@@ -9,10 +9,14 @@ import type { ProductType } from "@/lib/types/types"
 import { trackFacebookEvent } from "@/helpers/pixel"
 import { Store } from "@/constants/store"
 import { Minus, Plus, ShoppingCart, X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { getProductPageUrlByFirstImageUrl } from "@/lib/actions/product.actions"
 
 const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) => {
   //@ts-ignore
   const { cartData, setCartData, priceToPay, setPriceToPay } = useAppContext()
+
+  const router = useRouter()
 
   function hideCart() {
     setIsOpened(false)
@@ -77,6 +81,21 @@ const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) =>
     .reduce((acc: number, data: { price: number; quantity: number }) => acc + data.price * data.quantity, 0)
     .toFixed(2)
 
+  const handleNavigateToProductPage = async (e: any, image:string, productId: string) => {
+    e.preventDefault();
+  
+    console.log(image, cartData)
+    const id = await getProductPageUrlByFirstImageUrl(image);
+
+    console.log(id)
+
+    if(id) {
+      router.push(`/catalog/${id}`)
+    } else {
+      router.push(`/catalog/${productId}`)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="flex items-center justify-between p-4 border-b">
@@ -95,7 +114,7 @@ const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) =>
           </div>
         ) : (
           cartData.map((data: any, index: number) => (
-            <Link href={`/catalog/${data.id}`} key={index}>
+            <Link href={`/catalog/${data.id}`} key={index} onClick={(e) => handleNavigateToProductPage(e, data.image, data.id )}>
               <article className="flex items-center py-3 border-b last:border-b-0">
                 <div className="flex-shrink-0 w-20 h-20 mr-3">
                   <div className="w-full h-full overflow-hidden rounded-md aspect-square border">

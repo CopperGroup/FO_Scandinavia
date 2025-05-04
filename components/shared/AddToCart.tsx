@@ -12,7 +12,8 @@ const AddToCart = ({
   price,
   priceWithoutDiscount,
   variant,
-}: { id: string; name: string; image: string; price: number; priceWithoutDiscount: number; variant?: "full" }) => {
+  url
+}: { id: string; name: string; image: string; price: number; priceWithoutDiscount: number; variant?: "full", url: string }) => {
   //@ts-ignore
   const { cartData, setCartData } = useAppContext()
 
@@ -31,7 +32,7 @@ const AddToCart = ({
     if (exist == 0) {
       setCartData((prev: any) => [
         ...prev,
-        { id: id, name: name, image: image, price: price, priceWithoutDiscount: priceWithoutDiscount, quantity: 1 },
+        { id: id, name: name, image: image, price: price, priceWithoutDiscount: priceWithoutDiscount, quantity: 1, url: url },
       ])
 
       await productAddedToCart(id)
@@ -53,7 +54,7 @@ const AddToCart = ({
     return (
       <Button
         variant="outline"
-        className="w-48 max-[425px]:w-full bg-white text-[#006AA7] border-[#006AA7] border hover:bg-[#006AA7] hover:text-white transition-all duration-300 rounded-lg shadow-sm"
+        className="w-full max-[425px]:w-full bg-white text-[#006AA7] border-[#006AA7] border hover:bg-[#006AA7] hover:text-white transition-all duration-300 rounded-lg shadow-sm"
         onClick={(e) => AddDataToCart(e)}
       >
         <ShoppingCart className="mr-2" size={20} />
