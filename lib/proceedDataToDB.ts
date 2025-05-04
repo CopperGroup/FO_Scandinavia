@@ -1,5 +1,5 @@
 import { revalidatePath, revalidateTag } from "next/cache";
-import { createUrlProduct, createUrlProductsMany, deleteProduct, deleteUrlProducts, fetchUrlProducts, updateUrlProduct, updateUrlProductsMany } from "./actions/product.actions";
+import { createUrlProduct, deleteProduct, deleteUrlProducts, fetchUrlProducts, updateUrlProduct, updateUrlProductsMany } from "./actions/product.actions";
 import { clearCatalogCache } from "./actions/redis/catalog.actions";
 import { createUrlCategories, updateCategories } from "./actions/categories.actions";
 import { CategoryType, FetchedCategory, ProductType } from "./types/types";
@@ -69,12 +69,16 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
 
         // Perform bulk update
         if (productsToUpdate.length > 0) {
-            await updateUrlProductsMany(productsToUpdate);
+            for(const productToUpdate of productsToUpdate) {
+                await updateUrlProduct(productToUpdate);
+            }
         }
 
         // Perform bulk insert for new products
         if (newProducts.length > 0) {
-            await createUrlProductsMany(newProducts);
+            for(const newProduct of newProducts) {
+                await createUrlProduct(newProduct);
+            }
         }
 
         // Delete left-over products
