@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
 
-
-const productSchema = new mongoose.Schema({
-    id:{
-        type:String,
+const orderSchema = new mongoose.Schema({
+    id: {
+        type: String,
     },
 
     products: [
@@ -12,51 +11,51 @@ const productSchema = new mongoose.Schema({
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "Product"
             },
-            amount : {
+            amount: {
                 type: Number,
             }
         },
     ],
-    
+
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
     },
-    
+
     value: {
         type: Number
     },
 
     name: {
-        type:String
+        type: String
     },
 
     surname: {
-        type:String
+        type: String
     },
 
     phoneNumber: {
-        type:String
+        type: String
     },
 
     email: {
-        type:String
+        type: String
     },
-    
+
     paymentType: {
-        type:String
+        type: String
     },
 
     deliveryMethod: {
-        type:String
+        type: String
     },
 
     city: {
-        type:String
+        type: String
     },
 
     adress: {
-        type:String
+        type: String
     },
 
     postalCode: {
@@ -64,7 +63,37 @@ const productSchema = new mongoose.Schema({
     },
 
     comment: {
-        type:String
+        type: String
+    },
+
+    buildingNumber: {
+        type: String
+    },
+
+    apartment: {
+        type: String
+    },
+
+    // Nova Poshta-specific fields
+    cityRef: {
+        type: String
+    },
+
+    warehouseRef: {
+        type: String
+    },
+
+    warehouseIndex: {
+        type: String
+    },
+
+    streetRef: {
+        type: String
+    },
+
+    // Stringified JSON invoice
+    invoice: {
+        type: String
     },
 
     data: {
@@ -78,9 +107,22 @@ const productSchema = new mongoose.Schema({
 
     deliveryStatus: {
         type: String
-    }
-})
+    },
 
-const Order = mongoose.models.Order || mongoose.model("Order", productSchema);
+    promocode: {
+        type: String
+    },
+
+    discount: {
+        type: Number
+    },
+
+    emails: {
+        askForReview: Boolean,
+        confirmation: Boolean
+    }
+});
+
+const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 
 export default Order;

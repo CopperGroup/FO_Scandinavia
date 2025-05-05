@@ -1,53 +1,69 @@
-import { Store } from "@/constants/store";
-import Image from "next/image";
-import Link from "next/link";
+import { Store } from "@/constants/store"
+import Image from "next/image"
+import Link from "next/link"
 
 interface Props {
-    _id: string;
-    id: string;
-    name: string;
-    image: string;
-    priceToShow: number;
-    amount: number;
-    articleNumber: string
+  _id: string
+  id: string
+  name: string
+  image: string
+  priceToShow: number
+  amount: number
+  articleNumber: string
 }
 
-const OrderedProductCard = ({ _id, id, name, image, priceToShow, amount, articleNumber}: Props) => {
+const OrderedProductCard = ({ _id, id, name, image, priceToShow, amount, articleNumber }: Props) => {
   return (
-    <article className="w-full flex flex-col border border-gray-200 rounded-2xl shadow-md overflow-hidden transition-shadow duration-300 hover:shadow-lg">
-      <div className="w-full h-48 sm:h-56 flex justify-center items-center p-4 bg-gray-50">
-        <Link href={`/catalog/${_id}`} className="block w-full h-full relative">
-          <Image
-            src={image}
-            layout="fill"
-            objectFit="contain"
-            alt={name}
-            className="rounded-lg transition-transform duration-300 hover:scale-105"
-          />
+    <div className="flex flex-col sm:flex-row border border-slate-200 rounded-lg overflow-hidden bg-white">
+      <div className="w-full sm:w-[180px] h-[180px] sm:h-[180px] flex-shrink-0 relative bg-slate-50 p-4">
+        <Link href={`/catalog/${_id}`} className="block w-full h-full">
+          <div className="relative w-full h-full">
+            <Image
+              src={image || "/placeholder.svg"}
+              alt={name}
+              layout="fill"
+              objectFit="contain"
+              className="transition-transform duration-300 hover:scale-105"
+            />
+          </div>
         </Link>
       </div>
+
       <div className="flex-1 p-4 flex flex-col justify-between">
         <div>
-          <Link href={`/catalog/${_id}`} className="block mb-2 hover:underline">
-            <h2 className="text-heading4-medium text-gray-800 mb-1 line-clamp-2">{name}</h2>
-            <p className="text-small-regular text-gray-500">{articleNumber ? 'Артикуль' : 'Id'}: {articleNumber || id}</p>
+          <Link href={`/catalog/${_id}`} className="block hover:text-slate-700">
+            <h3 className="text-base-semibold text-slate-800 mb-1 line-clamp-2">{name}</h3>
           </Link>
+          <p className="text-small-regular text-slate-500 mb-3">
+            {articleNumber ? "Артикуль" : "ID"}: {articleNumber || id}
+          </p>
         </div>
-        <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-end">
-          <div className="text-base-regular text-gray-600 mb-2 sm:mb-0">
-            <p>Кількість: {amount}</p>
-            <p>Ціна за одиницю: {priceToShow}{Store.currency_sign}</p>
-          </div>
-          <div className="text-left sm:text-right">
-            <p className="text-body-semibold text-green-600">
-              {(priceToShow * amount).toFixed(2)}{Store.currency_sign}
+
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mt-2">
+          <div className="text-small-regular text-slate-600 mb-2 sm:mb-0">
+            <p className="mb-1">
+              Кількість: <span className="font-medium">{amount}</span>
             </p>
-            <p className="text-subtle-medium text-gray-500">Загальна сума</p>
+            <p>
+              Ціна за одиницю:{" "}
+              <span className="font-medium">
+                {priceToShow.toFixed(2)}
+                {Store.currency_sign}
+              </span>
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="text-base-semibold text-green-600">
+              {(priceToShow * amount).toFixed(2)}
+              {Store.currency_sign}
+            </p>
+            <p className="text-subtle-medium text-slate-500">Загальна сума</p>
           </div>
         </div>
       </div>
-    </article>
+    </div>
   )
 }
 
-export default OrderedProductCard;
+export default OrderedProductCard

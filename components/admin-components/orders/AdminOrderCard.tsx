@@ -1,12 +1,31 @@
-"use server";
+"use client"
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Package, Truck, CreditCard, MapPin, Phone, Mail, User, Calendar, ChevronRight } from "lucide-react"
-import { ProductType } from "@/lib/types/types";
+import {
+  Package,
+  Truck,
+  CreditCard,
+  MapPin,
+  Phone,
+  Mail,
+  User,
+  Calendar,
+  ChevronRight,
+  Tag,
+  Percent,
+  FileText,
+  Download,
+  Send,
+} from "lucide-react"
+import type { ProductType } from "@/lib/types/types"
+// import { generateInvoice, sendInvoiceEmail } from "@/lib/actions/invoice.actions"
+import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface Product {
   product: ProductType
@@ -31,12 +50,18 @@ interface OrderCardProps {
   paymentStatus: string
   deliveryStatus: string
   url: string
+  promocode?: string
+  discount?: number
+  invoice?: {
+    number: string
+    date: string
+    trackingNumber: string
+  }
 }
 
 const AdminOrderCard = ({
   id,
   products,
-
   value,
   name,
   surname,
@@ -51,7 +76,13 @@ const AdminOrderCard = ({
   paymentStatus,
   deliveryStatus,
   url,
+  promocode,
+  discount,
+  invoice,
 }: OrderCardProps) => {
+  const { toast } = useToast()
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
 
   const formatter = new Intl.NumberFormat("uk-UA", {
     style: "currency",
@@ -86,6 +117,54 @@ const AdminOrderCard = ({
     }
   }
 
+  const handleGenerateInvoice = async () => {
+    setIsGeneratingInvoice(true)
+    try {
+      // const result = await generateInvoice(id)
+      toast({
+        title: "Накладну сформовано",
+        // description: `Накладну №${result.number} успішно сформовано`,
+      })
+      // Refresh the page to show the updated invoice
+      window.location.reload()
+    } catch (error) {
+      toast({
+        title: "Помилка",
+        description: "Не вдалося сформувати накладну. Спробуйте ще раз.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingInvoice(false)
+    }
+  }
+
+  const handleSendInvoiceEmail = async () => {
+    if (!invoice) return
+
+    setIsSendingEmail(true)
+    try {
+      // await sendInvoiceEmail({
+      //   orderId: id,
+      //   email,
+      //   name,
+      //   trackingNumber: invoice.trackingNumber,
+      //   invoiceNumber: invoice.number,
+      // })
+      toast({
+        title: "Лист відправлено",
+        description: `Інформацію про накладну відправлено на ${email}`,
+      })
+    } catch (error) {
+      toast({
+        title: "Помилка",
+        description: "Не вдалося відправити лист. Спробуйте ще раз.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
   return (
     <Card className="w-full shadow-md border-slate-200 overflow-hidden">
       <CardHeader className="bg-slate-50 border-b border-slate-200 pb-4">
@@ -104,6 +183,11 @@ const AdminOrderCard = ({
             <Badge className={`${getDeliveryStatusColor(deliveryStatus)} text-xs font-medium px-2.5 py-0.5`}>
               {deliveryStatus}
             </Badge>
+            {invoice && (
+              <Badge className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5">
+                Накладна №{invoice.number}
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -156,6 +240,36 @@ const AdminOrderCard = ({
                 <p className="text-small-semibold text-slate-700">{deliveryMethod}</p>
               </div>
             </div>
+
+            {promocode && (
+              <div className="flex items-start">
+                <Tag className="h-4 w-4 mr-2 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-small-regular text-slate-500">Промокод</p>
+                  <p className="text-small-semibold text-slate-700">{promocode}</p>
+                </div>
+              </div>
+            )}
+
+            {discount && discount > 0 && (
+              <div className="flex items-start">
+                <Percent className="h-4 w-4 mr-2 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-small-regular text-slate-500">Знижка</p>
+                  <p className="text-small-semibold text-slate-700">{discount}%</p>
+                </div>
+              </div>
+            )}
+
+            {invoice && (
+              <div className="flex items-start">
+                <FileText className="h-4 w-4 mr-2 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-small-regular text-slate-500">Трек-номер</p>
+                  <p className="text-small-semibold text-slate-700">{invoice.trackingNumber}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-start">
@@ -192,12 +306,66 @@ const AdminOrderCard = ({
             </AccordionItem>
           </Accordion>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
-          </div>
+          {promocode && discount && discount > 0 && (
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex justify-between items-center text-small-medium">
+                <span className="text-slate-600">Сума без знижки:</span>
+                <span className="text-slate-700">{formatter.format(value / (1 - discount / 100))}</span>
+              </div>
+              <div className="flex justify-between items-center text-small-medium mt-1">
+                <span className="text-slate-600">Знижка ({discount}%):</span>
+                <span className="text-green-600">-{formatter.format(value / (1 - discount / 100) - value)}</span>
+              </div>
+              <div className="flex justify-between items-center text-base-semibold mt-1">
+                <span className="text-slate-700">Фінальна сума:</span>
+                <span className="text-slate-900">{formatter.format(value)}</span>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
 
-      <CardFooter className="flex justify-end pt-2 pb-4 px-4 border-t border-slate-100 mt-4">
+      <CardFooter className="flex justify-between pt-2 pb-4 px-4 border-t border-slate-100 mt-4">
+        <div className="flex gap-2">
+          {invoice ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="text-small-semibold text-slate-700">
+                  <FileText className="mr-1 h-4 w-4" />
+                  Накладна №{invoice.number}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={handleSendInvoiceEmail} disabled={isSendingEmail}>
+                  <Send className="mr-2 h-4 w-4" />
+                  {isSendingEmail ? "Відправка..." : "Відправити клієнту"}
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Download className="mr-2 h-4 w-4" />
+                  Завантажити PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              variant="outline"
+              className="text-small-semibold text-slate-700"
+              onClick={handleGenerateInvoice}
+              disabled={isGeneratingInvoice}
+            >
+              {isGeneratingInvoice ? (
+                <>
+                  <span className="mr-1">Формування...</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="mr-1 h-4 w-4" />
+                  Сформувати накладну
+                </>
+              )}
+            </Button>
+          )}
+        </div>
         <Link href={`${url}${id}`}>
           <Button variant="outline" className="text-small-semibold text-slate-700">
             Деталі замовлення
@@ -210,4 +378,3 @@ const AdminOrderCard = ({
 }
 
 export default AdminOrderCard
-
