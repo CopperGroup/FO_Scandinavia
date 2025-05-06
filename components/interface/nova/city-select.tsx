@@ -38,7 +38,7 @@ export function CitySelect({ value, onChange, disabled = false }: CitySelectProp
         if (result.success && result.data) {
           setCities(result.data)
           // Initially show top cities or most popular
-          setFilteredCities(result.data.slice(0, 10))
+          setFilteredCities(result.data.filter((c: any) => ["Львів", "Київ", "Одеса", "Вінниця", "Хмельницький"].includes(c.Description)))
         }
       } catch (error) {
         console.error("Error fetching cities:", error)
@@ -53,15 +53,19 @@ export function CitySelect({ value, onChange, disabled = false }: CitySelectProp
   // Filter cities based on search term
   const debouncedSearch = useCallback(
     debounce((term: string) => {
-      if (!term) {
-        setFilteredCities(cities.slice(0, 10))
-        return
-      }
+      // if (!term) {
+      //   setFilteredCities(cities.slice(0, 10))
+      //   return
+      // }
 
       const normalizedTerm = term.toLowerCase()
-      const filtered = cities.filter((city) => city.Description.toLowerCase().includes(normalizedTerm)).slice(0, 20) // Limit results for performance
-
-      setFilteredCities(filtered)
+      if(normalizedTerm.trim() !== "") {
+        const filtered = cities
+        .filter((city) => city.Description.toLowerCase().includes(normalizedTerm))
+        .sort((a, b) => a.Description.length - b.Description.length).slice(0, 20);
+      // Limit results for performance
+        setFilteredCities(filtered)
+      }
     }, 300),
     [cities],
   )

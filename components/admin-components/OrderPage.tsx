@@ -26,7 +26,6 @@ import {
   Box,
   DollarSign,
   Printer,
-  Download,
   Calendar,
   Send,
   Copy,
@@ -37,7 +36,14 @@ import ChangeOrdersStatuses from "../interface/ChangeOrdersStatuses"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSearchParams } from "next/navigation"
-import { calculateDeliveryCost, createCounterParty, createCounterPartyContact, generateInvoice, getInvoiceDetails } from "@/lib/actions/order.actions"
+import {
+  calculateDeliveryCost,
+  createCounterParty,
+  createCounterPartyContact,
+  generateInvoice,
+  getInvoiceDetails,
+} from "@/lib/actions/order.actions"
+import { NovaPoshtaModal } from "./orders/SenderWarehouseSelect"
 
 interface Product {
   product: {
@@ -143,6 +149,7 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
   const [expandedAccordion, setExpandedAccordion] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [parsedInvoice, setParsedInvoice] = useState<BasicInvoiceInfo | null>(null)
+  const [isNovaPoshtaModalOpen, setIsNovaPoshtaModalOpen] = useState(false)
 
   // Parse invoice if it exists
   useEffect(() => {
@@ -344,13 +351,28 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
 
   // Update the handleGenerateInvoice function to handle the Nova Poshta API response
   const handleGenerateInvoice = async () => {
+    setIsNovaPoshtaModalOpen(true)
+  }
+
+  // Add this new function to handle the actual invoice generation
+  const handleGenerateInvoiceWithLocation = async (cityRef: string, warehouseRef: string) => {
+    console.log("Generating invoice with city ref:", cityRef, "and warehouse ref:", warehouseRef)
+
     setIsGeneratingInvoice(true)
     try {
       const counterPartyRef = await createCounterParty({ stringifiedOrder: orderJson })
-      const counterPartyContact = await createCounterPartyContact({ stringifiedOrder: orderJson, ref: counterPartyRef });
-      const deliveryCost = await calculateDeliveryCost({ stringifiedOrder: orderJson })
+      const counterPartyContact = await createCounterPartyContact({ stringifiedOrder: orderJson, ref: counterPartyRef })
+      const deliveryCost = await calculateDeliveryCost({ stringifiedOrder: orderJson, senderCityRef: cityRef})
 
-      const result = await generateInvoice({ stringifiedOrder: orderJson, counterPartyRef, contactRef: counterPartyContact, deliveryCost })
+      const result = await generateInvoice({
+        stringifiedOrder: orderJson,
+        counterPartyRef,
+        contactRef: counterPartyContact,
+        deliveryCost,
+        senderCityRef: cityRef,
+        senderWarehouseRef: warehouseRef,
+      })
+
       toast({
         title: "Накладну сформовано",
         description: `Накладну №${result.IntDocNumber} успішно сформовано`,
@@ -368,32 +390,6 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
       setIsGeneratingInvoice(false)
     }
   }
-
-  // Remove this function
-  // Load invoice details when accordion is expanded
-  // const handleAccordionChange = async (value: string) => {
-  //   if (value === "invoice" && parsedInvoice && !invoiceDetails && !isLoadingInvoiceDetails) {
-  //     setIsLoadingInvoiceDetails(true)
-  //     setInvoiceError(null)
-
-  //     try {
-  //       const details = await getInvoiceDetails(parsedInvoice.IntDocNumber)
-  //       setInvoiceDetails(details)
-  //     } catch (error) {
-  //       console.error("Failed to fetch invoice details:", error)
-  //       setInvoiceError("Не вдалося завантажити деталі накладної. Спробуйте пізніше.")
-  //       toast({
-  //         title: "Помилка",
-  //         description: "Не вдалося завантажити деталі накладної",
-  //         variant: "destructive",
-  //       })
-  //     } finally {
-  //       setIsLoadingInvoiceDetails(false)
-  //     }
-  //   }
-
-  //   setExpandedAccordion(value === expandedAccordion ? null : value)
-  // }
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -954,7 +950,9 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                       <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">
                         Накладна №{parsedInvoice.IntDocNumber}
                       </h3>
-                      <p className="text-slate-500 text-xs sm:text-sm break-all">Трек-номер: {parsedInvoice.IntDocNumber}</p>
+                      <p className="text-slate-500 text-xs sm:text-sm break-all">
+                        Трек-номер: {parsedInvoice.IntDocNumber}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-auto">
                       <Button
@@ -1179,6 +1177,12 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
           )}
         </Tabs>
       </div>
+      {/* Nova Poshta Modal */}
+      <NovaPoshtaModal
+        isOpen={isNovaPoshtaModalOpen}
+        onClose={() => setIsNovaPoshtaModalOpen(false)}
+        onGenerate={handleGenerateInvoiceWithLocation}
+      />
     </div>
   )
 }

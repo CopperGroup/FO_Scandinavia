@@ -175,7 +175,7 @@ export function WarehouseSelect({ cityRef, value, onChange, disabled = false, ty
                       className="flex items-center py-2"
                     >
                       <div className="flex flex-col">
-                        <span className="font-medium">{warehouse.Description}</span>
+                        <span className="font-medium truncate">{warehouse.Description}</span>
                         <span className="text-xs text-muted-foreground">
                           {warehouse.CategoryOfWarehouse === "Postomat" ||
                           warehouse.Description.toLowerCase().includes("поштомат")

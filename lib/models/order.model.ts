@@ -123,6 +123,8 @@ const orderSchema = new mongoose.Schema({
     }
 });
 
+orderSchema.index({ id: 1 })
+
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 
 export default Order;

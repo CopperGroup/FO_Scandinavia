@@ -45,7 +45,7 @@ interface InterfaceProps {
     path: string,
 }
 
-const DELETEDPRODUCT_ID = "67081c925bb87b6f68d83c50";
+const DELETEDPRODUCT_ID = "681a9c16b06f4e599d07371e";
 
 export async function createUrlProduct({ id, name, isAvailable, quantity, url, priceToShow, price, images, vendor, description, articleNumber, params, isFetched, category }: CreateUrlParams){
     try {

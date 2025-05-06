@@ -2988,10 +2988,10 @@ export async function createCounterPartyContact({ stringifiedOrder, ref }: { str
 }
 
 
-export async function calculateDeliveryCost({ stringifiedOrder }: { stringifiedOrder: string}): Promise<string>;
-export async function calculateDeliveryCost({ stringifiedOrder }: { stringifiedOrder: string}, type: 'json'): Promise<string>;
+export async function calculateDeliveryCost({ stringifiedOrder, senderCityRef }: { stringifiedOrder: string, senderCityRef: string }): Promise<string>;
+export async function calculateDeliveryCost({ stringifiedOrder, senderCityRef }: { stringifiedOrder: string, senderCityRef: string }, type: 'json'): Promise<string>;
 
-export async function calculateDeliveryCost({ stringifiedOrder }: { stringifiedOrder: string}, type?: 'json') {
+export async function calculateDeliveryCost({ stringifiedOrder, senderCityRef }: { stringifiedOrder: string, senderCityRef: string }, type?: 'json') {
    try {
 
     const {
@@ -3011,16 +3011,16 @@ export async function calculateDeliveryCost({ stringifiedOrder }: { stringifiedO
         calledMethod: "getDocumentPrice",
         methodProperties: {
           Weight: "1",  // weight in kg
-          CitySender: process.env.NOVA_SENDER_CITY_REF,
+          CitySender: senderCityRef,
           CityRecipient: cityRef,
           ServiceType: deliveryMethod === "Нова пошта (Поштомат)" ? "DoorsWarehouse" : "WarehouseWarehouse", // service type
           Cost : value.toFixed(0),
           CargoType : "Cargo",
           SeatsAmount : "1",
-          RedeliveryCalculate : {
-            CargoType: "Money",
-            Amount: value.toFixed(0)
-          },
+          // RedeliveryCalculate : {
+          //   CargoType: "Money",
+          //   Amount: value.toFixed(0)
+          // },
         }
       }),
     });
@@ -3041,10 +3041,10 @@ export async function calculateDeliveryCost({ stringifiedOrder }: { stringifiedO
    }
 }
 
-export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string }): Promise<any>;
-export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string }, type: 'json'): Promise<string>;
+export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }): Promise<any>;
+export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }, type: 'json'): Promise<string>;
 
-export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string }, type?: 'json') {
+export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }, type?: 'json') {
    try {
     const {
       _id,
@@ -3081,9 +3081,9 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
         SeatsAmount: "1",  // Number of seats (adjust if needed)
         Description: `Замовлення з ${Store.name}`,  // Add the description of the shipment
         Cost: deliveryCost,  // Cost of the shipment
-        CitySender: process.env.NOVA_SENDER_CITY_REF,  // Sender's city reference
+        CitySender: senderCityRef,  // Sender's city reference
         Sender: process.env.NOVA_SENDER_REF,  // Sender's reference
-        SenderAddress: process.env.NOVA_SENDER_ADDRESS_REF,  // Sender's address reference
+        SenderAddress: senderWarehouseRef,  // Sender's address reference
         ContactSender: process.env.NOVA_SENDER_CONTACT_REF,  // Sender's contact reference
         SendersPhone: process.env.NOVA_SENDER_PHONE,  // Sender's phone number
         CityRecipient: cityRef,  // Recipient's city reference
@@ -3109,6 +3109,7 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
     const response = await axios.post("https://api.novaposhta.ua/v2.0/json/", baseFields);
     const { data } = response.data;
   
+    console.log(response)
     if (!data || !data[0]) throw new Error("Failed to create invoice");
   
 

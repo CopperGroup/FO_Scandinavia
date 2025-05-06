@@ -176,7 +176,7 @@ export default function OrderCard({
 
         <div className="flex justify-end items-center">
           <Link
-            href={`${url}${id}`}
+            href={`/myOrders/${id}`}
             className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-900 rounded-full border border-gray-300 hover:bg-gray-50 transition-colors duration-300 group-hover:border-gray-900"
           >
             Деталі
