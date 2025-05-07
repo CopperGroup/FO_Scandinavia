@@ -507,7 +507,9 @@ export async function deleteCategory(props: DeleteCategoryProps) {
 
     if (props.removeProducts) {
       // Delete products
-      await deleteManyProducts(productIds, "keep-catalog-cache");
+      if(productIds.length > 0) {
+        await deleteManyProducts(productIds, "keep-catalog-cache");
+      }
 
       // Remove products from other categories
       await Category.updateMany(
@@ -518,7 +520,7 @@ export async function deleteCategory(props: DeleteCategoryProps) {
     } else {
       // Remove category reference from products
       await Product.updateMany(
-        { category: { $in: category._id } },
+        { category: { $in: [category._id] } },
         { $pull: { category: category._id } },
         { session }
       );
