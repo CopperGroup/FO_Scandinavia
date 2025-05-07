@@ -21,7 +21,7 @@ interface JSONProduct {
   
   export function convertJsonToProducts(pathToFile?: string): JSONProduct[] {
     try {
-      console.log("Reading file")
+      // console.log("Reading file")
       let jsonFilePath = "C:\\Users\\Користувач\\Downloads\\products.json";
     
       // Ensure the file exists before reading

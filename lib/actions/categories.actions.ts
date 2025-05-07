@@ -13,6 +13,10 @@ import { redirect } from "next/navigation";
 import Filter from "../models/filter.model";
 import mongoose from "mongoose";
 
+const DELETEDCATEGORY_ID = "681a9c9a90b4efb3dd18d1e5"
+
+const excludeDeletedCategory = { _id: { $ne: DELETEDCATEGORY_ID }}
+
 export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }): Promise<CategoryType[]>;
 export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type: 'json'): Promise<string>;
 
@@ -25,7 +29,7 @@ export async function createUrlCategories({ categories }: { categories: FetchedC
         return 0;
     });
 
-    console.log(sortedCategories)
+    // console.log(sortedCategories)
     const categoryMap = new Map<string, mongoose.Types.ObjectId>();
 
     for (const category of sortedCategories) {
@@ -59,7 +63,7 @@ export async function createUrlCategories({ categories }: { categories: FetchedC
         categoryMap.set(category.id, newCategory._id);
     }
 
-    const updatedCategories =  await Category.find();
+    const updatedCategories =  await Category.find(excludeDeletedCategory);
 
     if(type === 'json'){
       return JSON.stringify(updatedCategories)
@@ -79,7 +83,7 @@ export async function updateCategories(
     connectToDB();
 
     // Fetch all existing categories only when necessary
-    const existingCategories = await Category.find();
+    const existingCategories = await Category.find(excludeDeletedCategory);
     const categoryMap = new Map(
       existingCategories.map((cat) => [cat._id.toString(), cat])
     );
@@ -212,7 +216,7 @@ export async function fetchAllCategories(type?: 'json') {
       
     connectToDB();
 
-    const allCategories = await Category.find();
+    const allCategories = await Category.find(excludeDeletedCategory);
 
     if(type === 'json'){
       return JSON.stringify(allCategories)
@@ -228,7 +232,7 @@ export async function fetchCategoriesProperties() {
   try {
     connectToDB();
 
-    const categories = await Category.find()
+    const categories = await Category.find(excludeDeletedCategory)
       .populate("products")
 
     const categoriesList = categories.map((category) => {
@@ -306,7 +310,7 @@ export async function setCategoryDiscount({categoryId, percentage}: {categoryId:
 
     // Fetch the category by its ID and populate its products
 
-    console.log(percentage)
+    // console.log(percentage)
     const category = await Category.findById(categoryId).populate("products");
 
     if (!category) {
@@ -418,7 +422,7 @@ export async function getCategoriesNamesAndIds(): Promise<{ name: string; catego
   try {
     connectToDB();
 
-    const categories = await Category.find();
+    const categories = await Category.find(excludeDeletedCategory);
 
     const categoriesNamesAndIdsArray = categories.map(category => ({ name: category.name, categoryId: category._id.toString()}))
 
@@ -432,7 +436,7 @@ export async function getCategoriesNamesIdsTotalProducts(): Promise<{ name: stri
   try {
     connectToDB();
 
-    const categories = await Category.find();
+    const categories = await Category.find(excludeDeletedCategory);
 
     const categoriesNamesAndIdsArray = categories.map(category => ({ name: category.name, categoryId: category._id.toString(), totalProducts: category.products.length, subCategories: category.subCategories }))
 
@@ -467,9 +471,11 @@ export async function createNewCategory({ name, products, previousCategoryId }: 
     const createdCategory = await Category.create({
       name,
       totalValue,
+
       products: productIds
     })
 
+    // console.log(createdCategory)
     clearCatalogCache();
     clearCache(["createCategory", "updateProduct"], undefined);
 
@@ -575,7 +581,7 @@ export async function fetchCategoriesParams(type?: 'json') {
   try {
       await connectToDB();
       
-      const categories = await Category.find().populate("products");
+      const categories = await Category.find(excludeDeletedCategory).populate("products");
       
       const result = categories.reduce((acc, category) => {
           const totalProducts = category.products.length;

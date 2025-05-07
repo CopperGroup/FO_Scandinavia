@@ -39,7 +39,7 @@ export default function LoginPage() {
     const result = await fetchUserByEmail({email}, "json")
 
     const user = JSON.parse(result)
-    console.log(user);
+    // console.log(user);
 
     if(user) {
       if(!user.selfCreated) {

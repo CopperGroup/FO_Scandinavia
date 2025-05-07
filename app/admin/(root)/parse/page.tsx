@@ -30,7 +30,7 @@ const Page = () => {
         throw new Error("Failed to fetch products");
       }
       const data = await response.json();
-      console.log(data);
+      // console.log(data);
       setProducts(data);
 
       await createUrlProductsMany(data)

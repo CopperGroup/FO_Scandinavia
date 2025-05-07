@@ -56,7 +56,6 @@ export default function EditCategoryPage(props: ReadOnly<CategoryPageProps>) {
 
   const router = useRouter()
   useEffect(() => {
-    console.log("fetch")
     const fetchAllCategories = async () => {
       const result = await getCategoriesNamesAndIds()
       setAllCategories(result)

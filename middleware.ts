@@ -16,7 +16,7 @@ export default withAuth(
 
          const url = request.nextUrl;
          const { device } = userAgent(request);
-         console.log("Device", device)
+        //  console.log("Device", device)
     },
     {
         callbacks: {

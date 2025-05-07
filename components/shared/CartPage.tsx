@@ -84,10 +84,10 @@ const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) =>
   const handleNavigateToProductPage = async (e: any, image:string, productId: string) => {
     e.preventDefault();
   
-    console.log(image, cartData)
+    // console.log(image, cartData)
     const id = await getProductPageUrlByFirstImageUrl(image);
 
-    console.log(id)
+    // console.log(id)
 
     if(id) {
       router.push(`/catalog/${id}`)

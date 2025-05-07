@@ -42,7 +42,7 @@ export default function EventManagement({ _id, initialEvents }: { _id: string, i
           variant: "success",
         })
 
-        console.log("Success")
+        // console.log("Success")
       } else {
         throw new Error("Failed to update events")
       }

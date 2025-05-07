@@ -308,7 +308,7 @@ export default function CategoryStructureManager({ categories, setCategories }: 
           }
         }
 
-        console.log("Category structure after move:", JSON.stringify(newCategories, null, 2))
+        // console.log("Category structure after move:", JSON.stringify(newCategories, null, 2))
         return newCategories
       })
     },

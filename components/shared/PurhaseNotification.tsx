@@ -109,7 +109,7 @@ export default function PurchaseNotification({
     const nextInterval = getRandomInterval(minInterval, maxInterval)
     const delay = timeSinceLastNotification < nextInterval ? nextInterval - timeSinceLastNotification : 0
 
-    console.log(`Next notification in: ${delay}ms`)
+    // console.log(`Next notification in: ${delay}ms`)
 
     scheduleNextNotification(delay)
 

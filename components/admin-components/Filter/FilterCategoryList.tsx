@@ -170,7 +170,7 @@ export default function FilterCategoryList({ stringifiedCategories, filterDelay}
     setCheckedParams(updatedCheckedParams)
     setParamTypes(updatedParamTypes)
     
-    console.log("Updated Filter:", { checkedParams: updatedCheckedParams, paramTypes: updatedParamTypes })
+    // console.log("Updated Filter:", { checkedParams: updatedCheckedParams, paramTypes: updatedParamTypes })
   }
   
   return (

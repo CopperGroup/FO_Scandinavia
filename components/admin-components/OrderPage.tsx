@@ -356,7 +356,7 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
 
   // Add this new function to handle the actual invoice generation
   const handleGenerateInvoiceWithLocation = async (cityRef: string, warehouseRef: string) => {
-    console.log("Generating invoice with city ref:", cityRef, "and warehouse ref:", warehouseRef)
+    // console.log("Generating invoice with city ref:", cityRef, "and warehouse ref:", warehouseRef)
 
     setIsGeneratingInvoice(true)
     try {

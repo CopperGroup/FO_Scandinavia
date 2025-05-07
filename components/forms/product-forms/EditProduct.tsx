@@ -516,7 +516,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategories }: 
 
                             const rawValue = removeExtraLeadingCharacters(removeAllButOne(e.target.value.replace(/[^\d.]/g, ""), "."), "0");
                             let discount = (parseFloat(rawValue) - parseFloat(rawValue) * (discountPercentage / 100))
-                            console.log(rawValue, discount)
+                            // console.log(rawValue, discount)
                             if(isNaN(discount)) {
                               discount = 0
                             }
@@ -558,7 +558,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategories }: 
                             
                               if (!isNaN(p)) {
                                 const discountValue = p - (numericValue / 100) * p;
-                                console.log("D", discountValue);
+                                // console.log("D", discountValue);
                             
                                 form.setValue("priceToShow", `${Store.currency_sign}${discountValue.toFixed(2)}`);
                                 setDiscountPrice(discountValue.toFixed(2))

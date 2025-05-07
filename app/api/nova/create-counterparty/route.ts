@@ -5,7 +5,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { name, surname, phoneNumber, email } = body
 
-    console.log(name, surname, phoneNumber, email)
+    // console.log(name, surname, phoneNumber, email)
     const response = await fetch('https://api.novaposhta.ua/v2.0/json/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const data = await response.json()
-    console.log(data)
+    // console.log(data)
     return NextResponse.json(data)
   } catch (error: any) {
     console.error("Error in create-counterparty:", error)

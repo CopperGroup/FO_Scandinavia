@@ -49,7 +49,6 @@ export function EditUserForm({
     }
 
     // Here you would typically update the user data
-    console.log("Updated user data:", values)
 
     await editUser(
         {

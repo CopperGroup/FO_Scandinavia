@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
         // Destructure the body to extract user data
         const {username, email, password } = body;
 
-        console.log(username, email, password)
+        // console.log(username, email, password)
         // Check if user already exists
         const existingUser = await User.findOne({ email }).select("-password");
 
-        console.log(existingUser)
+        // console.log(existingUser)
         const salt = await bcryptjs.genSalt(10);
         const hashedPassword = await bcryptjs.hash(password, salt);
 

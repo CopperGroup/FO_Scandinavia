@@ -152,13 +152,13 @@ export async function createProduct({ id, name, quantity, images, url, priceToSh
             for(const newCategory of newCategories) {
                 const result = await createNewCategory({ name: newCategory, products: [createdProduct._id]})
     
-                createdCategoriesIds.push(result._id)
+                await createdCategoriesIds.push(result._id)
             }
-    
+
             await Product.findByIdAndUpdate(
                 createdProduct._id,
                 {
-                    $addToSet: { categories: createdCategoriesIds }
+                    $addToSet: { category: createdCategoriesIds }
                 }
             )
         }
@@ -385,6 +385,8 @@ export async function editProduct({ _id, name, quantity, images, url, priceToSho
             params: customParams ? customParams.map(param => ({ name: param.name, value: param.value })) : []
         };
 
+        // console.log(createdCategoriesIds)
+        // console.log(update)
         const updatedProduct = await Product.findOneAndUpdate({ _id }, update, { new: true });
 
         if (!updatedProduct) {
@@ -517,7 +519,7 @@ export async function findAllProductsCategories(type?: "json") {
       }
   
       await session.commitTransaction();
-      console.log("Deleted products");
+      // console.log("Deleted products");
   
     } catch (error: any) {
       await session.abortTransaction();
@@ -532,7 +534,7 @@ export async function deleteProduct(id: { productId: string} | {product_id: stri
   try {
     connectToDB();
 
-    console.log("Deleting")
+    // console.log("Deleting")
     if(id){
         const productId = "productId" in id ? id.productId : id.product_id;
         const searchParam = "productId" in id ? "id" : "_id";

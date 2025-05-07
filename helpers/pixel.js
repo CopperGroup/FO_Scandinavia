@@ -47,15 +47,15 @@ export async function initializeFacebookPixel() {
     })(window, document, 'script');
     
     // Initialize the pixel with the decrypted ID
-    console.log(window.fbq.queue);
+    // console.log(window.fbq.queue);
     
     fbq('init', pixelID);
     
     if(typeof fbq == "undefined") {
-      console.log("No fbq")
+      // console.log("No fbq")
     }
 
-    console.log(`Facebook pixel initialized`);
+    // console.log(`Facebook pixel initialized`);
   } catch (error) {
     console.error("Error initializing Facebook Pixel:", error);
   }
@@ -68,7 +68,7 @@ export function trackFacebookEvent(eventName, eventData = {}) {
     }
 
     fbq("track", eventName, eventData);
-    console.log(`Tracked event: ${eventName}`, eventData);
+    // console.log(`Tracked event: ${eventName}`, eventData);
   } else {
     console.error(`Failed to track event: ${eventName}. Facebook Pixel is not initialized.`);
   }
