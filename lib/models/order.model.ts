@@ -54,6 +54,10 @@ const orderSchema = new mongoose.Schema({
         type: String
     },
 
+    warehouse: {
+        type: String
+    },
+    
     adress: {
         type: String
     },

@@ -33,7 +33,8 @@ interface CreateOrderParams {
   discount: number | undefined,
   promocode: string | undefined,
   promoResult: string | undefined;
-  cityRef: string,
+  cityRef: string | undefined,
+  warehouse: string,
   warehouseRef: string | undefined,
   warehouseIndex: string | undefined,
   streetRef: string | undefined,
@@ -155,6 +156,7 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
           buildingNumber: params.buildingNumber,
           apartment: params.apartment,
           cityRef: params.cityRef,
+          warehouse: params.warehouse,
           warehouseRef: params.warehouseRef,
           warehouseIndex: params.warehouseIndex,
           streetRef: params.streetRef

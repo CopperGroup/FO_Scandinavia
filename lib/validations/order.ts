@@ -1,3 +1,4 @@
+import { Warehouse } from "lucide-react"
 import * as z from "zod"
 
 export const OrderValidation = z.object({
@@ -8,14 +9,15 @@ export const OrderValidation = z.object({
   paymentType: z.string().min(1, { message: "Виберіть спосіб оплати" }),
   deliveryMethod: z.string().min(1, { message: "Виберіть спосіб доставки" }),
   city: z.string().min(1, { message: "Виберіть місто" }),
+  warehouse: z.string().min(1, { message: 'Виберіть відділення'}),
   adress: z.string().optional(), // Made optional
-  postalCode: z.string().optional(), // Made optional
+  postalCode: z.string().optional(),
   comment: z.string().optional(),
   buildingNumber: z.string().optional(),
   apartment: z.string().optional(),
 
   // Nova Poshta specific fields
-  cityRef: z.string().min(1, { message: "Виберіть місто" }),
+  cityRef: z.string().optional(),
   warehouseRef: z.string().optional(),
   warehouseIndex: z.string().optional(),
   streetRef: z.string().optional(),

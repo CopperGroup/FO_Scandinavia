@@ -246,6 +246,7 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
         discount: appliedPromo ? appliedPromo.discount : undefined,
         promoResult: promoResult || undefined,
         cityRef: values.cityRef,
+        warehouse: values.warehouse,
         warehouseRef: values.warehouseRef,
         warehouseIndex: values.warehouseIndex,
         adress: "",
@@ -907,6 +908,7 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
                             <SelectContent className="rounded-2xl shadow-md">
                               <SelectItem value="Нова пошта (У відділення)">Нова пошта (У відділення)</SelectItem>
                               <SelectItem value="Нова пошта (Поштомат)">Нова пошта (Поштомат)</SelectItem>
+                              <SelectItem value="УкрПошта (Відділення)">УкрПошта (Відділення)</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage className="text-sm" />
@@ -918,32 +920,72 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
                     <FormField
                       control={form.control}
                       name="city"
-                      render={({ field }) => (
-                        <FormItem className="mb-6">
-                          <FormLabel className="text-sm font-medium text-gray-700">Місто *</FormLabel>
-                          <CitySelect
-                            value={field.value}
-                            onChange={(value, ref) => {
-                              field.onChange(value)
-                              form.setValue("cityRef", ref)
-                              // Reset warehouse when city changes
-                              form.setValue("warehouseRef", "")
-                              form.setValue("warehouseIndex", "")
-                            }}
-                            disabled={isSubmitting}
-                          />
-                          <FormMessage className="text-sm" />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const deliveryMethod = form.watch("deliveryMethod") || ""
+                        const isUkrPoshta = deliveryMethod.includes("УкрПошта")
+
+                        return (
+                          <FormItem className="mb-6">
+                            <FormLabel className="text-sm font-medium text-gray-700">Місто *</FormLabel>
+                            {isUkrPoshta ? (
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  className="rounded-2xl border-blue-100 shadow-sm h-12 px-4 transition-all focus:border-gray-400 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                                  disabled={isSubmitting}
+                                  placeholder="Введіть назву міста"
+                                />
+                              </FormControl>
+                            ) : (
+                              <CitySelect
+                                value={field.value}
+                                onChange={(value, ref) => {
+                                  field.onChange(value)
+                                  form.setValue("city", value)
+                                  form.setValue("cityRef", ref)
+                                  // Reset warehouse when city changes
+                                  form.setValue("warehouseRef", "")
+                                  form.setValue("warehouseIndex", "")
+                                }}
+                                disabled={isSubmitting || !isDeliveryMethodSelected}
+                              />
+                            )}
+                            <FormMessage className="text-sm" />
+                          </FormItem>
+                        )
+                      }}
                     />
 
-                    {/* Warehouse select for Nova Poshta office/poshtomat */}
+                    {/* Warehouse select for Nova Poshta office/poshtomat or direct input for UkrPoshta */}
                     {isDeliveryMethodSelected && (
                       <FormField
                         control={form.control}
                         name="warehouseRef"
                         render={({ field }) => {
                           const deliveryMethod = form.watch("deliveryMethod") || ""
+                          const isUkrPoshta = deliveryMethod.includes("УкрПошта")
+
+                          if (isUkrPoshta) {
+                            return (
+                              <FormItem className="mb-6">
+                                <FormLabel className="text-sm font-medium text-gray-700">Відділення *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    value={field.value}
+                                    onChange={(e) => {
+                                      field.onChange(e.target.value)
+                                      form.setValue("warehouse", e.target.value)
+                                    }}
+                                    className="rounded-2xl border-blue-100 shadow-sm h-12 px-4 transition-all focus:border-gray-400 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                                    disabled={isSubmitting}
+                                    placeholder="Введіть номер відділення"
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-sm" />
+                              </FormItem>
+                            )
+                          }
+
                           const warehouseType = deliveryMethod.includes("Поштомат") ? "Postomat" : "Branch"
 
                           return (
@@ -957,6 +999,7 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
                                 onChange={(value, ref, index) => {
                                   field.onChange(ref)
                                   if (index) form.setValue("warehouseIndex", index)
+                                  if (value) form.setValue("warehouse", value)
                                 }}
                                 disabled={isSubmitting || !form.watch("cityRef")}
                                 type={warehouseType}
