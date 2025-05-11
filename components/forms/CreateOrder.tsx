@@ -65,7 +65,8 @@ type CartProduct = {
 
 type AuthView = "login" | "register" | "success"
 
-const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
+const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; email: string }) => {
+  const currentUser = JSON.parse(stringifiedUser)
   const router = useRouter()
   const { cartData, setCartData } = useAppContext()
   const [isOrderCreated, setIsOrderCreated] = useState(false)
@@ -139,9 +140,9 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
     cityRef: "",
     warehouseRef: "",
     warehouseIndex: "",
-    name: "",
-    surname: "",
-    phoneNumber: "",
+    name: currentUser.name || "",
+    surname: currentUser.surname || "",
+    phoneNumber: currentUser.phoneNumber || "",
     paymentType: undefined,
     deliveryMethod: undefined,
     city: "",
@@ -232,7 +233,7 @@ const CreateOrder = ({ userId, email }: { userId: string; email: string }) => {
       // Include promocode info in the order if applied
       const orderData = {
         products: products,
-        userId: userId,
+        userId: currentUser?._id,
         value: Number.parseFloat(formattedPriceToPay), // Use the discounted price
         name: values.name,
         surname: values.surname,
