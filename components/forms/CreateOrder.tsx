@@ -271,10 +271,10 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
       })
 
       setCartData([])
+      await sendOrderEmail(order)
+      await sendAdminOrderNotification(order)
       setIsOrderCreated(true)
       setOrderId(order.id)
-      sendOrderEmail(order)
-      sendAdminOrderNotification(order)
       setTimeout(() => setShowThankYou(true), 3000)
       setTimeout(() => setShowConfetti(true), 3500)
     } catch (error) {

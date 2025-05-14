@@ -15,13 +15,12 @@ const transporter = nodemailer.createTransport({
 export async function sendAdminOrderNotification(order: any) {
   try {
 
-    if (!order) throw new Error("Order not found.")
-
     const orderDate = new Date(order.data).toLocaleDateString("uk-UA")
     const orderTime = new Date(order.data).toLocaleTimeString("uk-UA")
 
     const subtotal = order.products.reduce((acc: number, p: any) => acc + p.product.priceToShow * p.amount, 0)
     const discountAmount = order.discount ? (subtotal * order.discount) / 100 : 0
+
 
     const emailHtml = `
         <!DOCTYPE html>

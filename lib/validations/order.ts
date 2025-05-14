@@ -1,4 +1,3 @@
-import { Warehouse } from "lucide-react"
 import * as z from "zod"
 
 export const OrderValidation = z.object({
