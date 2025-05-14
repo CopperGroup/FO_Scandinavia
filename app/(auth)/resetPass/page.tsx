@@ -1,143 +1,139 @@
-'use client'
+"use client"
 
-import React from 'react'
-import { useState } from 'react';
-import { useEffect } from 'react';
-import Image from 'next/image';
-import axios from "axios";
-import Link from 'next/link';
-import { Store } from '@/constants/store';
-
+import type React from "react"
+import { useState, useEffect } from "react"
+import axios from "axios"
+import Link from "next/link"
+import { Store } from "@/constants/store"
+import { AtSign, AlertCircle, Loader2, ArrowLeft } from 'lucide-react'
+import { useRouter } from "next/navigation"
+import { sendResetPasswordEmail } from "@/lib/email/resetPass"
 
 const ResetPass = () => {
-    const [disabled, setDisabled] =useState(true);
-    const [email, setEmail] = useState("");
-    const [wasSended, setWasSended] = useState(false);
+  const [isLoading, setIsLoading] = useState(false)
+  const [disabled, setDisabled] = useState(true)
+  const [email, setEmail] = useState("")
+  const [wasSended, setWasSended] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
 
-
-    useEffect(() => {
-      if(email.length > 0 ){
-        setDisabled(false)
-      }else{
-        setDisabled(true)
-      }
-    }, [email]);   
-
-    const handleSubmit = async (e:any) => {
-    
-      e.preventDefault();
-  
-      try {
-        await axios.post("/api/users/resetPass", { email });
-        setWasSended(true);
-        
-    } catch (error:any) {
-      console.log(error);
+  useEffect(() => {
+    if (email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setDisabled(false)
+    } else {
+      setDisabled(true)
     }
+  }, [email])
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError("")
 
-      
-    };
-  
-
-
-
+    try {
+      await sendResetPasswordEmail({ email })
+      setWasSended(true)
+    } catch (error: any) {
+      console.log(error)
+      setError(error.response?.data?.message || "Помилка при відправці листа. Спробуйте пізніше.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
-    <main className="w-full h-screen flex flex-1">
-        <div className="w-2/5 max-w-[40rem] h-full flex flex-col justify-center items-center max-[1640px]:max-w-[44rem] max-[1640px]:w-1/2 max-[1010px]:hidden">
-          <div className="w-full flex items-center h-20 px-7">
-            <Link href="/" className="text-heading3-bold pl-3">{Store.name}</Link>
-          </div>
-          <div className="w-full h-full flex justify-center items-center px-28 py-20 overflow-y-auto max-[1600px]:px-24 max-[1340px]:px-20 max-[1150px]:px-16 max-[1065px]:px-12">
-            <div className="w-full h-full flex-col justify-center flex-1">
-            {wasSended
-                 ?
-                 <div>
-                     <h1 className="text-heading1-semibold text-dark-3 font-[550] mt-5 mb-1">Лист Відправлено!</h1>
-                     <p className="text-gray-700 text-[17px] mt-3">Перевірте вашу електронну адресу на наявність листа! <br/>Не забудьте подиввитися у папці &quot;Спам&quot;!</p>
-                     <Image src='assets/mail.svg' width={100} height={100} alt="" className="mx-auto my-10"></Image>
-                 </div>
-                 :
-                (<>
-                    <h3 className="text-heading1-semibold text-dark-3 font-[550] mt-5 mb-1">Змінити пароль</h3>
-                    <p className="text-dark-4 mb-8">На вашу пошту прийде лист для змінення пароля.</p>
-                    <form onSubmit={handleSubmit} className="flex flex-col text-center"> 
-                      <input 
-                       className="bg-transparent appearance-none rounded-none border-b-2 border-stone-200 font-medium focus:outline-none focus:border-gray-600 text-black placeholder-slate-600 p-2 mb-4"
-                       onChange={(e) => setEmail(e.target.value)}
-                       type="email"
-                       placeholder="Email"
-                      />
-                      {disabled?<button className="w-full mx-auto py-3 px-10 font-medium tracking-wide border bg-gray-50 border-gray-300 text-gray-300 rounded-lg pointer-events-none mt-9 mb-4">Отримати лист</button>
-                      :<button type="submit" className="w-full mx-auto py-3 px-10 bg-black text-white font-medium tracking-wide border border-gray-300 rounded-lg focus:outline-none hover:border-slate-950 transition-colors duration-300 mt-9 mb-4">Отримати лист</button>}
-                    
-                    </form>
-                </>)}
-            </div>
-          </div>
-        </div>
-        <div className="relative w-4/5 h-full flex justify-center items-center overflow-hidden max-[1010px]:flex-col max-[1010px]:w-full max-[1010px]:rounded-none" style={{ backgroundImage: `url(/assets/loginbackground.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-          <h1 className="text-[56px] text-center font-medium bg-black text-white py-2 px-5 max-[1010px]:text-[48px] max-[1010px]:w-full max-[390px]:text-[40px]">{Store.name}</h1>
-          <div className="w-full text-white justify-center items-center px-28 py-5 overflow-y-auto min-[1010px]:hidden max-[600px]:px-16 max-[455px]:px-12 max-[360px]:px-10 max-[340px]:px-7 bg-black/45">
-            <div className="w-full h-fit flex flex-col flex-1 mb-10">
-            {wasSended
-                 ?
-                 <div>
-                     <h1 className="w-full text-heading1-semibold text-center text-slate-200 font-[550] mt-5 mb-1">Лист Відправлено!</h1>
-                     <p className="w-full text-slate-200 text-center mb-8">Перевірте вашу електронну адресу на наявність листа! <br/>Не забудьте подиввитися у папці &quot;Спам&quot;!</p>
-                      <Image src="/assets/mail-white.svg" width={100} height={100} alt="" className="mx-auto my-10"></Image>
-                 </div>
-                 :
-                (<>
-                  <h3 className="text-heading1-semibold text-slate-200 font-[550] mt-5 mb-1">Змінити пароль</h3>
-                  <p className="text-slate-200 mb-8">На вашу пошту прийде лист для змінення пароля.</p>
-                  <form onSubmit={handleSubmit} className="flex flex-col text-center">
-                    <input 
-                      className="bg-transparent appearance-none rounded-none  border-b-2 border-stone-200 font-medium focus:outline-none focus:border-white text-slate-200 placeholder-slate-300 p-2 mb-4"
-                      onChange={(e) => setEmail(e.target.value)}
-                      type="email"
-                      placeholder="Email"
-                    />
-                    {disabled ? <button className="w-full mx-auto py-3 px-10 font-medium tracking-wide border bg-gray-50 border-gray-300 text-gray-300 rounded-lg pointer-events-none mt-9 mb-4">Отримати лист</button>
-                      :<button type="submit" className="w-full mx-auto py-3 px-10 text-white font-medium tracking-wide border border-gray-300 rounded-lg focus:outline-none hover:border-slate-950 transition-colors duration-300 mt-9 mb-4">Отримати лист</button>}
-                  </form>
-                </>)} 
-            </div>
-          </div>
-        </div>
-      </main>
-//     <>
-//     <section className="flex flex-col items-center justify-center  py-2 pt-52 ">
-//       {wasSended?
-//         <div>
-//           <h1 className="text-[45px] text-center">Лист Відправлено!</h1>
-//           <Image src='assets/mail.svg' width={100} height={100} alt="" className="mx-auto my-10"></Image>
-//           <p className="text-gray-700 text-[17px] ">Перевірте вашу електронну адресу на наявність листа! <br /> Не забудьте подивитись у папці спам</p>
-//         </div>
-//         :
-//         <div className="flex flex-col items-center justify-center bg-white py-5 px-8 rounded-lg shadow-2xl  ">
-//         <h1 className='text-[25px]'>Зміна пароля</h1>
-//         <p className='text-gray-700 mb-5'>На вашу пошту прийде лист <br /> підтвердження, з яким ви <br /> зможете змінити пароль</p>
-//         <form onSubmit={handleSubmit}  className="flex flex-col text-center">
-
-//             <input 
-//                 className="p-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-gray-600 text-black"
-//                 onChange={(e) => setEmail(e.target.value)}
-//                 type="email"
-//                 placeholder="Email"
-//                 />
-           
-            
-//             {disabled?<button className="w-fit mx-auto py-2 px-10 border bg-gray-50 border-gray-300 text-gray-300 rounded-lg mb-4 pointer-events-none ">Надіслати</button>
-//             :<button className="w-fit mx-auto py-2 px-10 border border-gray-300 rounded-lg mb-4 focus:outline-none    hover:border-slate-950 transition-colors duration-300">Надіслати</button>}
-
-//           </form>
-//         </div>
-//     }
+    <div className="min-h-screen bg-white flex flex-col justify-center items-center px-4">
+      <div className="w-full max-w-md">
+        <Link href="/" className="flex justify-center mb-8">
+          <h1 className="text-2xl font-medium text-gray-900">{Store.name}</h1>
+        </Link>
         
-//     </section>
-// </>
+        {wasSended ? (
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AtSign className="h-8 w-8 text-gray-600" />
+            </div>
+            <h2 className="text-3xl font-light text-gray-900 mb-4">Лист відправлено</h2>
+            <p className="text-gray-500 mb-8">
+              Ми надіслали інструкції з відновлення пароля на вашу електронну адресу. Перевірте вашу пошту, включаючи папку &quot;Спам&quot;.
+            </p>
+            <button
+              onClick={() => router.push("/login")}
+              className="px-6 py-3.5 bg-gray-900 text-white rounded-lg hover:bg-black transition-all duration-200"
+            >
+              Повернутися до входу
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => router.back()}
+              className="flex items-center text-gray-500 hover:text-gray-700 mb-8"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              <span>Назад</span>
+            </button>
+            
+            <h2 className="text-3xl font-light text-gray-900 mb-2">Відновлення пароля</h2>
+            <p className="text-gray-500 mb-8">
+              Введіть адресу електронної пошти, пов&apos;язану з вашим обліковим записом, і ми надішлемо вам посилання для скидання пароля.
+            </p>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="flex items-center p-3 text-sm text-red-500 bg-red-50 rounded-lg">
+                  <AlertCircle className="flex-shrink-0 w-4 h-4 mr-2" />
+                  <span>{error}</span>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      setError("")
+                    }}
+                    className="block w-full px-4 py-3.5 text-gray-900 bg-gray-50 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200"
+                    placeholder="Email"
+                    required
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                    <AtSign className="h-5 w-5 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={disabled || isLoading}
+                className={`w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-white text-base font-medium transition-all duration-200 ${
+                  disabled || isLoading
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-gray-900 hover:bg-black"
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Відправка...
+                  </>
+                ) : (
+                  "Відправити інструкції"
+                )}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+      
+      <footer className="mt-16 text-center text-sm text-gray-500">
+        <p>&copy; {new Date().getFullYear()} {Store.name}. Усі права захищені.</p>
+      </footer>
+    </div>
   )
 }
 
