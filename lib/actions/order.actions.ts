@@ -1,6 +1,6 @@
 "use server";
 
-import Order from "../models/order.model";
+import Order, { OrderType } from "../models/order.model";
 import Product from "../models/product.model";
 import { connectToDB } from "../mongoose";
 import User from "../models/user.model";
@@ -189,6 +189,7 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
 
       await clearCache("createOrder", undefined);
 
+            
       return type === "json" ? JSON.stringify(createdOrder) : createdOrder;
   } catch (error: any) {
       throw new Error(`Error creating order: ${error.message}`);
@@ -250,32 +251,44 @@ export async function fetchOrdersPayments() {
   }
 }
 
-export async function fetchOrder(orderId: string) {
-    try {
-        connectToDB();
-
-        const order = await Order.findOne({ id: orderId })
-            .populate({
-                path: 'products',
-                populate: {
-                    path: 'product',
-                    model: 'Product',
-                    select: '_id id name images priceToShow params articleNumber'
-                }
-            })
-            .populate({
-                path: 'user',
-                model: 'User',
-            });
-
-        return order;
-    } catch (error: any) {
-        throw new Error(`Error fetching order: ${error.message}`)
-    }
+type Params = {
+   name: string
 }
 
+type ReturnType = {
+   name: string
+}
 
+export async function fetchOrder({ orderId }: { orderId: string }): Promise<OrderType>;
+export async function fetchOrder({ orderId }: { orderId: string }, type: 'json'): Promise<string>;
 
+export async function fetchOrder({ orderId }: { orderId: string }, type?: 'json') {
+   try {
+    connectToDB();
+
+    const order = await Order.findOne({ id: orderId })
+        .populate({
+            path: 'products',
+            populate: {
+                path: 'product',
+                model: 'Product',
+                select: '_id id name images priceToShow params articleNumber'
+            }
+        })
+        .populate({
+            path: 'user',
+            model: 'User',
+        });
+        
+    if(type === 'json'){
+      return JSON.stringify(order)
+    } else {
+      return order
+    }
+   } catch (error: any) {
+     throw new Error(`Error fetching order: ${error.message}`)
+   }
+}
 
 export async function fetchUsersOrders({ userId }: { userId: string }){
     try {

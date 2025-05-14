@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { OrderValidation } from "@/lib/validations/order"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { useAppContext } from "@/app/(root)/context"
-import { createOrder } from "@/lib/actions/order.actions"
+import { createOrder, fetchOrder } from "@/lib/actions/order.actions"
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
 import {
@@ -53,6 +53,7 @@ import { CitySelect } from "@/components/interface/nova/city-select"
 import { WarehouseSelect } from "@/components/interface/nova/warehouse-select"
 import { validatePromoCode } from "@/lib/actions/promocode.actions"
 import { sendOrderEmail } from "@/lib/email/order"
+import { sendAdminOrderNotification } from "@/lib/email/admin-order"
 
 type CartProduct = {
   id: string
@@ -257,7 +258,9 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
         apartment: "",
       }
 
-      const createdOrder = await createOrder(orderData, "json")
+      const result = await createOrder(orderData, "json")
+
+      const createdOrder = await fetchOrder({ orderId: JSON.parse(result).id }, "json");
 
       const order = JSON.parse(createdOrder)
 
@@ -270,7 +273,8 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
       setCartData([])
       setIsOrderCreated(true)
       setOrderId(order.id)
-      sendOrderEmail(order._id)
+      sendOrderEmail(order)
+      sendAdminOrderNotification(order)
       setTimeout(() => setShowThankYou(true), 3000)
       setTimeout(() => setShowConfetti(true), 3500)
     } catch (error) {

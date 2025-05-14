@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { InferSchemaType } from "mongoose";
 
 const orderSchema = new mongoose.Schema({
     id: {
@@ -129,6 +129,10 @@ const orderSchema = new mongoose.Schema({
 
 orderSchema.index({ id: 1 })
 
+type OrderType = InferSchemaType<typeof orderSchema> & { _id: string };
+
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 
 export default Order;
+
+export type { OrderType }

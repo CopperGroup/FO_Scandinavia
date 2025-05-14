@@ -13,8 +13,7 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-export async function sendOrderEmail(orderId: string) {
-  const order = await Order.findById(orderId).populate("products.product")
+export async function sendOrderEmail(order: any) {
 
   if (!order) throw new Error("Order not found.")
 
@@ -328,7 +327,7 @@ export async function sendOrderEmail(orderId: string) {
 
   await transporter.sendMail(mailOptions)
 
-  order.emails.confirmation = true
+//   order.emails.confirmation = true
 
-  await order.save()
+//   await order.save()
 }
