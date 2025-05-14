@@ -22,7 +22,7 @@ interface Product {
 const Page = async ({ params }: { params: { id: string } }) => {
     if(!params.id) return null;
 
-    const order = await fetchOrder(params.id);
+    const order = await fetchOrder({ orderId: params.id });
 
     // console.log("Order", order);
     
