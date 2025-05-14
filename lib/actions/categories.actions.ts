@@ -224,7 +224,7 @@ export async function fetchAllCategories(type?: 'json') {
       return allCategories
     }
    } catch (error: any) {
-     throw new Error(`${error.message}`)
+     throw new Error(`Error fetching all catgeories: ${error.message}`)
    }
 }
 

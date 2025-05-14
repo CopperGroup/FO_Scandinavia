@@ -16,7 +16,7 @@ const ChangeOrdersStatuses = ({ _id, id, paymentStatus, deliveryStatus }: { _id:
     await changedeliveryStatus(id, value, pathname)
 
     if(value === "Fulfilled") {
-      await sendAskForReviewEmail(_id)
+      // await sendAskForReviewEmail(_id)
     }
   }
 

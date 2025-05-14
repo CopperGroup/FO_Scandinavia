@@ -1,24 +1,28 @@
 "use server"
 
-import nodemailer from "nodemailer";
+import nodemailer from "nodemailer"
 
-export async function sendContact({ name, email, message, subject }: { name: string, email: string, message: string, subject: string }) {
-
+export async function sendContact({
+  name,
+  email,
+  message,
+  subject,
+}: { name: string; email: string; message: string; subject: string }) {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail", // or use your SMTP
       auth: {
-        user: process.env.EMAIL_USER,  // Your email
-        pass: process.env.EMAIL_PASS,  // Your password or app password
+        user: process.env.EMAIL_USER, // Your email
+        pass: process.env.EMAIL_PASS, // Your password or app password
       },
-    });
+    })
 
     await transporter.sendMail({
-        from: process.env.EMAIL_USER, // <- your authenticated email
-        to: process.env.CONTACT_RECEIVER_EMAIL,
-        replyTo: email, // <- user email for easy reply
-        subject: "Нове повідомлення з контактної форми",
-        html: `
+      from: process.env.EMAIL_USER, // <- your authenticated email
+      to: process.env.CONTACT_RECEIVER_EMAIL,
+      replyTo: email, // <- user email for easy reply
+      subject: "Нове повідомлення з контактної форми",
+      html: `
         <!DOCTYPE html>
         <html lang="uk">
         <head>
@@ -28,118 +32,118 @@ export async function sendContact({ name, email, message, subject }: { name: str
         <style>
             /* Base styles for email clients */
             body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333333;
-            background-color: #f5f5f7;
+                margin: 0;
+                padding: 0;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #1a365d;
+                background-color: #f0f4fa;
             }
             
             .email-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
             }
             
             .email-header {
-            background-color: #f8f8f8;
-            padding: 20px 30px;
-            border-bottom: 1px solid #e1e1e1;
+                background-color: #2b6cb0;
+                padding: 20px 30px;
+                border-bottom: 1px solid #4299e1;
             }
             
             .email-logo {
-            max-height: 50px;
+                max-height: 50px;
             }
             
             .email-content {
-            padding: 30px;
+                padding: 30px;
             }
             
             .email-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: #1a1a1a;
-            margin-top: 0;
-            margin-bottom: 20px;
+                font-size: 22px;
+                font-weight: 600;
+                color: #2c5282;
+                margin-top: 0;
+                margin-bottom: 20px;
             }
             
             .contact-info {
-            background-color: #f9f9f9;
-            border-left: 4px solid #333333;
-            padding: 15px 20px;
-            margin-bottom: 25px;
+                background-color: #ebf8ff;
+                border-left: 4px solid #3182ce;
+                padding: 15px 20px;
+                margin-bottom: 25px;
             }
             
             .contact-row {
-            margin-bottom: 10px;
+                margin-bottom: 10px;
             }
             
             .contact-label {
-            font-weight: 600;
-            color: #555555;
-            display: inline-block;
-            width: 80px;
-            vertical-align: top;
+                font-weight: 600;
+                color: #2b6cb0;
+                display: inline-block;
+                width: 80px;
+                vertical-align: top;
             }
             
             .contact-value {
-            display: inline-block;
-            color: #333333;
-            max-width: 400px;
+                display: inline-block;
+                color: #2a4365;
+                max-width: 400px;
             }
             
             .message-container {
-            background-color: #ffffff;
-            border: 1px solid #e1e1e1;
-            border-radius: 4px;
-            padding: 20px;
-            margin-top: 20px;
+                background-color: #fffff0;
+                border: 1px solid #ecc94b;
+                border-radius: 4px;
+                padding: 20px;
+                margin-top: 20px;
             }
             
             .message-label {
-            font-weight: 600;
-            color: #555555;
-            margin-bottom: 10px;
+                font-weight: 600;
+                color: #744210;
+                margin-bottom: 10px;
             }
             
             .message-content {
-            white-space: pre-wrap;
-            color: #333333;
-            line-height: 1.5;
+                white-space: pre-wrap;
+                color: #2d3748;
+                line-height: 1.5;
             }
             
             .email-footer {
-            background-color: #f8f8f8;
-            padding: 15px 30px;
-            font-size: 12px;
-            color: #777777;
-            text-align: center;
-            border-top: 1px solid #e1e1e1;
+                background-color: #2b6cb0;
+                padding: 15px 30px;
+                font-size: 12px;
+                color: #e2e8f0;
+                text-align: center;
+                border-top: 1px solid #4299e1;
             }
             
             .timestamp {
-            color: #999999;
-            font-size: 12px;
-            margin-top: 5px;
+                color: #4a5568;
+                font-size: 12px;
+                margin-top: 5px;
             }
             
             /* Responsive styles */
             @media screen and (max-width: 600px) {
-            .email-content {
-                padding: 20px;
-            }
-            
-            .contact-label {
-                display: block;
-                width: 100%;
-                margin-bottom: 5px;
-            }
-            
-            .contact-value {
-                display: block;
-                width: 100%;
-            }
+                .email-content {
+                    padding: 20px;
+                }
+                
+                .contact-label {
+                    display: block;
+                    width: 100%;
+                    margin-bottom: 5px;
+                }
+                
+                .contact-value {
+                    display: block;
+                    width: 100%;
+                }
             }
         </style>
         </head>
@@ -164,16 +168,16 @@ export async function sendContact({ name, email, message, subject }: { name: str
                 
                 <div class="contact-row">
                 <span class="contact-label">Тема:</span>
-                <span class="contact-value">${subject || 'Не вказано'}</span>
+                <span class="contact-value">${subject || "Не вказано"}</span>
                 </div>
                 
                 <div class="timestamp">
-                Надіслано: ${new Date().toLocaleString('uk-UA', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                Надіслано: ${new Date().toLocaleString("uk-UA", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
                 </div>
             </div>
@@ -192,9 +196,8 @@ export async function sendContact({ name, email, message, subject }: { name: str
         </body>
         </html>
         `,
-    });
-
+    })
   } catch (error: any) {
-    console.error(error);
+    console.error(error)
   }
 }

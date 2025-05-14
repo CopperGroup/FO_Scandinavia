@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -22,9 +22,14 @@ import {
   Eye,
   Edit,
   Trash2,
+  Loader2,
+  Download,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import DeleteProductsButton from "../interface/DeleteProductsButton"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Progress } from "@/components/ui/progress"
+import { fetchAllCategories } from "@/lib/actions/categories.actions"
 
 interface Product {
   _id: string
@@ -47,6 +52,9 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
   const [searchField, setSearchField] = useState("name")
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [isMobileView, setIsMobileView] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [exportStage, setExportStage] = useState("")
 
   const router = useRouter()
 
@@ -219,6 +227,74 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
     </Card>
   )
 
+  // Replace the handleExportXml function with this updated version that uses the server action directly
+  const handleExportXml = async () => {
+    try {
+      setIsExporting(true)
+      setExportProgress(10)
+      setExportStage("Підготовка даних...")
+
+      // Stage 1: Prepare product data
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      setExportProgress(30)
+      setExportStage("Отримання категорій...")
+
+      // Stage 2: Fetch categories directly using the server action
+
+      setExportProgress(60)
+      setExportStage("Генерація XML файлу...")
+
+      // Stage 3: Generate XML with the products from the table
+      const response = await fetch("/api/download-catalog", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ products }),
+      })
+
+      if (!response.ok) throw new Error("Помилка завантаження каталогу")
+
+      setExportProgress(80)
+      setExportStage("Завантаження файлу...")
+
+      // Stage 4: Download the file
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+
+      // Create a link and trigger download
+      const a = document.createElement("a")
+      a.href = url
+      a.download = "sveamoda_catalog.xml"
+      document.body.appendChild(a)
+      a.click()
+
+      // Cleanup
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      setExportProgress(100)
+      setExportStage("Завантаження завершено!")
+
+      // Close modal after a short delay
+      setTimeout(() => {
+        setIsExporting(false)
+        setExportProgress(0)
+        setExportStage("")
+      }, 1000)
+    } catch (error: any) {
+      console.error("Error exporting XML:", error)
+      setExportStage(`Помилка: ${error.message}`)
+
+      // Close modal after error display
+      setTimeout(() => {
+        setIsExporting(false)
+        setExportProgress(0)
+        setExportStage("")
+      }, 3000)
+    }
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6 px-3 sm:px-6 max-w-full">
       <div className="border-b border-slate-200 pb-4 sm:pb-8 pt-4 sm:pt-6 -mx-2 sm:-mx-0 px-2 sm:px-0">
@@ -230,6 +306,10 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                 Керуйте каталогом товарів, цінами та наявністю
               </p>
             </div>
+            <Button onClick={handleExportXml} className="bg-green-600 hover:bg-green-700 text-white">
+              <Download className="mr-2 h-4 w-4" />
+              Експорт XML
+            </Button>
           </div>
         </div>
       </div>
@@ -481,9 +561,31 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
           <span>Всього товарів: {products.length}</span>
         </div>
       </div>
+      {/* Export Progress Modal */}
+      <Dialog open={isExporting} onOpenChange={setIsExporting}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Експорт каталогу XML</DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="mb-4">
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center">
+                {exportProgress < 100 ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin text-slate-500" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4 text-green-500" />
+                )}
+                <span>{exportStage}</span>
+              </div>
+              <span className="text-slate-500">{exportProgress}%</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 export default ProductsTable
-
