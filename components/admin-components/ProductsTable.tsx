@@ -30,6 +30,8 @@ import DeleteProductsButton from "../interface/DeleteProductsButton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
 import { fetchAllCategories } from "@/lib/actions/categories.actions"
+import { CategoryType } from "@/lib/types/types"
+import { generateFullCatalogXmlOnClient } from "@/lib/xml-parser/export"
 
 interface Product {
   _id: string
@@ -230,71 +232,75 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
   // Replace the handleExportXml function with this updated version that uses the server action directly
   const handleExportXml = async () => {
     try {
-      setIsExporting(true)
-      setExportProgress(10)
-      setExportStage("Підготовка даних...")
-
-      // Stage 1: Prepare product data
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setExportProgress(30)
-      setExportStage("Отримання категорій...")
-
-      // Stage 2: Fetch categories directly using the server action
-      const result = await fetchAllCategories("json");
-
-      setExportProgress(60)
-      setExportStage("Генерація XML файлу...")
-
-      // Stage 3: Generate XML with the products from the table
-      const response = await fetch("/api/download-catalog", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ products, categories: JSON.parse(result) }),
-      })
-
-      if (!response.ok) throw new Error("Помилка завантаження каталогу")
-
-      setExportProgress(80)
-      setExportStage("Завантаження файлу...")
-
-      // Stage 4: Download the file
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-
-      // Create a link and trigger download
-      const a = document.createElement("a")
-      a.href = url
-      a.download = "sveamoda_catalog.xml"
-      document.body.appendChild(a)
-      a.click()
-
-      // Cleanup
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-
-      setExportProgress(100)
-      setExportStage("Завантаження завершено!")
-
-      // Close modal after a short delay
+      setIsExporting(true);
+      setExportProgress(10);
+      setExportStage("Підготовка даних...");
+  
+      if (!products || !Array.isArray(products)) {
+          throw new Error("Дані про товари не знайдено або вони некоректні.");
+      }
+      if (products.length === 0) {
+          setExportStage("Немає товарів для експорту.");
+          setTimeout(() => {
+            setIsExporting(false);
+            setExportProgress(0);
+            setExportStage("");
+          }, 2000);
+          return;
+      }
+  
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      setExportProgress(30);
+      setExportStage("Отримання категорій...");
+  
+      const categoriesJsonString = await fetchAllCategories("json");
+      const rawCategories: CategoryType[] = JSON.parse(categoriesJsonString);
+  
+      if (!rawCategories || !Array.isArray(rawCategories)) {
+          throw new Error("Не вдалося завантажити або обробити категорії.");
+      }
+  
+      setExportProgress(60);
+      setExportStage("Генерація XML файлу на вашому пристрої...");
+  
+      const xmlString = generateFullCatalogXmlOnClient(rawCategories, products);
+  
+      if (!xmlString) {
+          throw new Error("Помилка під час генерації XML файлу.");
+      }
+  
+      setExportProgress(80);
+      setExportStage("Підготовка до завантаження...");
+  
+      const blob = new Blob([xmlString], { type: 'application/xml; charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+  
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "sveamoda_catalog_client.xml";
+      document.body.appendChild(a);
+      a.click();
+  
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+  
+      setExportProgress(100);
+      setExportStage("Завантаження завершено!");
+  
       setTimeout(() => {
-        setIsExporting(false)
-        setExportProgress(0)
-        setExportStage("")
-      }, 1000)
+        setIsExporting(false);
+        setExportProgress(0);
+        setExportStage("");
+      }, 1000);
     } catch (error: any) {
-      console.error("Error exporting XML:", error)
-      setExportStage(`Помилка: ${error.message}`)
-
-      // Close modal after error display
+      setExportStage(`Помилка: ${error.message}`);
       setTimeout(() => {
-        setIsExporting(false)
-        setExportProgress(0)
-        setExportStage("")
-      }, 3000)
+        setIsExporting(false);
+        setExportProgress(0);
+        setExportStage("");
+      }, 3000);
     }
-  }
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6 px-3 sm:px-6 max-w-full">
