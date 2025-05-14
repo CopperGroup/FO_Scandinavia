@@ -240,6 +240,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
       setExportStage("Отримання категорій...")
 
       // Stage 2: Fetch categories directly using the server action
+      const result = await fetchAllCategories("json");
 
       setExportProgress(60)
       setExportStage("Генерація XML файлу...")
@@ -250,7 +251,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ products }),
+        body: JSON.stringify({ products, categories: JSON.parse(result) }),
       })
 
       if (!response.ok) throw new Error("Помилка завантаження каталогу")

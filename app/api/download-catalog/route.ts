@@ -51,14 +51,12 @@ function transformFetchedCategoriesToCategoryData(
 
 export async function POST(request: NextRequest) {
   try {
-    const { products } = await request.json();
+    const { products, categories } = await request.json();
 
     if (!products || !Array.isArray(products)) {
       return NextResponse.json({ error: "Invalid products data" }, { status: 400 });
     }
-
-    const dbCategories: CategoryType[] = await fetchAllCategories();
-    const categoriesData: CategoryData[] = transformFetchedCategoriesToCategoryData(dbCategories);
+    const categoriesData: CategoryData[] = transformFetchedCategoriesToCategoryData(categories);
 
     const shopData: ShopData = {
       name: 'Интернет-магазин "Sveamoda',
@@ -76,7 +74,7 @@ export async function POST(request: NextRequest) {
     };
 
     const productsData: ProductData[] = products.map((product: any) => {
-      let productCategoryId = dbCategories.find(c => c._id.toString() === product.category[0])?.id
+      let productCategoryId = categories.find((c: CategoryType) => c._id.toString() === product.category[0])?.id
 
       return {
         id: product.articleNumber || product.id,
