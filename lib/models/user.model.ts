@@ -45,8 +45,7 @@ const userSchema = new mongoose.Schema({
     ],
     discounts: [
         {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Discount'
+            type: String
         }
     ],
     role: {
@@ -74,7 +73,7 @@ const userSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Product'
         }
-    ]
+    ],
 })
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);

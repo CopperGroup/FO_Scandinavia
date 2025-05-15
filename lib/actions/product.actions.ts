@@ -12,6 +12,7 @@ import { createNewCategory, updateCategories } from "./categories.actions";
 import Category from "../models/category.model";
 import { startSession } from "mongoose";
 import { pretifyProductName } from "../utils";
+import { addPromo } from "./user.actions";
 
 interface CreateParams {
     _id?: string,
@@ -748,5 +749,66 @@ export async function getProductPageUrlByFirstImageUrl(image: string): Promise<s
     return id.toString()
   } catch (error: any) {
     throw new Error(`Error getting product page url by url: ${error.message}`)
+  }
+}
+
+export async function getTop3ProductsBySales(): Promise<ProductType[]>;
+export async function getTop3ProductsBySales(type: 'json'): Promise<string>;
+
+export async function getTop3ProductsBySales(type?: 'json') {
+   try {
+    await connectToDB();
+
+    const topProducts = await Product.aggregate([
+      {
+        $addFields: {
+          salesCount: { $size: { $ifNull: ["$orderedBy", []] } }
+        }
+      },
+      { $sort: { salesCount: -1 } },
+      { $limit: 3 }
+    ]);
+
+    if(type === 'json'){
+      return JSON.stringify(topProducts)
+    } else {
+      return topProducts
+    }
+   } catch (error: any) {
+     throw new Error(`Error getting top 3 products: ${error.message}`)
+   }
+}
+export async function leaveReview(params: { productId: string, userId: string | undefined, name: string, email: string, text: string, rating: number, attachmentsUrls: string[] }) {
+  try {
+
+    await connectToDB();
+
+    const date = new Date()
+
+    const formattedDate = new Intl.DateTimeFormat("uk-UA", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date)
+
+    const product = await Product.findByIdAndUpdate(
+      params.productId,
+      {
+        $push: { reviews: { user: params.name, rating: params.rating, text: params.text, attachmentsUrls: params.attachmentsUrls, time: formattedDate }}
+      }
+    )
+
+    let promo = ""
+
+    if(params.userId) {
+      promo = await addPromo({ userId: params.userId, email: params.email })
+    }
+
+    await clearCatalogCache();
+
+    await clearCache("updateProduct", params.productId)
+    return promo
+  } catch (error: any) {
+    throw new Error(`Error adding review to the product: ${error.message}`)
   }
 }

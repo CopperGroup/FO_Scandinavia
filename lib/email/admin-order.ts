@@ -373,6 +373,7 @@ export async function sendAdminOrderNotification(order: any) {
                         <p>${order.adress}</p>
                         <p>${order.city}, ${order.postalCode}</p>
                         <p>Спосіб доставки: ${order.deliveryMethod}</p>
+                        <p>${order.warehouse}</p>
                     </div>
                     
                     <div class="payment-info">

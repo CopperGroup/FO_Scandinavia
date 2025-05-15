@@ -1,35 +1,33 @@
 "use server"
 
-import { Store } from '@/constants/store';
-import nodemailer from 'nodemailer';
-import { getTop3ProductsBySales } from '../actions/product.actions';
-import { year_and_rights } from '@/constants/emails';
+import { Store } from "@/constants/store"
+import nodemailer from "nodemailer"
+import { getTop3ProductsBySales } from "../actions/product.actions"
 
 export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp-relay.brevo.com',
-      port: 587,
-      auth: {
-        user: process.env.BREVO_LOGIN,
-        pass: process.env.BREVO_PASSWORD
-      }
-    });
-  
-    const topProducts = await getTop3ProductsBySales();
+  const transporter = nodemailer.createTransport({
+    host: "smtp-relay.brevo.com",
+    port: 587,
+    auth: {
+      user: process.env.BREVO_LOGIN,
+      pass: process.env.BREVO_PASSWORD,
+    },
+  })
 
-    try {
-        
-        await transporter.sendMail({
-          from: '"Dev1ce Store" <coppergroupstudio@gmail.com>',
-          to: toEmail,
-          subject: 'Ласкаво просимо до Dev1ce Store! 🎮',
-          html: `
+  const topProducts = await getTop3ProductsBySales()
+
+  try {
+    await transporter.sendMail({
+      from: `${Store.name} <${Store.email}>`,
+      to: toEmail,
+      subject: `Ласкаво просимо до ${Store.email}!`,
+      html: `
             <!DOCTYPE html>
             <html lang="uk">
             <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Ваш промокод на знижку 10% | Tech Store</title>
+            <title>Ваш промокод на знижку 10% | ${Store.name}</title>
             <style type="text/css">
                 /* Reset styles */
                 body, table, td, p, a, li, blockquote {
@@ -89,15 +87,15 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
                     <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                     <!-- Header -->
                     <tr>
-                        <td align="center" style="padding: 30px 0; background-color: #1a1a1a;">
-                        <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 0;">${Store.name}</h1>
+                        <td align="center" style="padding: 30px 0; background-color: #0057b7;">
+                        <h1 style="color: #ffd700; font-size: 28px; font-weight: 600; margin: 0;">${Store.name}</h1>
                         </td>
                     </tr>
                     
                     <!-- Welcome Message -->
                     <tr>
                         <td align="center" style="padding: 40px 30px 20px 30px;" class="mobile-padding">
-                        <h2 style="color: #1a1a1a; font-size: 24px; font-weight: 600; margin: 0 0 15px 0;">Дякуємо за реєстрацію!</h2>
+                        <h2 style="color: #0057b7; font-size: 24px; font-weight: 600; margin: 0 0 15px 0;">Дякуємо за реєстрацію!</h2>
                         <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">Ми раді вітати вас у нашому магазині. Як обіцяли, ось ваш промокод на знижку 10% на перше замовлення:</p>
                         </td>
                     </tr>
@@ -105,7 +103,7 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
                     <!-- Discount Code -->
                     <tr>
                         <td align="center" style="padding: 0 30px 30px 30px;" class="mobile-padding">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 400px; background-color: #f5f5f7; border-radius: 8px;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 400px; background-color: #ffd700; border-radius: 8px; border: 2px solid #0057b7;">
                             <tr>
                             <td align="center" style="padding: 20px;">
                                 <p style="color: #1a1a1a; font-size: 14px; font-weight: 500; margin: 0 0 10px 0;">ВАШ ПРОМОКОД:</p>
@@ -134,7 +132,7 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
                         <td align="center" style="padding: 0 30px 40px 30px;" class="mobile-padding">
                         <table border="0" cellpadding="0" cellspacing="0">
                             <tr>
-                            <td align="center" style="border-radius: 50px; background-color: #1a1a1a;">
+                            <td align="center" style="border-radius: 50px; background-color: #0057b7;">
                                 <a href="${Store.domain}" target="_blank" style="display: inline-block; padding: 16px 36px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none;">Перейти до покупок</a>
                             </td>
                             </tr>
@@ -211,52 +209,12 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
                     
                     <!-- Footer -->
                     <tr>
-                        <td style="padding: 30px; background-color: #f5f5f7; border-top: 1px solid #e5e7eb;" class="mobile-padding">
+                        <td style="padding: 30px; background-color: #e6f2ff; border-top: 1px solid #e5e7eb;" class="mobile-padding">
                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                             <tr>
                             <td style="padding-bottom: 20px;">
                                 <p style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0 0 5px 0;">${Store.name}</p>
-                                <p style="color: #4b5563; font-size: 14px; margin: 0;">Інноваційні технології для повсякденного життя</p>
-                            </td>
-                            </tr>
-                            <tr>
-                            <td>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                <tr>
-                                    <td>
-                                    <p style="color: #4b5563; font-size: 14px; margin: 0 0 10px 0;">
-                                        <a href="${Store.domain}/contacts" target="_blank" style="color: #4b5563; text-decoration: underline;">Контакти</a> | 
-                                        <a href="${Store.domain}/support" target="_blank" style="color: #4b5563; text-decoration: underline;">Підтримка</a> | 
-                                        <a href="${Store.domain}/faq" target="_blank" style="color: #4b5563; text-decoration: underline;">FAQ</a>
-                                    </p>
-                                    ${year_and_rights}
-                                    </td>
-                                    <td align="right">
-                                    <table border="0" cellpadding="0" cellspacing="0">
-                                        <tr>
-                                        <!-- Facebook Icon -->
-                                        <td style="padding-left: 10px;">
-                                            <a href="${Store.social_media.facebook}" target="_blank">
-                                            <img src="https://cdn4.iconfinder.com/data/icons/social-media-icons-the-circle-set/48/facebook_circle-512.png" alt="Facebook" width="32" height="32" style="border-radius: 4px;">
-                                            </a>
-                                        </td>
-                                        <!-- Instagram Icon -->
-                                        <td style="padding-left: 10px;">
-                                            <a href="${Store.social_media.instagram}" target="_blank">
-                                            <img src="https://cdn4.iconfinder.com/data/icons/social-media-2146/512/25_social-512.png" alt="Instagram" width="32" height="32" style="border-radius: 4px;">
-                                            </a>
-                                        </td>
-                                        <!-- TikTok Icon -->
-                                        <td style="padding-left: 10px;">
-                                            <a href="${Store.social_media.tik_tok}" target="_blank">
-                                            <img src="https://cdn4.iconfinder.com/data/icons/social-media-flat-7/64/Social-media_Tiktok-512.png" alt="TikTok" width="32" height="32" style="border-radius: 4px;">
-                                            </a>
-                                        </td>
-                                        </tr>
-                                    </table>
-                                    </td>
-                                </tr>
-                                </table>
+                                <p style="color: #4b5563; font-size: 14px; margin: 0;">Товари з Скандинавії</p>
                             </td>
                             </tr>
                         </table>
@@ -280,10 +238,8 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
             </body>
             </html>
           `,
-        });
-    } catch(error: any) {
-        throw new Error(error.message)
-    }
+    })
+  } catch (error: any) {
+    throw new Error(`Error sending welcome email: ${error.message}`)
   }
-  
-  
+}

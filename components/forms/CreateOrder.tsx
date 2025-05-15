@@ -141,9 +141,9 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
     cityRef: "",
     warehouseRef: "",
     warehouseIndex: "",
-    name: currentUser.name || "",
-    surname: currentUser.surname || "",
-    phoneNumber: currentUser.phoneNumber || "",
+    name: currentUser?.name || "",
+    surname: currentUser?.surname || "",
+    phoneNumber: currentUser?.phoneNumber || "",
     paymentType: undefined,
     deliveryMethod: undefined,
     city: "",
@@ -311,8 +311,8 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
 
             setShowAuthModal(false)
             // Apply the WELCOME10 promocode automatically after login
-            setAppliedPromo({ code: "WELCOME10", discount: 10 })
-            setPromocode("WELCOME10")
+            // setAppliedPromo({ code: "WELCOME10", discount: 10 })
+            // setPromocode("WELCOME10")
           } catch (error) {
             console.log(error)
             setLoginError("Помилка входу. Спробуйте пізніше.")
@@ -359,8 +359,8 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
         })
 
         // Apply the WELCOME10 promocode automatically after registration
-        setAppliedPromo({ code: "WELCOME10", discount: 10 })
-        setPromocode("WELCOME10")
+        // setAppliedPromo({ code: "WELCOME10", discount: 10 })
+        // setPromocode("WELCOME10")
       } catch (loginError) {
         console.error("Error during auto-login after registration:", loginError)
       }
