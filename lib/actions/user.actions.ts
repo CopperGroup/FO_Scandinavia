@@ -153,7 +153,10 @@ export async function fetchUserByEmail(params: FetchUserByEmailparams, type: 'js
 export async function fetchUserByEmail(params: FetchUserByEmailparams, type?: 'json') {
    try {
         connectToDB()
-        const currentUser = await User.findOne({ email: params.email}).select("-password")
+        const currentUser = await User.findOne({
+          email: { $regex: `^${params.email}$`, $options: 'i' }
+        }).select('-password');
+        
 
     if(type === 'json'){
       return JSON.stringify(currentUser)
