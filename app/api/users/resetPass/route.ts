@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email is required' }, { status: 400 });
         }
 
-        const savedUser = await User.findOne({ email: email }).select('_id');
+        const savedUser = await User.findOne({ email: { $regex: `^${email}$`, $options: 'i' }}).select('_id');
 
         if (!savedUser) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });

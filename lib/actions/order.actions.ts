@@ -104,7 +104,7 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
       let user = null;
 
       if (!params.userId) {
-          user = await User.findOne({ email: params.email });
+          user = await User.findOne({email: { $regex: `^${params.email}$`, $options: 'i' }});
 
           if (!user) {
               user = await User.create({

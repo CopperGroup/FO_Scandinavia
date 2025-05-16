@@ -46,7 +46,7 @@ export async function createuserByMyself(params: { name: string, email: string, 
         redirect('/login')
     }
 
-    const currentUser = await User.findOne({ email: params.currentUserEmail });
+    const currentUser = await User.findOne({email: { $regex: `^${params.email}$`, $options: 'i' }});
     
     const permission = hasPermission("/clients", "create", params.role.toLowerCase() as "admin" | 'user', currentUser.role); 
 
@@ -87,7 +87,7 @@ export async function editUser(params: { userId: string, name: string, email: st
         redirect('/login')
     }
 
-    const currentUser = await User.findOne({ email: params.currentUserEmail });
+    const currentUser = await User.findOne({email: { $regex: `^${params.email}$`, $options: 'i' }});
     
     const permission = hasPermission("/clients", "create", params.role.toLowerCase() as "admin" | 'user', currentUser.role); 
 
@@ -128,7 +128,7 @@ export async function populateSelfCreatedUser(params: CreateUserParams, type?: '
    try {
 
     const existingUser = await User.findOneAndUpdate(
-        { email: params.email },
+        {email: { $regex: `^${params.email}$`, $options: 'i' }},
         { $set: { username: params.username, password: params.password, phoneNumber: params.phoneNumber, discounts: [params.promoCode], selfCreated: false } },
         { new: true, runValidators: true }
     ).select("-password");
@@ -172,7 +172,7 @@ export async function checkForAdmin(email: string){
     try {
         connectToDB();
 
-        const currentUser = await User.findOne({ email: email });
+        const currentUser = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }});
 
         if(currentUser.isAdmin){
             return true
@@ -225,7 +225,7 @@ export async function fetchUserRole({ email }: { email: string }) {
   try {
     connectToDB();
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }});
 
     if(!user) {
         return

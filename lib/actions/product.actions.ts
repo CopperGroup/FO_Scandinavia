@@ -302,7 +302,7 @@ export async function addLike({ productId, email, path }: InterfaceProps) {
         
         const product = await Product.findOne({id:productId});
         if(email) {
-            const currentUser = await User.findOne({ email: email }); 
+            const currentUser = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }}); 
 
             const isLiked = product.likedBy.includes(currentUser._id);
 

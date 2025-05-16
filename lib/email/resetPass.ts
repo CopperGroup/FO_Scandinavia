@@ -10,7 +10,7 @@ export async function sendResetPasswordEmail({ email }: { email: string }) {
     try {
       await connectToDB();
   
-      const user = await User.findOne({ email });
+      const user = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }});
   
       if (!user) {
         throw new Error("No user with that email.");
