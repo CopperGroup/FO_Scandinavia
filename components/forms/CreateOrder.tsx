@@ -973,7 +973,7 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
                           if (isUkrPoshta) {
                             return (
                               <FormItem className="mb-6">
-                                <FormLabel className="text-sm font-medium text-gray-700">Відділення *</FormLabel>
+                                <FormLabel className="text-sm font-medium text-gray-700">Індекс *</FormLabel>
                                 <FormControl>
                                   <Input
                                     value={field.value}
@@ -983,7 +983,7 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
                                     }}
                                     className="rounded-2xl border-blue-100 shadow-sm h-12 px-4 transition-all focus:border-gray-400 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                                     disabled={isSubmitting}
-                                    placeholder="Введіть номер відділення"
+                                    placeholder="Введіть індекс відділення"
                                   />
                                 </FormControl>
                                 <FormMessage className="text-sm" />
