@@ -1,3 +1,5 @@
+"use client"
+
 import XMLParser from "@/components/admin-components/parseXML/XMLParser";
 import { XmlParserProvider } from "../context";
 

@@ -271,7 +271,7 @@ export default function Connector({ setCurrentStage }: { setCurrentStage: React.
   }
 
   const toggleShowAttributes = () => {
-    console.log(connections)
+    // console.log(connections)
     setConnections(prevConnections =>
         // also add card i to be verified
         prevConnections.filter(connection => !connection.end.endsWith('-attribute'))
@@ -293,7 +293,7 @@ export default function Connector({ setCurrentStage }: { setCurrentStage: React.
     if(xmlString && configurator) {
         const sample = generateSample(xmlString, configurator as unknown as Config);
 
-        console.log(sample)
+        // console.log(sample)
 
         setSample(JSON.stringify(sample))
     }

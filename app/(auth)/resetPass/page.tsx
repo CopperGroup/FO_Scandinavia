@@ -34,7 +34,7 @@ const ResetPass = () => {
       await sendResetPasswordEmail({ email })
       setWasSended(true)
     } catch (error: any) {
-      console.log(error)
+      // console.log(error)
       setError(error.response?.data?.message || "Помилка при відправці листа. Спробуйте пізніше.")
     } finally {
       setIsLoading(false)

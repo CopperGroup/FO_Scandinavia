@@ -1,7 +1,6 @@
-import { revalidatePath, revalidateTag } from "next/cache";
-import { createUrlProduct, deleteProduct, deleteUrlProducts, fetchUrlProducts, updateUrlProduct, updateUrlProductsMany } from "./actions/product.actions";
+import { createUrlProduct, deleteProduct, fetchUrlProducts, updateUrlProduct } from "./actions/product.actions";
 import { clearCatalogCache } from "./actions/redis/catalog.actions";
-import { createUrlCategories, updateCategories } from "./actions/categories.actions";
+import { createUrlCategories } from "./actions/categories.actions";
 import { CategoryType, FetchedCategory, ProductType } from "./types/types";
 
 interface Product {
@@ -25,6 +24,24 @@ interface Product {
     categoryId: string
 }
 
+// Helper function to process items in batches with a delay
+async function processInBatches<T>(
+    items: T[],
+    asyncOperation: (item: T) => Promise<any>,
+    batchSize: number = 10,
+    delayMs: number = 15000
+) {
+    let operationCount = 0;
+    for (const item of items) {
+        if (operationCount > 0 && operationCount % batchSize === 0) {
+            console.log(`Processed ${operationCount} operations, waiting for ${delayMs / 1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        await asyncOperation(item);
+        operationCount++;
+    }
+}
+
 export async function proceedDataToDB(data: Product[], selectedRowsIds: (string | null)[], categories: FetchedCategory[], mergeProducts: boolean) {
     try {
         const stringifiedUrlProducts = await fetchUrlProducts("json");
@@ -39,8 +56,7 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
         const productsToUpdate = [];
 
         const result = await createUrlCategories({ categories }, "json");
-
-        const createdCategories: CategoryType[] = JSON.parse(result)
+        const createdCategories: CategoryType[] = JSON.parse(result);
 
         for (const product of data) {
             const category_id = createdCategories.find(cat => cat.id === product.categoryId)?._id || "No-category";
@@ -49,44 +65,47 @@ export async function proceedDataToDB(data: Product[], selectedRowsIds: (string 
                 const existingProductIndex = urlProducts.findIndex(urlProduct => urlProduct.articleNumber === product.articleNumber);
 
                 if (existingProductIndex !== -1) {
-                    // Add to bulk update array
                     productsToUpdate.push({
                         ...product,
                         _id: urlProducts[existingProductIndex]._id,
                         category: [category_id],
                     });
                 } else {
-                    // Add to new products array
                     newProducts.push({
                         ...product,
                         category: [category_id],
                     });
                 }
-
                 processedIds.add(product.id);
             }
         }
 
-        // Perform bulk update
+        // Perform bulk update with batching and delay
         if (productsToUpdate.length > 0) {
-            for(const productToUpdate of productsToUpdate) {
+            console.log(`Starting batch update for ${productsToUpdate.length} products...`);
+            await processInBatches(productsToUpdate, async (productToUpdate) => {
                 await updateUrlProduct(productToUpdate);
-            }
+            });
+            console.log("Batch update finished.");
         }
 
-        // Perform bulk insert for new products
+        // Perform bulk insert for new products with batching and delay
         if (newProducts.length > 0) {
-            for(const newProduct of newProducts) {
+            console.log(`Starting batch create for ${newProducts.length} new products...`);
+            await processInBatches(newProducts, async (newProduct) => {
                 await createUrlProduct(newProduct);
-            }
+            });
+            console.log("Batch create finished.");
         }
 
-        // Delete left-over products
-        if(mergeProducts) {
-            for (const leftOverProduct of leftOverProducts) {
-                //IMPORTANT! Not clearing catalog cache, beacause, it will be cleard later, line 85
-                await deleteProduct({ productId: leftOverProduct.id as string }, "keep-catalog-cache"); 
-            }
+        // Delete left-over products with batching and delay
+        if (mergeProducts && leftOverProducts.length > 0) {
+            console.log(`Starting batch delete for ${leftOverProducts.length} leftover products...`);
+            await processInBatches(leftOverProducts, async (leftOverProduct) => {
+                //IMPORTANT! Not clearing catalog cache, because, it will be cleared later, line 85 (in original)
+                await deleteProduct({ productId: leftOverProduct.id as string }, "keep-catalog-cache");
+            });
+            console.log("Batch delete finished.");
         }
 
         await clearCatalogCache();
