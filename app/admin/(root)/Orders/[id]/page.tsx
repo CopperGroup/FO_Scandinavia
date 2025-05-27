@@ -17,13 +17,13 @@ interface Product {
 const Page = async ({ params }: { params: { id: string } }) => {
     if(!params.id) return null;
 
-    const order = await fetchOrder(params.id);
+    const order = await fetchOrder({ orderId: params.id }, "json");
 
     //console.log(order.products);
 
     return (
         <section className="px-10 py-20 w-full max-[1100px]:pb-5">
-            <OrderPage orderJson={JSON.stringify(order)}/>
+            <OrderPage orderJson={order}/>
         </section>
     )
 }

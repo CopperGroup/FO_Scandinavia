@@ -8,7 +8,7 @@ import { formatDateString } from "@/lib/utils"
 const Page = async ({ params }: { params: { id: string } }) => {
   if (!params.id) {
     return (
-      <section className="w-full px-10 py-20 overflow-hidden">
+     <section className="w-full px-10 py-20 overflow-hidden">
         <h1 className="w-full text-heading1-bold drop-shadow-text-blue max-[440px]:text-center">Сторінки не існує</h1>
       </section>
     )
@@ -20,18 +20,17 @@ const Page = async ({ params }: { params: { id: string } }) => {
     return
   }
 
-  const user = await fetchUserById(params.id)
 
-  const usersOrders = await fetchUsersOrdersById(params.id)
+  const user = await fetchUserById({userId: params.id})
 
-  const stringifiedCurrentUser = await fetchUserByEmail({ email }, "json")
+  const usersOrders = await fetchUsersOrdersById(params.id);
 
   return (
     <section className="w-full px-10 py-20 max-[360px]:px-4">
       <h1 className="w-full text-heading1-bold">Користувач {user.username}</h1>
       <div className="w-full pt-3 px-1">
         <div className="w-full mt-20">
-          <EditUserForm stringifiedUser={JSON.stringify(user)} stringifiedCurrentUser={stringifiedCurrentUser} />
+          <EditUserForm stringifiedUser={JSON.stringify(user)} stringifiedCurrentUser={JSON.stringify(user)} />
         </div>
         <div className="w-full mt-20 mb-20 pb-16">
           <h2 className="text-heading2-semibold mb-5">Замовлення</h2>

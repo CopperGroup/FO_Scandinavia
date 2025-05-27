@@ -1,5 +1,3 @@
-"use client"
-
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,10 +20,6 @@ import {
   Send,
 } from "lucide-react"
 import type { ProductType } from "@/lib/types/types"
-// import { generateInvoice, sendInvoiceEmail } from "@/lib/actions/invoice.actions"
-import { useState } from "react"
-import { useToast } from "@/hooks/use-toast"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface Product {
   product: ProductType
@@ -80,10 +74,6 @@ const AdminOrderCard = ({
   discount,
   invoice,
 }: OrderCardProps) => {
-  const { toast } = useToast()
-  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(false)
-
   const formatter = new Intl.NumberFormat("uk-UA", {
     style: "currency",
     currency: "UAH",
@@ -114,54 +104,6 @@ const AdminOrderCard = ({
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const handleGenerateInvoice = async () => {
-    setIsGeneratingInvoice(true)
-    try {
-      // const result = await generateInvoice(id)
-      toast({
-        title: "Накладну сформовано",
-        // description: `Накладну №${result.number} успішно сформовано`,
-      })
-      // Refresh the page to show the updated invoice
-      window.location.reload()
-    } catch (error) {
-      toast({
-        title: "Помилка",
-        description: "Не вдалося сформувати накладну. Спробуйте ще раз.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingInvoice(false)
-    }
-  }
-
-  const handleSendInvoiceEmail = async () => {
-    if (!invoice) return
-
-    setIsSendingEmail(true)
-    try {
-      // await sendInvoiceEmail({
-      //   orderId: id,
-      //   email,
-      //   name,
-      //   trackingNumber: invoice.trackingNumber,
-      //   invoiceNumber: invoice.number,
-      // })
-      toast({
-        title: "Лист відправлено",
-        description: `Інформацію про накладну відправлено на ${email}`,
-      })
-    } catch (error) {
-      toast({
-        title: "Помилка",
-        description: "Не вдалося відправити лист. Спробуйте ще раз.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSendingEmail(false)
     }
   }
 
@@ -326,46 +268,6 @@ const AdminOrderCard = ({
       </CardContent>
 
       <CardFooter className="flex justify-between pt-2 pb-4 px-4 border-t border-slate-100 mt-4">
-        <div className="flex gap-2">
-          {invoice ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="text-small-semibold text-slate-700">
-                  <FileText className="mr-1 h-4 w-4" />
-                  Накладна №{invoice.number}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={handleSendInvoiceEmail} disabled={isSendingEmail}>
-                  <Send className="mr-2 h-4 w-4" />
-                  {isSendingEmail ? "Відправка..." : "Відправити клієнту"}
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Download className="mr-2 h-4 w-4" />
-                  Завантажити PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button
-              variant="outline"
-              className="text-small-semibold text-slate-700"
-              onClick={handleGenerateInvoice}
-              disabled={isGeneratingInvoice}
-            >
-              {isGeneratingInvoice ? (
-                <>
-                  <span className="mr-1">Формування...</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="mr-1 h-4 w-4" />
-                  Сформувати накладну
-                </>
-              )}
-            </Button>
-          )}
-        </div>
         <Link href={`${url}${id}`}>
           <Button variant="outline" className="text-small-semibold text-slate-700">
             Деталі замовлення

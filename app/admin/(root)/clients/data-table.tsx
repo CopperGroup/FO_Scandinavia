@@ -111,7 +111,7 @@ export function DataTable<TData extends User, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => router.push(`/admin/clients/${row.original._id}`)}
+                  onClick={() => {console.log(row.original); router.push(`/admin/clients/${row.original._id}`)}}
                   className="cursor-pointer hover:bg-slate-50 transition-all"
                 >
                   {row.getVisibleCells().map((cell) => (
