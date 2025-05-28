@@ -6,7 +6,7 @@ const Page = async () => {
 
   return (
     <section className="w-full px-5 py-10 pt-3 max-[420px]:px-2">
-      <ProductsTable stringifiedProducts={JSON.stringify(products)} />
+      <ProductsTable stringifiedProducts={products} />
     </section>
   )
 }

@@ -60,19 +60,12 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
 
   const router = useRouter()
 
-  // Перевірка розміру екрану
   useEffect(() => {
     const checkScreenSize = () => {
       setIsMobileView(window.innerWidth < 640)
     }
-
-    // Початкова перевірка
     checkScreenSize()
-
-    // Слухач зміни розміру вікна
     window.addEventListener("resize", checkScreenSize)
-
-    // Очищення слухача
     return () => window.removeEventListener("resize", checkScreenSize)
   }, [])
 
@@ -100,6 +93,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
   const formatter = new Intl.NumberFormat("uk-UA", {
     style: "currency",
     currency: "UAH",
+    currencyDisplay: 'code'
   })
 
   const toggleProductSelection = (productId: string) => {
@@ -122,7 +116,6 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
     }
   }
 
-  // Переклад для полів пошуку
   const searchFields = [
     { value: "name", label: "Назва" },
     { value: "id", label: "ID" },
@@ -132,11 +125,9 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
     { value: "articleNumber", label: "Артикул" },
   ]
 
-  // Статистика продуктів
   const availableProducts = useMemo(() => products.filter((p) => p.isAvailable).length, [products])
   const discountedProducts = useMemo(() => products.filter((p) => p.priceToShow < p.price).length, [products])
 
-  // Функція для відображення мобільної картки продукту
   const renderMobileProductCard = (product: Product) => (
     <Card key={product._id} className="mb-3 border-slate-200 overflow-hidden">
       <CardContent className="p-3">
@@ -229,13 +220,12 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
     </Card>
   )
 
-  // Replace the handleExportXml function with this updated version that uses the server action directly
   const handleExportXml = async () => {
     try {
       setIsExporting(true);
       setExportProgress(10);
       setExportStage("Підготовка даних...");
-  
+
       if (!products || !Array.isArray(products)) {
           throw new Error("Дані про товари не знайдено або вони некоректні.");
       }
@@ -248,45 +238,45 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
           }, 2000);
           return;
       }
-  
+
       await new Promise((resolve) => setTimeout(resolve, 200));
       setExportProgress(30);
       setExportStage("Отримання категорій...");
-  
+
       const categoriesJsonString = await fetchAllCategories("json");
       const rawCategories: CategoryType[] = JSON.parse(categoriesJsonString);
-  
+
       if (!rawCategories || !Array.isArray(rawCategories)) {
           throw new Error("Не вдалося завантажити або обробити категорії.");
       }
-  
+
       setExportProgress(60);
       setExportStage("Генерація XML файлу на вашому пристрої...");
-  
+
       const xmlString = generateFullCatalogXmlOnClient(rawCategories, products);
-  
+
       if (!xmlString) {
           throw new Error("Помилка під час генерації XML файлу.");
       }
-  
+
       setExportProgress(80);
       setExportStage("Підготовка до завантаження...");
-  
+
       const blob = new Blob([xmlString], { type: 'application/xml; charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
-  
+
       const a = document.createElement("a");
       a.href = url;
       a.download = "sveamoda_catalog_client.xml";
       document.body.appendChild(a);
       a.click();
-  
+
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-  
+
       setExportProgress(100);
       setExportStage("Завантаження завершено!");
-  
+
       setTimeout(() => {
         setIsExporting(false);
         setExportProgress(0);
@@ -321,7 +311,6 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
         </div>
       </div>
 
-      {/* Статистика - адаптивна сітка */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <Card className="border-slate-200 shadow-sm">
           <CardContent className="p-3 sm:p-6 flex items-center justify-between">
@@ -341,7 +330,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
               <p className="text-small-medium text-slate-500">Доступно</p>
               <h3 className="text-heading4-medium sm:text-heading3-bold text-slate-900 mt-1">{availableProducts}</h3>
               <p className="text-tiny-medium sm:text-subtle-medium text-slate-500">
-                {Math.round((availableProducts / products.length) * 100)}% від загальної кількості
+                {products.length > 0 ? Math.round((availableProducts / products.length) * 100) : 0}% від загальної кількості
               </p>
             </div>
             <div className="h-10 w-10 sm:h-12 sm:w-12 bg-green-50 rounded-full flex items-center justify-center">
@@ -356,7 +345,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
               <p className="text-small-medium text-slate-500">Зі знижкою</p>
               <h3 className="text-heading4-medium sm:text-heading3-bold text-slate-900 mt-1">{discountedProducts}</h3>
               <p className="text-tiny-medium sm:text-subtle-medium text-slate-500">
-                {Math.round((discountedProducts / products.length) * 100)}% від загальної кількості
+                {products.length > 0 ? Math.round((discountedProducts / products.length) * 100) : 0}% від загальної кількості
               </p>
             </div>
             <div className="h-10 w-10 sm:h-12 sm:w-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -399,7 +388,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                 />
               </div>
               <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 sm:gap-4">
-                <Select onValueChange={(value) => setSearchField(value)}>
+                <Select onValueChange={(value) => setSearchField(value)} defaultValue={searchField}>
                   <SelectTrigger className="w-full sm:w-[180px] text-small-regular sm:text-base-regular border-slate-200">
                     <Filter className="mr-2 h-4 w-4 text-slate-500" />
                     <SelectValue placeholder="Шукати за..." />
@@ -426,7 +415,6 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
               </div>
             </div>
 
-            {/* Мобільний вигляд для маленьких екранів */}
             {isMobileView ? (
               <div className="space-y-2">
                 {paginatedProducts.length > 0 ? (
@@ -434,7 +422,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                     <div className="flex justify-between items-center mb-2">
                       <p className="text-small-medium text-slate-500">{filteredProducts.length} товарів знайдено</p>
                       <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => toggleSelectAll()}>
-                        {selectedProducts.size === products.length ? "Зняти все" : "Вибрати все"}
+                        {selectedProducts.size === products.length && products.length > 0 ? "Зняти все" : "Вибрати все"}
                       </Button>
                     </div>
                     {paginatedProducts.map(renderMobileProductCard)}
@@ -446,7 +434,6 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                 )}
               </div>
             ) : (
-              // Десктопний вигляд таблиці
               <div className="w-full overflow-auto rounded-md border border-slate-200">
                 <Table className="min-w-full">
                   <TableHeader className="bg-slate-50">
@@ -456,6 +443,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                           checked={selectedProducts.size === products.length && products.length > 0}
                           onCheckedChange={toggleSelectAll}
                           className="border-slate-300"
+                          disabled={products.length === 0}
                         />
                       </TableHead>
                       <TableHead className="text-small-semibold w-[80px]">ID</TableHead>
@@ -530,7 +518,6 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
         </CardContent>
       </Card>
 
-      {/* Пагінація - адаптивна для малих екранів */}
       <div className="flex justify-between items-center mt-4">
         <Button
           onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
@@ -557,7 +544,6 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
         </Button>
       </div>
 
-      {/* Підсумковий блок - адаптивний для малих екранів */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 bg-slate-50 p-3 sm:p-4 rounded-lg border border-slate-200 text-xs sm:text-small-medium">
         <p className="text-slate-500">
           Показано {filteredProducts.length > 0 ? (pageNumber - 1) * ITEMS_PER_PAGE + 1 : 0}-
@@ -568,7 +554,6 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
           <span>Всього товарів: {products.length}</span>
         </div>
       </div>
-      {/* Export Progress Modal */}
       <Dialog open={isExporting} onOpenChange={setIsExporting}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -576,13 +561,14 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
           </DialogHeader>
           <div className="py-6">
             <div className="mb-4">
+               <Progress value={exportProgress} className="w-full" />
             </div>
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center">
-                {exportProgress < 100 ? (
+                {exportProgress < 100 && exportStage !== "Завантаження завершено!" && !exportStage.startsWith("Помилка:") ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin text-slate-500" />
                 ) : (
-                  <Download className="mr-2 h-4 w-4 text-green-500" />
+                  <Download className={`mr-2 h-4 w-4 ${exportStage.startsWith("Помилка:") ? 'text-red-500' : 'text-green-500'}`} />
                 )}
                 <span>{exportStage}</span>
               </div>
