@@ -38,11 +38,6 @@ import {
           route: "/admin/dashboard",
           label: "Дашбоард",
         },
-        {
-          icon: BarChart3,
-          route: "/admin/statistics",
-          label: "Статистика",
-        },
       ],
     },
     {
