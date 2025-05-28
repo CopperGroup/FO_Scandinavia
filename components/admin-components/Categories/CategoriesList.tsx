@@ -29,7 +29,7 @@ export default function CategoryCardList({ categories }: { categories: Category[
       case 'name':
         return a.category.name.localeCompare(b.category.name);
       case 'totalProducts':
-        return b.values.totalProducts - a.values.totalProducts;
+        return a.values.totalProducts - b.values.totalProducts;
       case 'totalValue':
         return b.values.totalValue - a.values.totalValue;
       case 'averagePrice':

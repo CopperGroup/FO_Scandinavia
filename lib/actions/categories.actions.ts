@@ -228,33 +228,51 @@ export async function fetchAllCategories(type?: 'json') {
    }
 }
 
-export async function fetchCategoriesProperties() {
+export interface ProductData {
+  _id: string;
+  name: string;
+  price: number;
+}
+
+export interface CategoryDataForClientProcessing {
+  _id: string;
+  name: string;
+  totalValue: number;
+  products: ProductData[];
+}
+
+export async function fetchCategoriesForClientProcessing(): Promise<CategoryDataForClientProcessing[]> {
   try {
-    connectToDB();
+    await connectToDB();
 
-    const categories = await Category.find(excludeDeletedCategory)
-      .populate("products")
+    const categoriesFromDB = await Category.find(excludeDeletedCategory)
+      .select("name totalValue products")
+      .populate({
+        path: "products",
+        model: Product,
+        select: "_id name price"
+      });
 
-    const categoriesList = categories.map((category) => {
-      const totalProducts = category.products.length;
-      const totalValue = category.totalValue || 0; // Use the existing `totalValue` field
-      const averageProductPrice =
-        totalProducts > 0 ? parseFloat((totalValue / totalProducts).toFixed(2)) : 0;
+    const categoriesToProcess = categoriesFromDB.filter(
+      (category) => category.products && category.products.length > 0
+    );
 
-      return {
-        category: {name: category.name, _id: category._id.toString()},
-        values: {
-          totalProducts,
-          totalValue,
-          averageProductPrice,
-          stringifiedProducts: JSON.stringify(category.products),
-        },
-      };
-    });
+    const result = categoriesToProcess.map((category) => ({
+      _id: category._id.toString(),
+      name: category.name,
+      totalValue: category.totalValue || 0,
+      products: category.products.map((p: any) => ({
+        _id: p._id.toString(),
+        name: p.name,
+        price: p.price,
+      }) as ProductData),
+    }));
+    
+    return result;
 
-    return categoriesList;
   } catch (error: any) {
-    throw new Error(`Error fetching categories properties: ${error.message}`);
+    console.error("Error fetching categories for client processing:", error);
+    throw new Error(`Failed to fetch categories for processing: ${error.message}`);
   }
 }
 
