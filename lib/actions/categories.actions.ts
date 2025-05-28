@@ -228,51 +228,22 @@ export async function fetchAllCategories(type?: 'json') {
    }
 }
 
-export interface ProductData {
-  _id: string;
-  name: string;
-  price: number;
-}
-
-export interface CategoryDataForClientProcessing {
-  _id: string;
-  name: string;
-  totalValue: number;
-  products: ProductData[];
-}
-
-export async function fetchCategoriesForClientProcessing(): Promise<CategoryDataForClientProcessing[]> {
+export async function fetchRawCategoriesJSON(): Promise<string> {
   try {
     await connectToDB();
 
-    const categoriesFromDB = await Category.find(excludeDeletedCategory)
-      .select("name totalValue products")
+    const rawCategoriesFromDB = await Category.find(excludeDeletedCategory)
       .populate({
         path: "products",
         model: Product,
-        select: "_id name price"
-      });
+        select: 'price _id'
+      })
+      .lean();
 
-    const categoriesToProcess = categoriesFromDB.filter(
-      (category) => category.products && category.products.length > 0
-    );
-
-    const result = categoriesToProcess.map((category) => ({
-      _id: category._id.toString(),
-      name: category.name,
-      totalValue: category.totalValue || 0,
-      products: category.products.map((p: any) => ({
-        _id: p._id.toString(),
-        name: p.name,
-        price: p.price,
-      }) as ProductData),
-    }));
-    
-    return result;
-
+    return JSON.stringify(rawCategoriesFromDB);
   } catch (error: any) {
-    console.error("Error fetching categories for client processing:", error);
-    throw new Error(`Failed to fetch categories for processing: ${error.message}`);
+    console.error("Error fetching raw categories JSON:", error);
+    throw new Error(`Failed to fetch raw categories JSON: ${error.message}`);
   }
 }
 

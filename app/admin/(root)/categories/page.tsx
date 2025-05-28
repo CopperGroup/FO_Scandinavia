@@ -3,11 +3,16 @@
 import { useEffect, useState, useRef } from "react";
 import CategoryCardList from "@/components/admin-components/Categories/CategoriesList";
 import { Category } from "@/lib/types/types";
-import {
-  fetchCategoriesForClientProcessing,
-  CategoryDataForClientProcessing,
-} from "@/lib/actions/categories.actions";
+import { fetchRawCategoriesJSON } from "@/lib/actions/categories.actions";
 import AdminLoading from "@/components/shared/AdminLoading";
+
+interface RawCategoryFromDB { // Represents the structure after JSON.parse from server
+  _id: string;
+  name: string;
+  totalValue?: number;
+  products?: any[]; // Define more strictly if possible, e.g., RawProduct[]
+  [key: string]: any;
+}
 
 const MAX_CATEGORIES_PER_WORKER = 50;
 
@@ -24,9 +29,10 @@ const Page = () => {
       setProcessedCategories([]);
 
       try {
-        const rawCategories: CategoryDataForClientProcessing[] = await fetchCategoriesForClientProcessing();
+        const rawJsonString = await fetchRawCategoriesJSON();
+        const rawDataArray: RawCategoryFromDB[] = JSON.parse(rawJsonString);
 
-        if (!rawCategories || rawCategories.length === 0) {
+        if (!rawDataArray || rawDataArray.length === 0) {
           setIsLoading(false);
           return;
         }
@@ -34,14 +40,14 @@ const Page = () => {
         workersRef.current.forEach(worker => worker.terminate());
         workersRef.current = [];
 
-        const numChunks = Math.ceil(rawCategories.length / MAX_CATEGORIES_PER_WORKER);
+        const numChunks = Math.ceil(rawDataArray.length / MAX_CATEGORIES_PER_WORKER);
         let resultsReceived = 0;
         const allProcessedChunks: Category[][] = new Array(numChunks);
 
         for (let i = 0; i < numChunks; i++) {
           const chunkStart = i * MAX_CATEGORIES_PER_WORKER;
           const chunkEnd = chunkStart + MAX_CATEGORIES_PER_WORKER;
-          const categoryChunk = rawCategories.slice(chunkStart, chunkEnd);
+          const categoryChunk = rawDataArray.slice(chunkStart, chunkEnd);
           
           const worker = new Worker(new URL('@/workers/categoryProcessor.worker.ts', import.meta.url), {
              type: 'module'
@@ -78,7 +84,7 @@ const Page = () => {
           worker.postMessage(categoryChunk);
         }
       } catch (err: any) {
-        console.error("Failed to fetch or initiate category processing:", err);
+        console.error("Failed to fetch or process categories:", err);
         setError(err.message || "An unknown error occurred while loading categories.");
         setIsLoading(false);
       }
@@ -99,11 +105,6 @@ const Page = () => {
       </section>
     );
   }
-
-  if (error) {
-    return <p className="w-full px-10 py-10 text-center text-red-600">⚠️ Error: {error}</p>;
-  }
-  
   return (
     <section className="w-full px-10 py-10 max-[360px]:px-4">
       <h1 className="w-full text-heading1-bold drop-shadow-text-blue">Категорії</h1>

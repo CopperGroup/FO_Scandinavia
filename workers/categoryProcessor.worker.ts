@@ -1,34 +1,61 @@
-import { Category as OutputCategoryType } from "@/lib/types/types"; // User's Category type
+import { Category as OutputCategoryType } from "@/lib/types/types";
 
-self.onmessage = (event: MessageEvent<any[]>) => {
-  const categoriesChunk = event.data;
+interface RawProduct {
+  _id: string;
+  name: string;
+  price?: number; // Assuming price is a field on your product
+}
 
-  const processedChunk: OutputCategoryType[] = categoriesChunk.map(data => {
-    const totalProducts = data.products.length;
-    const totalValue = data.totalValue; 
+interface RawCategory {
+  _id: string;
+  name: string;
+  totalValue?: number; // If this exists directly on the category document
+  products?: RawProduct[];
+}
 
+self.onmessage = (event: MessageEvent<RawCategory[]>) => {
+  const rawCategoriesChunk = event.data;
+  const processedCategories: OutputCategoryType[] = [];
+
+  for (const rawCategory of rawCategoriesChunk) {
+    if (!rawCategory.products || rawCategory.products.length === 0) {
+      continue; // Skip categories with no products
+    }
+
+    const productsArray = rawCategory.products || [];
+    const totalProducts = productsArray.length;
+
+    let currentTotalValue = 0;
+    if (typeof rawCategory.totalValue === 'number') {
+      currentTotalValue = rawCategory.totalValue;
+    } else {
+      // Fallback: Calculate totalValue if not present on category document
+      // This assumes products have a 'price' field. Adjust if necessary.
+      currentTotalValue = productsArray.reduce((sum, product) => sum + (product.price || 0), 0);
+    }
+    
     const averageProductPrice =
       totalProducts > 0
-        ? parseFloat((totalValue / totalProducts).toFixed(2))
+        ? parseFloat((currentTotalValue / totalProducts).toFixed(2))
         : 0;
 
-    const stringifiedProducts = JSON.stringify(data.products);
+    const stringifiedProducts = JSON.stringify(productsArray);
 
-    return {
+    processedCategories.push({
       category: {
-        name: data.name,
-        _id: data._id,
+        name: rawCategory.name,
+        _id: rawCategory._id.toString(), // Ensure _id is a string
       },
       values: {
         totalProducts,
-        totalValue,
+        totalValue: currentTotalValue,
         averageProductPrice,
         stringifiedProducts,
       },
-    };
-  });
+    });
+  }
 
-  self.postMessage(processedChunk);
+  self.postMessage(processedCategories);
 };
 
 export {};
