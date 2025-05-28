@@ -3,13 +3,13 @@ import { Category as OutputCategoryType } from "@/lib/types/types";
 interface RawProduct {
   _id: string;
   name: string;
-  price?: number; // Assuming price is a field on your product
+  price?: number;
 }
 
 interface RawCategory {
   _id: string;
   name: string;
-  totalValue?: number; // If this exists directly on the category document
+  totalValue?: number;
   products?: RawProduct[];
 }
 
@@ -18,10 +18,6 @@ self.onmessage = (event: MessageEvent<RawCategory[]>) => {
   const processedCategories: OutputCategoryType[] = [];
 
   for (const rawCategory of rawCategoriesChunk) {
-    if (!rawCategory.products || rawCategory.products.length === 0) {
-      continue; // Skip categories with no products
-    }
-
     const productsArray = rawCategory.products || [];
     const totalProducts = productsArray.length;
 
@@ -29,8 +25,6 @@ self.onmessage = (event: MessageEvent<RawCategory[]>) => {
     if (typeof rawCategory.totalValue === 'number') {
       currentTotalValue = rawCategory.totalValue;
     } else {
-      // Fallback: Calculate totalValue if not present on category document
-      // This assumes products have a 'price' field. Adjust if necessary.
       currentTotalValue = productsArray.reduce((sum, product) => sum + (product.price || 0), 0);
     }
     
@@ -44,7 +38,7 @@ self.onmessage = (event: MessageEvent<RawCategory[]>) => {
     processedCategories.push({
       category: {
         name: rawCategory.name,
-        _id: rawCategory._id.toString(), // Ensure _id is a string
+        _id: rawCategory._id.toString(),
       },
       values: {
         totalProducts,
