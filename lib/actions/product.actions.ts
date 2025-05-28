@@ -257,7 +257,7 @@ export async function fetchAllProducts() {
             select: "_id email"
         })
         
-        return fetchedProducts
+        return JSON.parse(JSON.stringify(fetchedProducts))
 
     } catch (error:any) {
         throw new Error(`Error fetching all available products, ${error.message}`)
