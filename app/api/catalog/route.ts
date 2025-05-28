@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchCatalog } from "@/lib/actions/redis/catalog.actions";
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

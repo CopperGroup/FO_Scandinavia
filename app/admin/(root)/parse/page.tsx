@@ -1,6 +1,6 @@
 "use client";
 
-import { createUrlProductsMany } from "@/lib/actions/product.actions";
+// import { createUrlProductsMany } from "@/lib/actions/product.actions";
 import React, { useState } from "react";
 
 interface Product {
@@ -33,7 +33,7 @@ const Page = () => {
       // console.log(data);
       setProducts(data);
 
-      await createUrlProductsMany(data)
+      // await createUrlProductsMany(data)
     } catch (error) {
       console.error("Error fetching products:", error);
     }
