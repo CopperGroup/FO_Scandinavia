@@ -603,6 +603,26 @@ export async function fetchCategoriesParams(type?: 'json') {
   }
 }
 
+
+export async function fetchRawCategoriesForFilterConfig(): Promise<string> {
+  try {
+    await connectToDB();
+    
+    const rawCategories = await Category.find(excludeDeletedCategory)
+      .populate({
+        path: "products",
+        model: Product,
+        select: 'params' 
+      })
+      .lean();
+
+    return JSON.stringify(rawCategories);
+  } catch (error: any) {
+    console.error(`Error fetching raw categories for filter config: ${error.message}`);
+    throw new Error(`Error fetching raw categories for filter config: ${error.message}`);
+  }
+}
+
 export async function updateSubcategories({ categories }: { categories: CategoryType[] }) {
   try {
     await connectToDB();

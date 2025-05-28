@@ -28,7 +28,7 @@ const Page = () => {
       const response = await fetch("/api/readJSON");
       if (!response.ok) {
         throw new Error("Failed to fetch products");
-      }
+      } 
       const data = await response.json();
       // console.log(data);
       setProducts(data);
