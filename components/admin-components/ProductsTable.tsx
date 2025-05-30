@@ -32,6 +32,7 @@ import { Progress } from "@/components/ui/progress"
 import { fetchAllCategories } from "@/lib/actions/categories.actions"
 import { CategoryType } from "@/lib/types/types"
 import { generateFullCatalogXmlOnClient } from "@/lib/xml-parser/export"
+import { fetchProductsByBatches } from "@/lib/actions/product.actions"
 
 interface Product {
   _id: string
@@ -250,10 +251,26 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
           throw new Error("Не вдалося завантажити або обробити категорії.");
       }
 
+      setExportProgress(30);
+      setExportStage("Отримання всіх товарів з сервера...");
+      
+      let allProducts: any[] = [];
+      const batchSize = 500;
+      let skip = 0;
+      let batch: any[] = [];
+      
+      do {
+        const raw = await fetchProductsByBatches(batchSize, skip);
+        batch = JSON.parse(raw);
+        allProducts.push(...batch);
+        skip += batchSize;
+      } while (batch.length === batchSize);
+      
       setExportProgress(60);
       setExportStage("Генерація XML файлу на вашому пристрої...");
-
-      const xmlString = generateFullCatalogXmlOnClient(rawCategories, products);
+      
+      const xmlString = generateFullCatalogXmlOnClient(rawCategories, allProducts);
+      
 
       if (!xmlString) {
           throw new Error("Помилка під час генерації XML файлу.");
