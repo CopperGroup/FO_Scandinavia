@@ -193,6 +193,11 @@ export function generateFullCatalogXmlOnClient(
     const offer = offersEle.ele('offer', offerAttrs);
     if (product.url) offer.ele('url').txt(product.url);
     offer.ele('price').txt(String(product.priceToShow ?? product.price ?? 0));
+
+    if (product.priceToShow !== undefined && product.price !== undefined && product.priceToShow !== product.price) {
+      offer.ele('price_old').txt(String(product.price));
+    }
+
     offer.ele('currencyId').txt(product.currencyId || 'UAH');
     offer.ele('categoryId').txt(product.categoryId); // categoryId is now guaranteed to be a string
 

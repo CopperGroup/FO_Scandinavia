@@ -1,6 +1,6 @@
 "use server";
 
-import { ObjectId, startSession } from "mongoose";
+import { ObjectId, startSession, Types as MongooseTypes  } from "mongoose";
 import Category from "../models/category.model";
 import Product from "../models/product.model";
 import { connectToDB } from "../mongoose";
@@ -474,10 +474,18 @@ export async function createNewCategory({ name, products, previousCategoryId }: 
   }
 }
 
-type DeleteCategoryProps = {
+interface DeleteCategoryProps {
   categoryId: string;
   removeProducts: boolean;
-};
+}
+
+interface ICategoryDocument extends mongoose.Document {
+  _id: MongooseTypes.ObjectId;
+  name: string;
+  products: MongooseTypes.ObjectId[] | any[];
+  subCategories: MongooseTypes.ObjectId[];
+  totalValue?: number;
+}
 
 export async function deleteCategory(props: DeleteCategoryProps) {
   const session = await startSession();
@@ -486,49 +494,75 @@ export async function deleteCategory(props: DeleteCategoryProps) {
   try {
     await connectToDB();
 
-    const category = await Category.findById(props.categoryId).populate("products").session(session);
+    const categoryToDelete = await Category.findById(props.categoryId)
+      .populate<{ products: any[] }>("products")
+      .session(session) as ICategoryDocument | null;
 
-    if (!category) {
+    if (!categoryToDelete) {
+      await session.abortTransaction();
+      session.endSession();
       throw new Error("Category not found.");
     }
 
-    const productIds: string[] = category.products.map((product: any) => product._id.toString());
+    const productObjectIdsToRemoveOrUpdate = categoryToDelete.products.map(
+      (product) => new MongooseTypes.ObjectId(product._id)
+    );
 
     if (props.removeProducts) {
-      // Delete products
-      if(productIds.length > 0) {
-        await deleteManyProducts(productIds, "keep-catalog-cache");
+      if (productObjectIdsToRemoveOrUpdate.length > 0) {
+        await deleteManyProducts(productObjectIdsToRemoveOrUpdate.map(id => id.toString()), "keep-catalog-cache");
       }
-
-      // Remove products from other categories
       await Category.updateMany(
-        { _id: { $in: category.products.map((p: { category: string[] }) => p.category).flat() } },
-        { $pull: { products: { $in: productIds } } },
+        { products: { $in: productObjectIdsToRemoveOrUpdate } },
+        { $pull: { products: { $in: productObjectIdsToRemoveOrUpdate } } },
         { session }
       );
     } else {
-      // Remove category reference from products
-      await Product.updateMany(
-        { category: { $in: [category._id] } },
-        { $pull: { category: category._id } },
+      if (productObjectIdsToRemoveOrUpdate.length > 0) {
+        await Product.updateMany(
+          { _id: { $in: productObjectIdsToRemoveOrUpdate } },
+          { $pull: { category: categoryToDelete._id } },
+          { session }
+        );
+      }
+    }
+
+    const childrenOfDeletedCategoryIds: MongooseTypes.ObjectId[] = categoryToDelete.subCategories || [];
+    const parentOfDeletedCategory = await Category.findOne({ subCategories: categoryToDelete._id }).session(session) as ICategoryDocument | null;
+
+    if (parentOfDeletedCategory) {
+      let newSubcategoriesForParent = parentOfDeletedCategory.subCategories || [];
+      newSubcategoriesForParent = newSubcategoriesForParent.filter(
+        (subId) => !subId.equals(categoryToDelete._id)
+      );
+
+      const childrenObjectIds = childrenOfDeletedCategoryIds.map(id =>
+        id instanceof MongooseTypes.ObjectId ? id : new MongooseTypes.ObjectId(id)
+      );
+      newSubcategoriesForParent = newSubcategoriesForParent.concat(childrenObjectIds);
+
+      const uniqueNewParentSubcategories = Array.from(new Set(newSubcategoriesForParent.map(id => id.toString())))
+        .map(idStr => new MongooseTypes.ObjectId(idStr));
+
+      await Category.updateOne(
+        { _id: parentOfDeletedCategory._id },
+        { $set: { subCategories: uniqueNewParentSubcategories } },
         { session }
       );
     }
 
-    // Exclude category from filter
     await Filter.updateOne(
       { "categories.categoryId": props.categoryId },
       { $pull: { categories: { categoryId: props.categoryId } } },
       { session }
     );
 
-    // Delete the category
-    await Category.deleteOne({ _id: category._id }, { session });
+    await Category.deleteOne({ _id: categoryToDelete._id }, { session });
 
     await session.commitTransaction();
 
     await clearCatalogCache();
-    clearCache(["deleteCategory", "updateProduct"], undefined);
+    clearCache(["deleteCategory", "updateProduct", "updateCategory"], undefined);
 
   } catch (error: any) {
     await session.abortTransaction();
