@@ -268,7 +268,7 @@ export async function fetchProducts(){
     try {
         connectToDB();
 
-        const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID }}).lean();
+        const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID }}).select("_id id vendor name isAvailable price priceToShow category articleNumber url images quantity description params").lean();
         
         return JSON.stringify(products)
     } catch (error:any) {
