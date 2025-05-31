@@ -21,6 +21,9 @@ const excludeDeletedCategory = { _id: { $ne: DELETEDCATEGORY_ID }}
 export async function findCategoryByExternalId(
   externalId: string
 ) {
+
+  await connectToDB();
+
   const category = await Category.findOne({ id: externalId });
 
   return JSON.stringify(category);
@@ -30,6 +33,8 @@ export async function persistCategory(
   category: FetchedCategory,
   parentDbId?: mongoose.Types.ObjectId
 ) {
+  await connectToDB();
+
   const doc = new Category({
     name: category.name,
     id:   category.id,
