@@ -57,23 +57,28 @@ async function createUrlCategories(
       const idMap = new Map<string, mongoose.Types.ObjectId>();
   
       for (const cat of sorted) {
+        console.log("First function")
         const result = await findCategoryByExternalId(cat.id);
 
         let doc = await JSON.parse(result)
+        console.log(result, doc)
         if (!doc) {
+          console.log("Second function")
           const parentDbId = cat.parentCategoryId
             ? idMap.get(cat.parentCategoryId)
             : undefined;
-  
           const newResult = await persistCategory(cat, parentDbId);
 
+          console.log(newResult)
           doc = JSON.parse(newResult)
         }
   
         idMap.set(cat.id, doc._id);
       }
   
+      console.log("Last function")
       const all = await fetchAllCategories("json");
+      console.log(all)
       return all
     } catch (err: any) {
       throw new Error(`Error creating categories – ${err.message}`);
