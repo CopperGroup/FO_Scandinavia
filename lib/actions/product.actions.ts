@@ -234,7 +234,7 @@ export async function fetchUrlProducts(type?: "json"){
     try {
         connectToDB();
         
-        const urlProducts = await Product.find({_id: {$ne: DELETEDPRODUCT_ID}, isFetched: true });
+        const urlProducts = await Product.find({_id: {$ne: DELETEDPRODUCT_ID}, isFetched: true }).select("_id id articleNumber");
 
         if(type === "json"){
             return JSON.stringify(urlProducts)
