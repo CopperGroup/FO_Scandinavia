@@ -21,7 +21,7 @@ const excludeDeletedCategory = { _id: { $ne: DELETEDCATEGORY_ID }}
 export async function findCategoryByExternalId(
   externalId: string
 ) {
-  const category = await Category.findOne({ id: externalId }).lean();
+  const category = await Category.findOne({ id: externalId });
 
   return JSON.stringify(category);
 }

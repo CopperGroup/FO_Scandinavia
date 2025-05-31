@@ -23,6 +23,8 @@ const categorySchema = new mongoose.Schema({
     ]
 })
 
+categorySchema.index({ id: 1 });
+
 const Category = mongoose.models.Category || mongoose.model("Category", categorySchema);
 
 export default Category;
