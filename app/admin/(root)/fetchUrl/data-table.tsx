@@ -129,7 +129,7 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
         })
       }, 4000)
 
-      router.push("/admin/products")
+      // router.push("/admin/products")
     }
   }
 
