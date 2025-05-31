@@ -211,7 +211,7 @@ export function generateFullCatalogXmlOnClient(
 
 
     if (product.vendor) offer.ele('vendor').txt(product.vendor);
-    if (product.country_of_origin) offer.ele('country_of_origin').txt(product.country_of_origin);
+    offer.ele('country_of_origin').txt("");
     if (typeof product.quantity === 'number') offer.ele('stock_quantity').txt(String(product.quantity));
     offer.ele('name').txt(product.name);
 

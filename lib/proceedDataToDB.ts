@@ -1,7 +1,8 @@
 import { createUrlProduct, deleteProduct, fetchUrlProducts, updateUrlProduct } from "./actions/product.actions";
 import { clearCatalogCache } from "./actions/redis/catalog.actions";
-import { createUrlCategories } from "./actions/categories.actions";
+import { fetchAllCategories, findCategoryByExternalId, persistCategory } from "./actions/categories.actions";
 import { CategoryType, FetchedCategory, ProductType } from "./types/types";
+import mongoose from "mongoose";
 
 interface Product {
     _id: string,
@@ -37,81 +38,133 @@ async function processInBatches<T>(
             console.log(`Processed ${operationCount} operations, waiting for ${delayMs / 1000} seconds...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
+        console.log(item)
         await asyncOperation(item);
         operationCount++;
     }
 }
 
-export async function proceedDataToDB(data: Product[], selectedRowsIds: (string | null)[], categories: FetchedCategory[], mergeProducts: boolean) {
+async function createUrlCategories(
+    { categories }: { categories: FetchedCategory[] },
+  ): Promise<string> {
     try {
-        const stringifiedUrlProducts = await fetchUrlProducts("json");
-        let urlProducts: Product[] = JSON.parse(stringifiedUrlProducts as string);
+      const sorted = [...categories].sort((a, b) => {
+        if (a.parentCategoryId && !b.parentCategoryId) return 1;
+        if (!a.parentCategoryId && b.parentCategoryId) return -1;
+        return 0;
+      });
+  
+      const idMap = new Map<string, mongoose.Types.ObjectId>();
+  
+      for (const cat of sorted) {
+        const result = await findCategoryByExternalId(cat.id);
 
-        const leftOverProducts = urlProducts.filter(
-            urlProduct => !data.some(product => product.articleNumber === urlProduct.articleNumber)
-        );
+        let doc = await JSON.parse(result)
+        if (!doc) {
+          const parentDbId = cat.parentCategoryId
+            ? idMap.get(cat.parentCategoryId)
+            : undefined;
+  
+          const newResult = await persistCategory(cat, parentDbId);
 
-        const processedIds = new Set<string>();
-        const newProducts = [];
-        const productsToUpdate = [];
-
-        const result = await createUrlCategories({ categories }, "json");
-        const createdCategories: CategoryType[] = JSON.parse(result);
-
-        for (const product of data) {
-            const category_id = createdCategories.find(cat => cat.id === product.categoryId)?._id || "No-category";
-
-            if (product.id && selectedRowsIds.includes(product.id) && !processedIds.has(product.id)) {
-                const existingProductIndex = urlProducts.findIndex(urlProduct => urlProduct.articleNumber === product.articleNumber);
-
-                if (existingProductIndex !== -1) {
-                    productsToUpdate.push({
-                        ...product,
-                        _id: urlProducts[existingProductIndex]._id,
-                        category: [category_id],
-                    });
-                } else {
-                    newProducts.push({
-                        ...product,
-                        category: [category_id],
-                    });
-                }
-                processedIds.add(product.id);
-            }
+          doc = JSON.parse(newResult)
         }
-
-        // Perform bulk update with batching and delay
-        if (productsToUpdate.length > 0) {
-            console.log(`Starting batch update for ${productsToUpdate.length} products...`);
-            await processInBatches(productsToUpdate, async (productToUpdate) => {
-                await updateUrlProduct(productToUpdate);
-            });
-            console.log("Batch update finished.");
-        }
-
-        // Perform bulk insert for new products with batching and delay
-        if (newProducts.length > 0) {
-            console.log(`Starting batch create for ${newProducts.length} new products...`);
-            await processInBatches(newProducts, async (newProduct) => {
-                await createUrlProduct(newProduct);
-            });
-            console.log("Batch create finished.");
-        }
-
-        // Delete left-over products with batching and delay
-        if (mergeProducts && leftOverProducts.length > 0) {
-            console.log(`Starting batch delete for ${leftOverProducts.length} leftover products...`);
-            await processInBatches(leftOverProducts, async (leftOverProduct) => {
-                //IMPORTANT! Not clearing catalog cache, because, it will be cleared later, line 85 (in original)
-                await deleteProduct({ productId: leftOverProduct.id as string }, "keep-catalog-cache");
-            });
-            console.log("Batch delete finished.");
-        }
-
-        await clearCatalogCache();
-
-        return null;
-    } catch (error: any) {
-        throw new Error(`Error proceeding products to DB: ${error.message}`);
+  
+        idMap.set(cat.id, doc._id);
+      }
+  
+      const all = await fetchAllCategories("json");
+      return all
+    } catch (err: any) {
+      throw new Error(`Error creating categories – ${err.message}`);
     }
-}
+  }
+  
+  // ✅ Main function
+  export async function proceedDataToDB(
+    data: Product[],
+    selectedRowsIds: (string | null)[],
+    categories: FetchedCategory[],
+    mergeProducts: boolean
+  ) {
+    try {
+      const stringifiedUrlProducts = await fetchUrlProducts("json");
+      let urlProducts: Product[] = JSON.parse(stringifiedUrlProducts as string);
+  
+      const leftOverProducts = urlProducts.filter(
+        urlProduct =>
+          !data.some(product => product.articleNumber === urlProduct.articleNumber)
+      );
+  
+      const processedIds = new Set<string>();
+      const newProducts = [];
+      const productsToUpdate = [];
+  
+      const result = await createUrlCategories({ categories });
+      const createdCategories: CategoryType[] = JSON.parse(result);
+  
+      for (const product of data) {
+        const category_id =
+          createdCategories.find(cat => cat.id === product.categoryId)?._id ||
+          "No-category";
+  
+        if (
+          product.id &&
+          selectedRowsIds.includes(product.id) &&
+          !processedIds.has(product.id)
+        ) {
+          const existingProductIndex = urlProducts.findIndex(
+            urlProduct =>
+              urlProduct.articleNumber === product.articleNumber
+          );
+  
+          if (existingProductIndex !== -1) {
+            productsToUpdate.push({
+              ...product,
+              _id: urlProducts[existingProductIndex]._id,
+              category: [category_id],
+            });
+          } else {
+            newProducts.push({
+              ...product,
+              category: [category_id],
+            });
+          }
+  
+          processedIds.add(product.id);
+        }
+      }
+  
+      if (productsToUpdate.length > 0) {
+        console.log(`Starting batch update for ${productsToUpdate.length} products...`);
+        await processInBatches(productsToUpdate, async (productToUpdate) => {
+          await updateUrlProduct(productToUpdate);
+        });
+        console.log("Batch update finished.");
+      }
+  
+      if (newProducts.length > 0) {
+        console.log(`Starting batch create for ${newProducts.length} new products...`);
+        await processInBatches(newProducts, async (newProduct) => {
+          await createUrlProduct(newProduct);
+        });
+        console.log("Batch create finished.");
+      }
+  
+      if (mergeProducts && leftOverProducts.length > 0) {
+        console.log(`Starting batch delete for ${leftOverProducts.length} leftover products...`);
+        await processInBatches(leftOverProducts, async (leftOverProduct) => {
+          await deleteProduct(
+            { productId: leftOverProduct.id as string },
+            "keep-catalog-cache"
+          );
+        });
+        console.log("Batch delete finished.");
+      }
+  
+      await clearCatalogCache();
+      return null;
+    } catch (error: any) {
+      throw new Error(`Error proceeding products to DB: ${error.message}`);
+    }
+  }

@@ -17,6 +17,35 @@ const DELETEDCATEGORY_ID = "681a9c9a90b4efb3dd18d1e5"
 
 const excludeDeletedCategory = { _id: { $ne: DELETEDCATEGORY_ID }}
 
+
+export async function findCategoryByExternalId(
+  externalId: string
+) {
+  const category = await Category.findOne({ id: externalId }).lean();
+
+  return JSON.stringify(category);
+}
+
+export async function persistCategory(
+  category: FetchedCategory,
+  parentDbId?: mongoose.Types.ObjectId
+) {
+  const doc = new Category({
+    name: category.name,
+    id:   category.id,
+    subCategories: [],
+  });
+
+  if (parentDbId) {
+    await Category.findByIdAndUpdate(parentDbId, {
+      $push: { subCategories: doc._id },
+    });
+  }
+
+  await doc.save();
+  return JSON.stringify(doc);
+}
+
 export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }): Promise<CategoryType[]>;
 export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type: 'json'): Promise<string>;
 

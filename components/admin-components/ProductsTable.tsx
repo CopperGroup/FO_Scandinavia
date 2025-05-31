@@ -262,6 +262,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
       do {
         const raw = await fetchProductsByBatches(batchSize, skip);
         batch = JSON.parse(raw);
+        console.log(batch)
         allProducts.push(...batch);
         skip += batchSize;
       } while (batch.length === batchSize);
