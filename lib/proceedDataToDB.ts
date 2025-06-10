@@ -35,7 +35,6 @@ async function processInBatches<T>(
     let operationCount = 0;
     for (const item of items) {
         if (operationCount > 0 && operationCount % batchSize === 0) {
-            console.log(`Processed ${operationCount} operations, waiting for ${delayMs / 1000} seconds...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
         console.log(item)
@@ -57,28 +56,22 @@ async function createUrlCategories(
       const idMap = new Map<string, mongoose.Types.ObjectId>();
   
       for (const cat of sorted) {
-        console.log("First function")
         const result = await findCategoryByExternalId(cat.id);
 
         let doc = await JSON.parse(result)
-        console.log(result, doc)
         if (!doc) {
-          console.log("Second function")
           const parentDbId = cat.parentCategoryId
             ? idMap.get(cat.parentCategoryId)
             : undefined;
           const newResult = await persistCategory(cat, parentDbId);
 
-          console.log(newResult)
           doc = JSON.parse(newResult)
         }
   
         idMap.set(cat.id, doc._id);
       }
   
-      console.log("Last function")
       const all = await fetchAllCategories("json");
-      console.log(all)
       return all
     } catch (err: any) {
       throw new Error(`Error creating categories – ${err.message}`);
@@ -141,30 +134,24 @@ async function createUrlCategories(
       }
   
       if (productsToUpdate.length > 0) {
-        console.log(`Starting batch update for ${productsToUpdate.length} products...`);
         await processInBatches(productsToUpdate, async (productToUpdate) => {
           await updateUrlProduct(productToUpdate);
         });
-        console.log("Batch update finished.");
       }
   
       if (newProducts.length > 0) {
-        console.log(`Starting batch create for ${newProducts.length} new products...`);
         await processInBatches(newProducts, async (newProduct) => {
           await createUrlProduct(newProduct);
         });
-        console.log("Batch create finished.");
       }
   
       if (mergeProducts && leftOverProducts.length > 0) {
-        console.log(`Starting batch delete for ${leftOverProducts.length} leftover products...`);
         await processInBatches(leftOverProducts, async (leftOverProduct) => {
           await deleteProduct(
             { productId: leftOverProduct.id as string },
             "keep-catalog-cache"
           );
         });
-        console.log("Batch delete finished.");
       }
   
       await clearCatalogCache();

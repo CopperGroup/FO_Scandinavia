@@ -374,9 +374,6 @@ return (
                                   {value}
                                 </label>
                               </div>
-                              <p className="w-fit text-small-medium text-blue drop-shadow-xl mt-3 px-4">
-                                {counts[`${param}Count`][value]}
-                              </p>
                             </div>
                           ))}
                         </div>
@@ -436,9 +433,6 @@ return (
                                             {value}
                                           </label>
                                         </div>
-                                        <p className="w-fit text-subtle-medium text-blue drop-shadow-xl mt-3 px-4">
-                                          {valueTotalProducts}
-                                        </p>
                                       </div>
                                     );
                                   })}

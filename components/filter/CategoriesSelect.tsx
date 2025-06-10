@@ -379,9 +379,6 @@ const CategoriesSelect = ({ categories, filter, setFilter }: CategoriesSelectPro
             >
               {highlightMatch(category.name)}
             </label>
-            <span className="text-subtle-medium text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full">
-              {category.calculatedTotalProducts}
-            </span>
           </div>
         </div>
 
