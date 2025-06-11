@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     default: Store.name,
     template: `%s - ${Store.name}`
   },
-  description: "",
+  description: "Товари з Скандинавії",
   twitter: {
     card: "summary_large_image"
   },

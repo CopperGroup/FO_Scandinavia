@@ -1,8 +1,8 @@
 export const Store = {
-    name: "Sveamoda",
+    name: "Nordiva",
     currency: "UAH",
     currency_sign: "₴",
-    domain: "https://fo-scandinavia.vercel.app",
+    domain: "https://nordiva.vercel.app",
     catalog_link: "/catalog?page=1&sort=default",
     email: "coppergroupstudio@gmail.com",
     phoneNumber: "",
