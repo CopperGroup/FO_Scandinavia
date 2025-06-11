@@ -1,16 +1,16 @@
-'use client'
+"use client"
 
 import { useEffect, useRef, useState } from "react"
-import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { useAppContext } from '@/app/(root)/context'
+import { useAppContext } from "@/app/(root)/context"
 import CartPage from "./CartPage"
+import { ShoppingBag } from "lucide-react"
+import ContactButton from "../interface/ContactButton"
 
 export default function StickyCart() {
   const [isOpened, setIsOpened] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [is404, setIs404] = useState(false);
   const { cartData } = useAppContext()
   const cartButtonRef = useRef<HTMLDivElement>(null)
   const prevCartLength = useRef(cartData.length)
@@ -21,7 +21,7 @@ export default function StickyCart() {
 
   useEffect(() => {
     document.body.style.overflow = isOpened ? "hidden" : "auto"
-    
+
     if (cartButtonRef.current) {
       cartButtonRef.current.style.display = isOpened ? "none" : "block"
     }
@@ -39,29 +39,25 @@ export default function StickyCart() {
     prevCartLength.current = cartData.length
   }, [cartData])
 
-  useEffect(() => {
-    const meta404 = document.querySelector('meta[name="isNotFoundPage"]')?.getAttribute('content');
-    setIs404(meta404 === 'true');
-  }, []);
-
-  if (is404) return null;
-  
   return (
     <>
-      <motion.div
+      <div
         ref={cartButtonRef}
-        className="fixed bottom-8 right-8 z-[100] max-sm:bottom-4 max-sm:right-4"
-        animate={isAnimating ? { scale: [1, 1.1, 1] } : {}}
-        transition={{ duration: 0.3 }}
+        className="fixed bottom-8 right-8 z-[100] flex flex-col gap-4 max-sm:bottom-4 max-sm:right-4"
       >
+        {/* Contact Button */}
+        <ContactButton />
+
+        {/* Cart Button */}
         <motion.div
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          animate={isAnimating ? { scale: [1, 1.1, 1] } : {}}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
         >
-          <Button 
-            onClick={toggleCart} 
-            className="size-16 bg-white rounded-full shadow-lg flex items-center justify-center border border-gray-200 transition-all duration-300 ease-in-out hover:bg-white max-sm:size-14"
+          <Button
+            onClick={toggleCart}
+            className="size-16 bg-white rounded-full shadow-lg flex items-center justify-center border border-gray-200 transition-all duration-300 ease-in-out hover:bg-white max-sm:size-14 relative"
           >
             <AnimatePresence>
               {cartData.length > 0 && (
@@ -70,24 +66,25 @@ export default function StickyCart() {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
-                  className="absolute top-0 right-0 bg-[#FECC02] text-[#006AA7] text-subtle-medium rounded-full w-6 h-6 flex items-center justify-center"
+                  className="absolute top-0 right-0 bg-sky-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center"
                 >
                   {cartData.length}
                 </motion.div>
               )}
             </AnimatePresence>
-            <Image src="/assets/cart.svg" width={28} height={28} alt="cart-icon" className="drop-shadow-sm"/>
+            <ShoppingBag className="w-8 h-8 text-black drop-shadow-sm max-sm:w-6 max-sm:h-6" />
           </Button>
         </motion.div>
-      </motion.div>
+      </div>
 
+      {/* Cart Slide-in Panel */}
       <AnimatePresence>
         {isOpened && (
           <motion.div
             className="fixed h-full bg-white max-w-[400px] w-full z-50 top-0 right-0 shadow-2xl"
-            initial={{ x: '100%' }}
+            initial={{ x: "100%" }}
             animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             <CartPage setIsOpened={setIsOpened} />
