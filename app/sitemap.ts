@@ -1,5 +1,4 @@
 import { Store } from "@/constants/store";
-import { fetchCatalog } from "@/lib/actions/redis/catalog.actions";
 import type { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

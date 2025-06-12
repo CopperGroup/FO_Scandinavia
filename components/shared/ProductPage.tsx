@@ -773,7 +773,7 @@ export default function ProductPage({
                       className="w-full py-3 sm:py-4 text-sm sm:text-base font-medium rounded-full"
                       onClick={() => window.open(`tel:${Store.phoneNumber}`, "_self")}
                     >
-                      Зв'язатися з нами
+                      Зв&apos;язатися з нами
                     </Button>
                   </div>
                 )}

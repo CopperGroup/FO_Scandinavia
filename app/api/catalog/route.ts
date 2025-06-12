@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { fetchCatalog } from "@/lib/actions/redis/catalog.actions";
+import { getCombinedProductData } from "@/lib/actions/redis/catalog.actions";
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const result = await fetchCatalog();
+    const result = await getCombinedProductData();
 
     return NextResponse.json(result);
   } catch (error) {
