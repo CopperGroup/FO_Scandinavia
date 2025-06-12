@@ -3060,7 +3060,7 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
 export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }, type: 'json'): Promise<string>;
 
 export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }, type?: 'json') {
-   try {
+  try {
     const {
       _id,
       deliveryMethod,
@@ -3069,80 +3069,82 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
       warehouseIndex,
       value,
       phoneNumber,
+      paymentType // <- Add paymentType here
     } = JSON.parse(stringifiedOrder);
-
 
     function getFormattedDateTime(): string {
       const now = new Date();
-      const day = String(now.getDate()).padStart(2, '0'); // Ensure 2-digit day
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Ensure 2-digit month
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
       const year = now.getFullYear();
-    
       return `${day}.${month}.${year}`;
+    }
+
+    const methodProperties: Record<string, any> = {
+      PayerType: "Recipient",
+      PaymentMethod: "Cash",
+      RecipientWarehouseIndex: warehouseIndex,
+      DateTime: getFormattedDateTime(),
+      CargoType: "Cargo",
+      Weight: "1",
+      ServiceType: deliveryMethod === "Нова пошта (Поштомат)" ? "DoorsWarehouse" : "WarehouseWarehouse",
+      SeatsAmount: "1",
+      Description: `Замовлення з ${Store.name}`,
+      Cost: deliveryCost,
+      CitySender: senderCityRef,
+      Sender: process.env.NOVA_SENDER_REF,
+      SenderAddress: senderWarehouseRef,
+      ContactSender: process.env.NOVA_SENDER_CONTACT_REF,
+      SendersPhone: process.env.NOVA_SENDER_PHONE,
+      CityRecipient: cityRef,
+      Recipient: counterPartyRef,
+      RecipientAddress: warehouseRef,
+      ContactRecipient: contactRef,
+      RecipientsPhone: phoneNumber,
+      NewAddress: "1",
+      OptionsSeat: [
+        {
+          volumetricVolume: "1",
+          volumetricWidth: "20",
+          volumetricLength: "20",
+          volumetricHeight: "20",
+          weight: "1"
+        }
+      ]
+    };
+
+    // ✅ Add backward delivery if NOT 'За реквізитами'
+    if (paymentType !== "За реквізитами") {
+      methodProperties.BackwardDeliveryData = [
+        {
+          PayerType: "Recipient",
+          CargoType: "Money",
+          RedeliveryString: value.toFixed(2)
+        }
+      ];
     }
 
     const baseFields = {
       apiKey: process.env.NOVA_POSHTA_API_KEY,
       modelName: "InternetDocumentGeneral",
       calledMethod: "save",
-      methodProperties: {
-        PayerType: "Recipient",  // Sender pays for the shipping
-        PaymentMethod: "Cash",  // Payment method is Cash
-        RecipientWarehouseIndex: warehouseIndex,
-        DateTime: getFormattedDateTime(),  // Add the actual DateTime here
-        CargoType: "Cargo",  // Type of cargo is Cargo
-        Weight: "1",  // Weight of the cargo (adjust if needed)
-        ServiceType: deliveryMethod === "Нова пошта (Поштомат)" ? "DoorsWarehouse" : "WarehouseWarehouse",  // Service type for delivery
-        SeatsAmount: "1",  // Number of seats (adjust if needed)
-        Description: `Замовлення з ${Store.name}`,  // Add the description of the shipment
-        Cost: deliveryCost,  // Cost of the shipment
-        CitySender: senderCityRef,  // Sender's city reference
-        Sender: process.env.NOVA_SENDER_REF,  // Sender's reference
-        SenderAddress: senderWarehouseRef,  // Sender's address reference
-        ContactSender: process.env.NOVA_SENDER_CONTACT_REF,  // Sender's contact reference
-        SendersPhone: process.env.NOVA_SENDER_PHONE,  // Sender's phone number
-        CityRecipient: cityRef,  // Recipient's city reference
-        Recipient: counterPartyRef,  // Recipient's reference from the counterparty creation
-        RecipientAddress: warehouseRef,  // Recipient's address (or warehouse reference)
-        ContactRecipient: contactRef,  // Recipient's full name
-        RecipientsPhone: phoneNumber,  // Recipient's phone number
-        NewAddress: "1", 
-        OptionsSeat: [
-          {
-            volumetricVolume: "1",  // Adjust if needed
-            volumetricWidth: "20",  // Adjust if needed
-            volumetricLength: "20",  // Adjust if needed
-            volumetricHeight: "20",  // Adjust if needed
-            weight: "1" 
-          }
-        ],
-        AfterpaymentOnGoodsCost: value.toFixed(0)
-      }
+      methodProperties
     };
-  
-    // Make the API request to Nova Poshta
+
     const response = await axios.post("https://api.novaposhta.ua/v2.0/json/", baseFields);
     const { data } = response.data;
-  
-    // console.log(response)
+
     if (!data || !data[0]) throw new Error("Failed to create invoice");
-  
 
-    await Order.findByIdAndUpdate(
-      _id,
-      {
-        invoice: JSON.stringify(data[0])
-      }
-    )
+    await Order.findByIdAndUpdate(_id, {
+      invoice: JSON.stringify(data[0])
+    });
 
-    if(type === 'json'){
-      return JSON.stringify(data[0])
-    } else {
-      return data[0]
-    }
-   } catch (error: any) {
-     throw new Error(`Error generating invoice: ${error.message}`)
-   }
+    return type === 'json' ? JSON.stringify(data[0]) : data[0];
+
+  } catch (error: any) {
+    throw new Error(`Error generating invoice: ${error.message}`);
+  }
 }
 
 export async function getInvoiceDetails(documentNumber: string, phone?: string) {
