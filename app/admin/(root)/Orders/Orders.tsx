@@ -16,6 +16,7 @@ import {
   } from "@/components/ui/select"
 
 import { Button } from '@/components/ui/button'
+import AdminOrderCard from '@/components/admin-components/orders/AdminOrderCard'
 
 interface Order{
   _id:string,
@@ -183,26 +184,26 @@ const Orders = ({orders}:{orders:string}) => {
         {filtredOrders.length > 0 ? (
         <div className="w-full gap-16 grid grid-cols-3 mt-16 max-[1900px]:gap-10 max-[1850px]:grid-cols-2 max-[1250px]:grid-cols-1">
           {filtredOrders.map((order:Order) => (
-            <OrderCard
-              key={order.id}
-              id={order.id}
-              products={order.products}
-              user={order.user}
-              value={order.value}
-              name={order.name}
-              surname={order.surname}
-              phoneNumber={order.phoneNumber}
-              email={order.email}
-              paymentType={order.paymentType}
-              deliveryMethod={order.deliveryMethod}
-              city={order.city}
-              adress={order.adress}
-              postalCode={order.postalCode}
-              data={formatDateString(order.data)}
-              paymentStatus={order.paymentStatus}
-              deliveryStatus={order.deliveryStatus}
-              url='/admin/Orders/'
-            />
+              <AdminOrderCard
+                key={order.id}
+                id={order.id}
+                products={order.products}
+                user={order.user}
+                value={order.value}
+                name={order.name}
+                surname={order.surname}
+                phoneNumber={order.phoneNumber}
+                email={order.email}
+                paymentType={order.paymentType}
+                deliveryMethod={order.deliveryMethod}
+                city={order.city}
+                adress={order.adress}
+                postalCode={order.potsalCode}
+                data={formatDateString(order.data)}
+                paymentStatus={order.paymentStatus}
+                deliveryStatus={order.deliveryStatus}
+                url="/admin/Orders/"
+              />
           ))}
         </div>
       ): (

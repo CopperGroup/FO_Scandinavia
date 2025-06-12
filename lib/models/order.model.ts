@@ -124,6 +124,10 @@ const orderSchema = new mongoose.Schema({
     emails: {
         askForReview: Boolean,
         confirmation: Boolean
+    },
+
+    invoiceString: {
+        type: String
     }
 });
 

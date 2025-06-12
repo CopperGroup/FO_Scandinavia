@@ -58,6 +58,15 @@ const adminPaths = [
         }
     },
     {
+        name: 'updateOrder',
+        values: [paths.categories, paths.dashboard, paths.orders, paths.payments, paths.statistics],
+        user_cache: {
+            catalog: false,
+            productPage: false,
+            allProductPages: false
+        }
+    },
+    {
         name: "createUser",
         values: [paths.clients, paths.statistics],
         user_cache: {

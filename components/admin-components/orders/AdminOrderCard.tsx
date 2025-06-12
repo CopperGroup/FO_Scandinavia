@@ -16,8 +16,6 @@ import {
   Tag,
   Percent,
   FileText,
-  Download,
-  Send,
 } from "lucide-react"
 import type { ProductType } from "@/lib/types/types"
 
@@ -41,8 +39,8 @@ interface OrderCardProps {
   adress: string
   postalCode: string
   data: string
-  paymentStatus: string
-  deliveryStatus: string
+  paymentStatus: "Pending" | "Success" | "Declined"
+  deliveryStatus: "Proceeding" | "Indelivery" | "Fulfilled" | "Canceled"
   url: string
   promocode?: string
   discount?: number
@@ -51,6 +49,7 @@ interface OrderCardProps {
     date: string
     trackingNumber: string
   }
+  invoiceString?: string
 }
 
 const AdminOrderCard = ({
@@ -73,37 +72,76 @@ const AdminOrderCard = ({
   promocode,
   discount,
   invoice,
+  invoiceString,
 }: OrderCardProps) => {
   const formatter = new Intl.NumberFormat("uk-UA", {
     style: "currency",
     currency: "UAH",
   })
 
-  const getPaymentStatusColor = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "Оплачено":
-        return "bg-green-100 text-green-800"
-      case "Очікує оплати":
-        return "bg-yellow-100 text-yellow-800"
-      case "Скасовано":
-        return "bg-red-100 text-red-800"
+      case "Pending":
+      case "Proceeding":
+        return "text-gray-500"
+      case "Indelivery":
+        return "text-blue-600"
+      case "Success":
+      case "Fulfilled":
+        return "text-green-600"
+      case "Declined":
+      case "Canceled":
+        return "text-red-600"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "text-gray-500"
     }
   }
 
-  const getDeliveryStatusColor = (status: string) => {
+  const getStatusBgColor = (status: string) => {
     switch (status) {
-      case "Доставлено":
-        return "bg-green-100 text-green-800"
-      case "В дорозі":
-        return "bg-blue-100 text-blue-800"
-      case "Підготовка":
-        return "bg-yellow-100 text-yellow-800"
-      case "Скасовано":
-        return "bg-red-100 text-red-800"
+      case "Pending":
+      case "Proceeding":
+        return "bg-gray-500"
+      case "Indelivery":
+        return "bg-blue-600"
+      case "Success":
+      case "Fulfilled":
+        return "bg-green-600"
+      case "Declined":
+      case "Canceled":
+        return "bg-red-600"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-500"
+    }
+  }
+
+  const getDeliveryBarStyle = () => {
+    switch (deliveryStatus) {
+      case "Proceeding":
+        return "w-1/4 bg-gray-500"
+      case "Indelivery":
+        return "w-2/3 bg-blue-600"
+      case "Fulfilled":
+        return "w-full bg-green-600"
+      case "Canceled":
+        return "w-1/2 bg-red-600"
+      default:
+        return "w-0 bg-gray-200"
+    }
+  }
+
+  const getTruckStyle = () => {
+    switch (deliveryStatus) {
+      case "Proceeding":
+        return "left-[calc(25%-12px)] text-gray-500"
+      case "Indelivery":
+        return "left-[calc(66%-12px)] text-blue-600"
+      case "Fulfilled":
+        return "right-0 text-green-600"
+      case "Canceled":
+        return "left-1/2 -translate-x-1/2 text-red-600"
+      default:
+        return "left-0 text-gray-400"
     }
   }
 
@@ -119,14 +157,19 @@ const AdminOrderCard = ({
             </CardDescription>
           </div>
           <div className="flex flex-col gap-1">
-            <Badge className={`${getPaymentStatusColor(paymentStatus)} text-xs font-medium px-2.5 py-0.5`}>
-              {paymentStatus}
+            <Badge className={`${getStatusBgColor(paymentStatus)} text-white text-xs font-medium px-2.5 py-0.5`}>
+              {paymentStatus === "Pending" && "Очікується"}
+              {paymentStatus === "Success" && "Оплачено"}
+              {paymentStatus === "Declined" && "Відхилено"}
             </Badge>
-            <Badge className={`${getDeliveryStatusColor(deliveryStatus)} text-xs font-medium px-2.5 py-0.5`}>
-              {deliveryStatus}
+            <Badge className={`${getStatusBgColor(deliveryStatus)} text-white text-xs font-medium px-2.5 py-0.5`}>
+              {deliveryStatus === "Proceeding" && "Підготовка"}
+              {deliveryStatus === "Indelivery" && "В дорозі"}
+              {deliveryStatus === "Fulfilled" && "Доставлено"}
+              {deliveryStatus === "Canceled" && "Скасовано"}
             </Badge>
             {invoice && (
-              <Badge className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5">
+              <Badge className="bg-blue-600 text-white text-xs font-medium px-2.5 py-0.5">
                 Накладна №{invoice.number}
               </Badge>
             )}
@@ -144,6 +187,28 @@ const AdminOrderCard = ({
               </span>
             </div>
             <div className="text-base-semibold text-slate-900">{formatter.format(value)}</div>
+          </div>
+
+          <div className="mb-4 mt-2">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-slate-700">Статус доставки</span>
+              <span className={`text-sm font-medium ${getStatusColor(deliveryStatus)}`}>
+                {deliveryStatus === "Proceeding" && "Підготовка"}
+                {deliveryStatus === "Indelivery" && "В дорозі"}
+                {deliveryStatus === "Fulfilled" && "Доставлено"}
+                {deliveryStatus === "Canceled" && "Скасовано"}
+              </span>
+            </div>
+            <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${getDeliveryBarStyle()}`}
+              ></div>
+            </div>
+            <div className="relative h-8 mt-1">
+              <Truck
+                className={`absolute top-1/2 -mt-3 w-6 h-6 transition-all duration-500 ease-out ${getTruckStyle()}`}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -209,6 +274,19 @@ const AdminOrderCard = ({
                 <div>
                   <p className="text-small-regular text-slate-500">Трек-номер</p>
                   <p className="text-small-semibold text-slate-700">{invoice.trackingNumber}</p>
+                </div>
+              </div>
+            )}
+
+            {invoiceString && (
+              <div className="flex items-start col-span-2">
+                <FileText className="h-4 w-4 mr-2 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-small-regular text-slate-500">Номер рахунку</p>
+                  <p className="text-small-semibold text-slate-700 font-mono">
+                    {invoiceString.substring(0, 2)} {invoiceString.substring(2, 6)} {invoiceString.substring(6, 10)}{" "}
+                    {invoiceString.substring(10, 14)}
+                  </p>
                 </div>
               </div>
             )}

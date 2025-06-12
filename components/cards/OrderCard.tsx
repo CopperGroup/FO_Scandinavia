@@ -35,6 +35,7 @@ interface Props {
   url: string
   promocode?: string
   discount?: number
+  invoiceString?: string
 }
 
 export default function OrderCard({
@@ -51,6 +52,7 @@ export default function OrderCard({
   url,
   promocode,
   discount,
+  invoiceString,
 }: Props) {
   const totalProducts = products.reduce((sum, item) => sum + item.amount, 0)
 
@@ -140,6 +142,34 @@ export default function OrderCard({
           {promocode && <InfoItem icon={<Tag className="w-4 h-4 text-gray-500" />} text={promocode} />}
           {discount && discount > 0 && (
             <InfoItem icon={<Percent className="w-4 h-4 text-gray-500" />} text={`${discount}%`} />
+          )}
+          {invoiceString && (
+            <div className="col-span-2">
+              <div className="flex items-center space-x-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-4 h-4 text-gray-500"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <line x1="10" y1="9" x2="8" y2="9"></line>
+                </svg>
+                <span className="text-sm text-gray-700 font-mono">
+                  {invoiceString.substring(0, 2)} {invoiceString.substring(2, 6)} {invoiceString.substring(6, 10)}{" "}
+                  {invoiceString.substring(10, 14)}
+                </span>
+              </div>
+            </div>
           )}
         </div>
 

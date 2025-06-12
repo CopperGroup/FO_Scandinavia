@@ -335,9 +335,7 @@ export async function deleteOrder(id: string, path: string) {
         const user = await User.findOne({ _id: order.user });
         const deletedOrder = await Order.deleteOne({ id: id });
 
-        revalidatePath(path);
-        revalidatePath("/myOrders");
-        revalidatePath("/admin/orders");
+        
     } catch (error: any) {
         throw new Error(`Error deleting order: ${error.message}`)
     }
@@ -353,7 +351,7 @@ export async function changePaymentStatus(id: string, status: string, path: stri
 
         order.save();
 
-        revalidatePath(path);
+        clearCache("updateOrder", undefined)
     } catch (error: any) {
         throw new Error(`Error changing order's payment status: ${error.message}`)
     }
@@ -369,7 +367,7 @@ export async function changedeliveryStatus(id: string, status: string, path: str
 
         order.save();
 
-        revalidatePath(path);
+        clearCache("updateOrder", undefined)
     } catch (error: any) {
         throw new Error(`Error changing order's delivery status: ${error.message}`)
     }
