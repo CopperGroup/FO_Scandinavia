@@ -624,51 +624,88 @@ type ParamDifference = {
   [paramName: string]: Array<{ _id: string; value: string }>;
 };
 
+const getFirstTwoWordsCombined = (name: string): string => {
+  if (!name) return "";
+  const parts = name.split(" ");
+  if (parts.length >= 2) {
+    return parts[0] + parts[1];
+  }
+  return parts[0] || "";
+};
+
+const getProductGroupKey = (product: ProductType): string => {
+  const { articleNumber, name, params, category } = product;
+
+  if (typeof articleNumber !== "string" || typeof name !== "string" || !Array.isArray(params) || !Array.isArray(category)) {
+      return '';
+  }
+
+  const articleParts = articleNumber.split("-");
+  const baseArticleNumber = articleParts.length > 0 ? articleParts[0] : '';
+
+  const firstTwoWordsOfName = getFirstTwoWordsCombined(name);
+
+  const colorParam = params.find(p => ["Колір", "колір", "Color", "color", "Colour", "color"].includes(p.name));
+  const colorValue = colorParam ? colorParam.value : "no_color";
+
+  const categoryIds = category.map(cat => typeof cat === 'string' ? cat : cat._id);
+  const sortedCategories = [...categoryIds].sort().join(',');
+
+  return `${baseArticleNumber}::${firstTwoWordsOfName}::${colorValue}::${sortedCategories}`;
+};
+
 export async function fetchProductAndRelevantParams(
   currentProductId: string,
-  key: keyof ProductType,
+  key?: keyof ProductType,
   splitChar?: string,
   index?: number,
 ): Promise<{ product: ProductType; selectParams: ParamDifference }> {
   try {
     connectToDB();
 
-    const currentProduct = await Product.findById(currentProductId).populate({
+    const currentProduct: any = await Product.findById(currentProductId).populate({
       path: "category",
-      model: Category
+      model: Category,
+      select: "_id name"
     });
+
     if (!currentProduct) {
       throw new Error("Current product not found");
     }
 
-    let valueToCompare = currentProduct[key] as string;
+    const currentProductCombinedName: string = getFirstTwoWordsCombined(currentProduct.name);
 
-    // Find products with the same base value (excluding the current product)
-    const similarProducts = await Product.find({
+    const similarProducts: ProductType[] = await Product.find({
         _id: { $ne: currentProductId },
         isAvailable: true,
         $expr: {
             $eq: [
-                { 
+                {
                     $concat: [
-                        { $arrayElemAt: [{ $split: [`$${key}`, splitChar] }, 0] },
-                        "::",
-                        { $arrayElemAt: [{ $split: ["$name", " "] }, 0] }
-                    ] 
+                        { $arrayElemAt: [{ $split: ["$name", " "] }, 0] },
+                        { $ifNull: [{ $arrayElemAt: [{ $split: ["$name", " "] }, 1] }, ""] }
+                    ]
                 },
-                `${valueToCompare.split("-")[0]}::${currentProduct.name.split(" ")[0]}`
+                currentProductCombinedName
             ]
         }
     });
 
+    const currentProductGroupKey: string = getProductGroupKey(currentProduct);
+
+    const allCandidateProducts: ProductType[] = [currentProduct, ...similarProducts];
+
+    const productsInCurrentGroup: ProductType[] = allCandidateProducts.filter((p: ProductType) => {
+        return p.isAvailable && getProductGroupKey(p) === currentProductGroupKey;
+    });
 
     const paramCounts: Record<string, Set<string>> = {};
 
-    for (const product of [currentProduct, ...similarProducts]) {
+    for (const product of productsInCurrentGroup) {
       if (product.params && Array.isArray(product.params)) {
         for (const param of product.params) {
           if (!paramCounts[param.name]) {
-            paramCounts[param.name] = new Set();
+            paramCounts[param.name] = new Set<string>();
           }
           paramCounts[param.name].add(param.value);
         }
@@ -677,27 +714,25 @@ export async function fetchProductAndRelevantParams(
     
     const paramDifferences: ParamDifference = {};
     
-    const allowedParams = ["Розмір", "розмір", "Size", "size"] 
-    // Keep only params with more than one unique value
+    const allowedParams: string[] = ["Розмір", "розмір", "Size", "size"];
+
     for (const [paramName, values] of Object.entries(paramCounts)) {
-      if (values.size > 1 && allowedParams.includes(paramName)) {  // Only include allowed params
-          paramDifferences[paramName] = Array.from(values).map((value) => ({
-              _id: similarProducts.find((p) =>
-                  p.params?.some((param: { name: string; value: string; }) => param.name === paramName && param.value === value)
+      if (values.size > 1 && allowedParams.includes(paramName)) {
+          paramDifferences[paramName] = Array.from(values).map((value: string) => ({
+              _id: productsInCurrentGroup.find((p: ProductType) =>
+                  p.params?.some((param: { name: string, value: string}) => param.name === paramName && param.value === value)
               )?._id.toString() || currentProduct._id.toString(),
               value,
           }));
       }
     }
   
-    
-
     return {
       product: currentProduct,
       selectParams: paramDifferences,
     };
   } catch (error: any) {
-    throw new Error(`Error fetching product and it's select params: ${error.message}`);
+    throw new Error(`Error fetching product and its select params: ${error.message}`);
   }
 }
 

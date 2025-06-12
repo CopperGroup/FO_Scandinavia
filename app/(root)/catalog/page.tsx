@@ -37,6 +37,7 @@ const Catalog = async ({searchParams }:any) => {
     filtredProducts.sort((a,b) => b.price - a.price)
   }
   
+  console.log(filtredProducts.find(p => p.name === "Чоботи Tretorn гумові 44 Синій 1518326-04-44"))
   const searchedCategories = searchParams.categories 
 
   filtredProducts = filtredProducts.filter(product => {

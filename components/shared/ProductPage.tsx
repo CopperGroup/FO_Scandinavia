@@ -6,7 +6,7 @@ import Image from "next/image"
 import { JsonLd } from "react-schemaorg"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CreditCard, Shield, Truck, ChevronRight, Star, ChevronDown, Flame } from "lucide-react"
+import { ChevronRight, Star, ChevronDown, Flame, Expand } from "lucide-react"
 import AddToCart from "./AddToCart"
 import ContentView from "../pixel/ContentView"
 import { Store } from "@/constants/store"
@@ -17,6 +17,7 @@ import type { CategoryType } from "@/lib/types/types"
 import Link from "next/link"
 import ProductImagesCarousel from "../interface/ProductImagesCarousel"
 import ProductVariantSelector from "../interface/ProductVariantSelector"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 
 // Only dynamically import the variant selector which is less critical for initial view
 type Review = {
@@ -38,7 +39,7 @@ export type Product = {
   params: Array<{ name: string; value: string }>
   articleNumber?: string
   reviews?: Review[]
-  isAvailable: boolean,
+  isAvailable: boolean
   url: string
 }
 
@@ -240,54 +241,6 @@ const NoReviews = ({ productId, productName }: { productId: string; productName:
   </div>
 )
 
-// FAQ Component for SEO
-// const ProductFAQ = ({ product, pretifiedName }: { product: Product; pretifiedName: string }) => {
-//   // Generate FAQs based on product information
-//   const faqs = [
-//     {
-//       question: `Які характеристики має ${pretifiedName}?`,
-//       answer: `${pretifiedName} має наступні характеристики: ${product.params
-//         .slice(0, 3)
-//         .map((p) => `${p.name}: ${p.value}`)
-//         .join(", ")}${product.params.length > 3 ? " та інші." : "."}`,
-//     },
-//     {
-//       question: `Яка гарантія на ${pretifiedName}?`,
-//       answer: `${product.params.find((param) => param.name === "Гарантія")?.value || "Стандартна гарантія"} від виробника.`,
-//     },
-//     {
-//       question: `Чи доступна безкоштовна доставка для ${pretifiedName}?`,
-//       answer: `Так, безкоштовна доставка доступна при замовленні від ${Store.currency_sign}${Store.freeDelivery}.`,
-//     },
-//   ]
-
-//   return (
-//     <section className="mt-8 sm:mt-12 max-w-3xl">
-//       <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">Часті запитання</h2>
-//       <div itemScope itemType="https://schema.org/FAQPage">
-//         {faqs.map((faq, index) => (
-//           <div
-//             key={index}
-//             className="mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-gray-100 last:border-b-0"
-//             itemScope
-//             itemProp="mainEntity"
-//             itemType="https://schema.org/Question"
-//           >
-//             <h3 className="text-base sm:text-lg font-medium mb-2 sm:mb-3" itemProp="name">
-//               {faq.question}
-//             </h3>
-//             <div itemScope itemProp="acceptedAnswer" itemType="https://schema.org/Answer">
-//               <div className="text-sm sm:text-base text-gray-700" itemProp="text">
-//                 {faq.answer}
-//               </div>
-//             </div>
-//           </div>
-//         ))}
-//       </div>
-//     </section>
-//   )
-// }
-
 export default function ProductPage({
   productJson,
   selectParams,
@@ -351,6 +304,9 @@ export default function ProductPage({
   // Pre-calculate content heights to prevent layout shifts
   const titleHeight = pretifiedName.length > 50 ? "h-[4.5rem] sm:h-[6rem]" : "h-[3rem] sm:h-[4rem]"
   const descriptionPreviewHeight = "h-[4.5rem] sm:h-[5.5rem]"
+
+  const [modalImage, setModalImage] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     setHasMounted(true)
@@ -581,37 +537,105 @@ export default function ProductPage({
           <div className="grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-16">
             {/* Product Images Section - Improved container for mobile */}
             <div className="w-full max-w-full overflow-hidden">
-              {/* Remove fixed height container that was causing issues */}
-              <div className="w-full max-w-full">
-                {/* Directly render the carousel without conditional rendering */}
+              <div className="w-full max-w-full relative">
                 <ProductImagesCarousel images={product.images} />
+
+                {/* Full Image Modal */}
+                <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm hover:bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200 rounded-full px-3 py-2 text-xs font-medium"
+                      onClick={() => {
+                        setModalImage(product.images[0])
+                        setIsModalOpen(true)
+                      }}
+                    >
+                      <Expand className="h-3 w-3 mr-1.5" />
+                      <span className="hidden sm:inline">Повний розмір</span>
+                      <span className="sm:hidden">Збільшити</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-[90vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] xl:max-w-[50vw] max-h-[90vh] p-3 sm:p-4 md:p-6">
+                    <div className="relative w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
+                      {modalImage && isModalOpen && (
+                        <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[75vh] max-h-[600px]">
+                          <Image
+                            src={modalImage || "/placeholder.svg"}
+                            alt={`${pretifiedName} - повний розмір`}
+                            fill
+                            className="object-contain"
+                            quality={95}
+                            priority={false}
+                            sizes="(max-width: 640px) 90vw, (max-width: 768px) 80vw, (max-width: 1024px) 70vw, (max-width: 1280px) 60vw, 50vw"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Image navigation if multiple images */}
+                    {product.images.length > 1 && (
+                      <div className="flex justify-center gap-2 mt-3 sm:mt-4 flex-wrap max-w-full overflow-x-auto pb-2">
+                        {product.images.map((image, index) => (
+                          <Button
+                            key={index}
+                            variant={modalImage === image ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setModalImage(image)}
+                            className={`w-10 h-10 sm:w-12 sm:h-12 p-0 overflow-hidden rounded-lg border-2 transition-all duration-200 flex-shrink-0 ${
+                              modalImage === image
+                                ? "border-gray-900 shadow-md"
+                                : "border-gray-200 hover:border-gray-400"
+                            }`}
+                          >
+                            <Image
+                              src={image || "/placeholder.svg"}
+                              alt={`${pretifiedName} - зображення ${index + 1}`}
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                              sizes="48px"
+                            />
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Close button hint for mobile */}
+                    <div className="sm:hidden text-center mt-2">
+                      <p className="text-xs text-gray-500">Торкніться поза зображенням, щоб закрити</p>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
                 <meta itemProp="image" content={product.images[0]} />
               </div>
             </div>
 
             {/* Product Info Section - Fixed height elements to prevent layout shifts */}
-            <div className="space-y-4 sm:space-y-8 max-w-xl">
+            <div className={`space-y-4 sm:space-y-8 max-w-xl ${!product.isAvailable ? "opacity-60" : ""}`}>
               {/* Product Title and Status - Fixed heights */}
               <div className="space-y-2 sm:space-y-4">
                 <div className="flex flex-wrap gap-1 sm:gap-2">
-                  {inStock ? (
+                  {product.isAvailable ? (
                     <Badge
                       variant="outline"
-                      className="bg-gray-100 text-gray-900 border-0 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium"
+                      className="bg-green-100 text-green-700 border-0 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium"
                     >
                       В наявності
                     </Badge>
                   ) : (
                     <Badge
                       variant="outline"
-                      className="bg-gray-100 text-gray-500 border-0 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium"
+                      className="bg-red-100 text-red-700 border-0 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium"
                     >
                       Немає в наявності
                     </Badge>
                   )}
 
-                  {/* Best Seller Badge */}
-                  {isBestSeller && (
+                  {/* Best Seller Badge - only show if available */}
+                  {isBestSeller && product.isAvailable && (
                     <Badge className="bg-orange-100 text-orange-700 border-0 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium flex items-center">
                       <Flame className="h-3 w-3 mr-1" /> Хіт продаж
                     </Badge>
@@ -624,11 +648,16 @@ export default function ProductPage({
                     itemProp="name"
                   >
                     {pretifiedName}
+                    {!product.isAvailable && (
+                      <span className="block text-lg sm:text-xl text-red-600 font-normal mt-2">
+                        Товар тимчасово недоступний
+                      </span>
+                    )}
                   </h1>
                 </div>
 
-                {/* Display rating if reviews exist */}
-                {hasReviews && (
+                {/* Display rating if reviews exist and product is available */}
+                {hasReviews && product.isAvailable && (
                   <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                     <div className="flex items-center">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -649,7 +678,9 @@ export default function ProductPage({
 
                 <div className="overflow-hidden">
                   <p className="text-base sm:text-lg md:text-xl text-gray-500 leading-relaxed break-words">
-                    {product.description.slice(0, 100).replace(/<\/?[^>]+(>|$)/g, "")}...
+                    {!product.isAvailable
+                      ? "Цей товар тимчасово недоступний. Зв'яжіться з нами для уточнення термінів надходження."
+                      : `${product.description.slice(0, 100).replace(/<\/?[^>]+(>|$)/g, "")}...`}
                   </p>
                 </div>
               </div>
@@ -658,7 +689,9 @@ export default function ProductPage({
               <div className="pt-2 sm:pt-4">
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <span itemProp="offers" itemScope itemType="https://schema.org/Offer">
-                    <span className="text-2xl sm:text-3xl font-medium text-gray-900">
+                    <span
+                      className={`text-2xl sm:text-3xl font-medium ${product.isAvailable ? "text-gray-900" : "text-gray-500"}`}
+                    >
                       <span>{Store.currency_sign}</span>
                       <span itemProp="price" content={product.priceToShow.toString()}>
                         {product.priceToShow}
@@ -678,7 +711,7 @@ export default function ProductPage({
                     />
                   </span>
 
-                  {discountPercentage > 0 && (
+                  {discountPercentage > 0 && product.isAvailable && (
                     <>
                       <span className="text-base sm:text-xl text-gray-500 line-through">
                         {Store.currency_sign}
@@ -690,81 +723,68 @@ export default function ProductPage({
                     </>
                   )}
                 </div>
+
+                {!product.isAvailable && (
+                  <p className="text-sm text-gray-500 mt-2">Ціна може змінитися до моменту надходження товару</p>
+                )}
               </div>
 
-              {/* Variant Selector */}
-              <div className="pt-2 sm:pt-4">
-                <Suspense fallback={<div className="h-16 sm:h-20 bg-gray-100 rounded-lg animate-pulse"></div>}>
-                  {hasMounted && <ProductVariantSelector selectParams={selectParams} productId={product._id} />}
-                </Suspense>
-              </div>
+              {/* Variant Selector - only show if available */}
+              {product.isAvailable && (
+                <div className="pt-2 sm:pt-4">
+                  <Suspense fallback={<div className="h-16 sm:h-20 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                    {hasMounted && <ProductVariantSelector selectParams={selectParams} productId={product._id} />}
+                  </Suspense>
+                </div>
+              )}
 
               {/* Call to Action Buttons */}
               <div className="flex flex-col gap-2 sm:gap-3 pt-4 sm:pt-6">
-                <BuyNow
-                  id={product._id}
-                  name={product.name}
-                  image={product.images[0]}
-                  price={product.priceToShow}
-                  priceWithoutDiscount={product.price}
-                  url={product.url}
-                //   className="w-full py-3 sm:py-4 text-sm sm:text-base font-medium rounded-full"
-                />
-                <AddToCart
-                  id={product._id}
-                  name={product.name}
-                  image={product.images[0]}
-                  price={product.priceToShow}
-                  priceWithoutDiscount={product.price}
-                  variant="full"
-                  url={product.url}
-                //   className="w-full py-3 sm:py-4 text-sm sm:text-base font-medium rounded-full"
-                />
+                {product.isAvailable ? (
+                  <>
+                    <BuyNow
+                      id={product._id}
+                      name={product.name}
+                      image={product.images[0]}
+                      price={product.priceToShow}
+                      priceWithoutDiscount={product.price}
+                      url={product.url}
+                    />
+                    <AddToCart
+                      id={product._id}
+                      name={product.name}
+                      image={product.images[0]}
+                      price={product.priceToShow}
+                      priceWithoutDiscount={product.price}
+                      variant="full"
+                      url={product.url}
+                    />
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Button
+                      disabled
+                      className="w-full py-3 sm:py-4 text-sm sm:text-base font-medium rounded-full bg-gray-300 text-gray-500 cursor-not-allowed"
+                    >
+                      Товар недоступний
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full py-3 sm:py-4 text-sm sm:text-base font-medium rounded-full"
+                      onClick={() => window.open(`tel:${Store.phoneNumber}`, "_self")}
+                    >
+                      Зв'язатися з нами
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              {/* Shipping & Payment Info */}
-               <div className="grid grid-cols-1 gap-3 sm:gap-4 pt-4 sm:pt-8 border-t border-gray-200">
-                {/* <div className="flex items-start py-2 sm:py-3">
-                  <Truck
-                    className="flex-shrink-0 text-gray-400 mr-3 sm:mr-4 mt-0.5 sm:mt-1"
-                    size={18}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="font-medium text-sm sm:text-base text-gray-900">Безкоштовна доставка</p>
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      Безкоштовна стандартна доставка при замовленні від {Store.currency_sign}
-                      {Store.freeDelivery}
-                    </p>
-                  </div>
+              {/* Shipping & Payment Info - only show if available */}
+              {product.isAvailable && (
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 pt-4 sm:pt-8 border-t border-gray-200">
+                  {/* Your existing shipping info content */}
                 </div>
-
-                <div className="flex items-start py-2 sm:py-3">
-                  <Shield
-                    className="flex-shrink-0 text-gray-400 mr-3 sm:mr-4 mt-0.5 sm:mt-1"
-                    size={18}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="font-medium text-sm sm:text-base text-gray-900">Гарантія</p>
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      {product.params.find((param) => param.name === "Гарантія")?.value || "Стандартна гарантія"}
-                    </p>
-                  </div>
-                </div> */}
-
-                {/* <div className="flex items-start py-2 sm:py-3">
-                  <CreditCard
-                    className="flex-shrink-0 text-gray-400 mr-3 sm:mr-4 mt-0.5 sm:mt-1"
-                    size={18}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="font-medium text-sm sm:text-base text-gray-900">Безпечна оплата</p>
-                    <p className="text-xs sm:text-sm text-gray-500">Готівка або оплата карткою</p>
-                  </div>
-                </div> */}
-              </div>
+              )}
             </div>
           </div>
 
@@ -849,17 +869,6 @@ export default function ProductPage({
               </TabsContent>
             </Tabs>
           </div>
-
-          {/* FAQ Section for SEO */}
-          {/* <ProductFAQ product={product} pretifiedName={pretifiedName} /> */}
-
-          {/* Related Products Section - Placeholder for SEO */}
-          {/* <section className="mt-12 sm:mt-24">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-8">Схожі товари</h2>
-            <div className="text-center py-8 sm:py-12 text-gray-500 text-sm sm:text-base">
-              Тут будуть відображатися схожі товари
-            </div>
-          </section> */}
         </article>
       </section>
     </>

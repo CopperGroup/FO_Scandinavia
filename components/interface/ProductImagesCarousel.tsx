@@ -117,9 +117,6 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
           onMouseMove={handleMouseMove}
         >
           {/* Zoom indicator */}
-          <div className="absolute top-3 right-3 z-50 bg-white/80 p-1.5 rounded-full shadow-sm">
-            <ZoomIn className="h-4 w-4 text-gray-600" />
-          </div>
 
           {/* Main image - contained in its own div with overflow hidden */}
           <div className="absolute inset-0 overflow-hidden">

@@ -560,28 +560,70 @@ export function groupProducts(
   products: ProductType[]
 ): ProductType[] {
   const seenValues = new Set<string>();
+  const TARGET_PRODUCT_NAME = "Чоботи Tretorn гумові 44 Синій 1518326-04-44";
+  let productThatGroupedTarget: ProductType | null = null;
 
-  return products.sort((a, b) => a.articleNumber.length - b.articleNumber.length).filter((product) => {
-    const { articleNumber, name } = product;
+  // We need to sort consistently to ensure the same product is always the "first" for a group
+  return products.sort((a, b) => {
+    const articleA = a.articleNumber || '';
+    const articleB = b.articleNumber || '';
 
-    if (typeof articleNumber !== "string" || typeof name !== "string") {
-      return true; // Skip filtering if the key values are not strings
+    // Primary sort: shorter article numbers first
+    if (articleA.length !== articleB.length) {
+      return articleA.length - articleB.length;
+    }
+    return articleA.localeCompare(articleB);
+  }).filter((product) => {
+    const { articleNumber, name, category } = product;
+    const isTargetProduct = name === TARGET_PRODUCT_NAME;
+    if (typeof articleNumber !== "string" || typeof name !== "string" || !Array.isArray(category) || category.length === 0) {
+      // If the target product has malformed data, log it. Otherwise, no log for others.
+      return true; // Keep if data is malformed (or change to false if you want to filter these out)
     }
 
-    // Extract relevant parts for comparison
+    // Extract relevant parts for comparison (model-color-category key)
     const articleParts = articleNumber.split("-");
+    const baseArticleNumber = articleParts.length > 0 ? articleParts[0] : '';
 
-    const firstWordOfName = name.split(" ")[0];
+    const nameParts = name.split(" ");
+    const firstTwoWordsOfName = nameParts.length >= 2 ? nameParts[0] + nameParts[1] : nameParts[0] || '';
 
-    // Combine the base article number and first word of the name
-    const valueToCompare = `${articleParts[0]}::${firstWordOfName}`;
+    const colorParam = product.params.find(p => ["Колір", "колір", "Color", "color", "Colour", "color"].includes(p.name));
+    const colorValue = colorParam ? colorParam.value : "no_color";
+
+    // Sort categories for consistent key generation, and join them
+    const sortedCategories = [...category].sort().join(',');
+    
+    // --- CRITICAL CHANGE: Added sortedCategories to the grouping key ---
+    const valueToCompare = `${baseArticleNumber}::${firstTwoWordsOfName}::${colorValue}::${sortedCategories}`;
 
     if (!seenValues.has(valueToCompare)) {
       seenValues.add(valueToCompare);
-      return true;
-    }
+      return true; // Retain this product
+    } else {
+      // This product is being filtered out because its group key was already seen.
+      // If this product is our target product, we want to log the one that grouped it.
+      if (isTargetProduct && productThatGroupedTarget === null) {
+        const originalProductsUpToHere = products.slice(0, products.indexOf(product));
+        productThatGroupedTarget = originalProductsUpToHere.find(p => {
+          // Re-generate the key for 'p' to find the match
+          const pArticleParts = (p.articleNumber || '').split("-");
+          const pBaseArticleNumber = pArticleParts.length > 0 ? pArticleParts[0] : '';
 
-    return false;
+          const pNameParts = (p.name || '').split(" ");
+          const pFirstTwoWordsOfName = pNameParts.length >= 2 ? pNameParts[0] + pNameParts[1] : pNameParts[0] || '';
+
+          const pColorParam = p.params.find(param => ["Колір", "колір", "Color", "color", "Colour", "color"].includes(param.name));
+          const pColorValue = pColorParam ? pColorParam.value : "no_color";
+
+          const pSortedCategories = Array.isArray(p.category) ? [...p.category].sort().join(',') : '';
+
+          return `${pBaseArticleNumber}::${pFirstTwoWordsOfName}::${pColorValue}::${pSortedCategories}` === valueToCompare;
+        }) || null;
+
+      }
+      return false;
+    }
   });
 }
 
