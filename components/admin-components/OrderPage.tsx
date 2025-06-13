@@ -698,13 +698,13 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                                 value={invoiceStringInput}
                                 onChange={(e) => setInvoiceStringInput(e.target.value)}
                                 placeholder="00 0000 0000 0000"
-                                className="text-sm"
+                                className="text-sm rounded-full"
                               />
                               <Button
                                 type="submit"
                                 size="sm"
                                 disabled={isSubmittingInvoiceString}
-                                className="whitespace-nowrap"
+                                className="whitespace-nowrap rounded-full"
                               >
                                 {isSubmittingInvoiceString ? (
                                   <>
@@ -887,10 +887,11 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                           Написати клієнту
                         </Button>
                         <Button
-                          variant="outline"
-                          className="w-full justify-start hover:bg-slate-50 border-slate-200 text-slate-700 rounded-full text-xs sm:text-sm"
+                          className="w-full justify-start bg-[#7360F2] hover:bg-[#5e4bd3] text-white border-none rounded-full text-xs sm:text-sm"
                           onClick={() => {
-                            window.location.href = `viber://contact?number=${order.phoneNumber.startsWith("38") || order.phoneNumber.startsWith("48") ? order.phoneNumber.replace("+", "%2B") : "%2B38" + order.phoneNumber}`;
+                            const formatted = order.phoneNumber.replace(/\D/g, '');
+                            const number = formatted.startsWith('38') ? `%2B${formatted}` : `%2B38${formatted}`;
+                            window.location.href = `viber://contact?number=${number}`;
                           }}
                         >
                           <Send className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -898,17 +899,16 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                         </Button>
 
                         <Button
-                          variant="outline"
-                          className="w-full justify-start hover:bg-slate-50 border-slate-200 text-slate-700 rounded-full text-xs sm:text-sm"
+                          className="w-full justify-start bg-[#229ED9] hover:bg-[#1c8cbf] text-white border-none rounded-full text-xs sm:text-sm"
                           onClick={() => {
-                            const phone = order.phoneNumber.replace('+', '');
-                            window.location.href = `https://t.me/${phone}`;
+                            const digits = order.phoneNumber.replace(/\D/g, '');
+                            const usernameOrNumber = digits.startsWith('38') ? `+${digits}` : `+38${digits}`;
+                            window.location.href = `https://t.me/${usernameOrNumber}`;
                           }}
                         >
                           <Send className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           Написати в Telegram
                         </Button>
-
                       </div>
                     </div>
                   </CardContent>
