@@ -890,7 +890,7 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                           variant="outline"
                           className="w-full justify-start hover:bg-slate-50 border-slate-200 text-slate-700 rounded-full text-xs sm:text-sm"
                           onClick={() => {
-                            window.location.href = `viber://chat?number=${order.phoneNumber}`;
+                            window.location.href = `viber://chat?number=${order.phoneNumber.startsWith("38") ? order.phoneNumber.replace("+", "") : "38" + order.phoneNumber}`;
                           }}
                         >
                           <Send className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
