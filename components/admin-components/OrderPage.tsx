@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -37,6 +39,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSearchParams } from "next/navigation"
 import {
+  addInvoiceString,
   calculateDeliveryCost,
   createCounterParty,
   createCounterPartyContact,
@@ -44,6 +47,7 @@ import {
   getInvoiceDetails,
 } from "@/lib/actions/order.actions"
 import { NovaPoshtaModal } from "./orders/SenderWarehouseSelect"
+import { Input } from "@/components/ui/input"
 
 interface Product {
   product: {
@@ -150,6 +154,8 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
   const [activeTab, setActiveTab] = useState("overview")
   const [parsedInvoice, setParsedInvoice] = useState<BasicInvoiceInfo | null>(null)
   const [isNovaPoshtaModalOpen, setIsNovaPoshtaModalOpen] = useState(false)
+  const [invoiceStringInput, setInvoiceStringInput] = useState("")
+  const [isSubmittingInvoiceString, setIsSubmittingInvoiceString] = useState(false)
 
   // Parse invoice if it exists
   useEffect(() => {
@@ -362,7 +368,7 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
     try {
       const counterPartyRef = await createCounterParty({ stringifiedOrder: orderJson })
       const counterPartyContact = await createCounterPartyContact({ stringifiedOrder: orderJson, ref: counterPartyRef })
-      const deliveryCost = await calculateDeliveryCost({ stringifiedOrder: orderJson, senderCityRef: cityRef})
+      const deliveryCost = await calculateDeliveryCost({ stringifiedOrder: orderJson, senderCityRef: cityRef })
 
       const result = await generateInvoice({
         stringifiedOrder: orderJson,
@@ -372,6 +378,8 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
         senderCityRef: cityRef,
         senderWarehouseRef: warehouseRef,
       })
+
+      await addInvoiceString({ orderId: order._id, invoiceString: result.IntDocNumber })
 
       toast({
         title: "Накладну сформовано",
@@ -388,6 +396,38 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
       })
     } finally {
       setIsGeneratingInvoice(false)
+    }
+  }
+
+  const handleInvoiceStringSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!invoiceStringInput.trim()) {
+      toast({
+        title: "Помилка",
+        description: "Будь ласка, введіть номер накладної",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmittingInvoiceString(true)
+    try {
+      await addInvoiceString({ orderId: order._id, invoiceString: invoiceStringInput.trim() })
+      toast({
+        title: "Успішно",
+        description: "Номер накладної збережено",
+      })
+      // Refresh the page to show the updated invoice
+      window.location.reload()
+    } catch (error) {
+      console.error("Error saving invoice string:", error)
+      toast({
+        title: "Помилка",
+        description: "Не вдалося зберегти номер накладної. Спробуйте ще раз.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmittingInvoiceString(false)
     }
   }
 
@@ -640,9 +680,9 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                             </div>
                           </div>
                         )}
-                        {parsedInvoice && (
+                        {parsedInvoice ? (
                           <div>
-                            <p className="text-xs sm:text-sm text-slate-500 mb-0.5 sm:mb-1">Трек-номер</p>
+                            <p className="text-xs sm:text-sm text-slate-500 mb-0.5 sm:mb-1">Номер накладної</p>
                             <div className="flex items-center gap-1.5 sm:gap-2">
                               <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
                               <p className="font-medium text-slate-800 text-sm sm:text-base break-all">
@@ -650,6 +690,33 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                               </p>
                             </div>
                           </div>
+                        ) : (
+                          <form onSubmit={handleInvoiceStringSubmit} className="space-y-2">
+                            <p className="text-xs sm:text-sm text-slate-500 mb-0.5">Ввести номер накладної вручну</p>
+                            <div className="flex gap-2">
+                              <Input
+                                value={invoiceStringInput}
+                                onChange={(e) => setInvoiceStringInput(e.target.value)}
+                                placeholder="00 0000 0000 0000"
+                                className="text-sm"
+                              />
+                              <Button
+                                type="submit"
+                                size="sm"
+                                disabled={isSubmittingInvoiceString}
+                                className="whitespace-nowrap"
+                              >
+                                {isSubmittingInvoiceString ? (
+                                  <>
+                                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                                    Збереження...
+                                  </>
+                                ) : (
+                                  "Зберегти"
+                                )}
+                              </Button>
+                            </div>
+                          </form>
                         )}
                         <Separator className="my-2" />
                         <ChangeOrdersStatuses
@@ -819,6 +886,29 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                           <Send className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           Написати клієнту
                         </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start hover:bg-slate-50 border-slate-200 text-slate-700 rounded-full text-xs sm:text-sm"
+                          onClick={() => {
+                            window.location.href = `viber://chat?number=${order.phoneNumber}`;
+                          }}
+                        >
+                          <Send className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Написати в Viber
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start hover:bg-slate-50 border-slate-200 text-slate-700 rounded-full text-xs sm:text-sm"
+                          onClick={() => {
+                            const phone = order.phoneNumber.replace('+', '');
+                            window.location.href = `https://t.me/${phone}`;
+                          }}
+                        >
+                          <Send className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Написати в Telegram
+                        </Button>
+
                       </div>
                     </div>
                   </CardContent>

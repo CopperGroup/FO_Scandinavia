@@ -3177,3 +3177,18 @@ export async function getInvoiceDetails(documentNumber: string, phone?: string) 
     throw error
   }
 }
+
+export async function addInvoiceString({ orderId, invoiceString}: { orderId: string, invoiceString: string}) {
+  try {
+    await connectToDB();
+
+    await Order.findByIdAndUpdate(
+      orderId,
+      {
+        invoiceString
+      }
+    )
+  } catch (error: any) {
+    throw new Error(`Error adding invoice stringto order: ${error.message}`)
+  }
+}
