@@ -52,6 +52,7 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
     switch (status) {
       case "Pending":
       case "Proceeding":
+      case "Indelivery":
         return "bg-amber-400"
       case "Declined":
       case "Canceled":
@@ -61,6 +62,34 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
         return "bg-green-500"
       default:
         return "bg-amber-400"
+    }
+  }
+
+  const getPaymentStatusUA = (status: string) => {
+    switch (status) {
+      case "Pending":
+        return "Очікується оплата"
+      case "Declined":
+        return "Оплату відхилено"
+      case "Success":
+        return "Оплачено"
+      default:
+        return status
+    }
+  }  
+
+  const getDeliveryStatusUA = (status: string) => {
+    switch (status) {
+      case "Proceeding":
+        return "Обробляється"
+      case "Canceled":
+        return "Скасовано"
+      case "Fulfilled":
+        return "Доставлено"
+      case "Indelivery":
+        return "В дорозі"
+      default:
+        return status
     }
   }
 
@@ -83,11 +112,15 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
           <div className="flex gap-3 mt-2 sm:mt-0">
             <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
               <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(order.paymentStatus)}`}></div>
-              <span className="text-xs font-medium text-gray-700">{order.paymentStatus}</span>
+              <span className="text-xs font-medium text-gray-700">
+                {getPaymentStatusUA(order.paymentStatus)}
+              </span>
             </div>
             <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
               <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(order.deliveryStatus)}`}></div>
-              <span className="text-xs font-medium text-gray-700">{order.deliveryStatus}</span>
+              <span className="text-xs font-medium text-gray-700">
+                {getDeliveryStatusUA(order.deliveryStatus)}
+              </span>
             </div>
           </div>
         </div>

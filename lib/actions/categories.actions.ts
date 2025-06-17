@@ -270,7 +270,7 @@ export async function fetchRawCategoriesJSON(): Promise<string> {
       .populate({
         path: "products",
         model: Product,
-        select: 'price _id'
+        select: 'price _id isAvailable'
       })
       .lean();
 

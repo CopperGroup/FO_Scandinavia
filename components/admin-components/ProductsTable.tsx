@@ -1,3 +1,4 @@
+// components/admin/ProductsTable.tsx
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
@@ -33,6 +34,8 @@ import { fetchAllCategories } from "@/lib/actions/categories.actions"
 import { CategoryType } from "@/lib/types/types"
 import { generateFullCatalogXmlOnClient } from "@/lib/xml-parser/export"
 import { fetchProductsByBatches } from "@/lib/actions/product.actions"
+import { applyDiscountToProduct } from "@/lib/actions/product.actions" // Ensure this is imported for the PriceAdjustmentForm
+import BulkEditProductsModal from "./modals/BulkEditProductsModal/BulkEditProductsModal"
 
 interface Product {
   _id: string
@@ -58,6 +61,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
   const [exportStage, setExportStage] = useState("")
+  const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false) // New state for bulk edit modal
 
   const router = useRouter()
 
@@ -425,6 +429,16 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                {/* New Bulk Edit Button */}
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto border-slate-200 text-slate-700 hover:bg-slate-50 text-small-medium"
+                  onClick={() => setIsBulkEditModalOpen(true)}
+                  disabled={selectedProducts.size === 0}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Редагувати вибрані ({selectedProducts.size})
+                </Button>
 
                 <DeleteProductsButton
                   selectedIds={Array.from(selectedProducts)}
@@ -595,6 +609,18 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Edit Modal */}
+      <BulkEditProductsModal
+        isOpen={isBulkEditModalOpen}
+        onOpenChange={setIsBulkEditModalOpen}
+        selectedProductIds={Array.from(selectedProducts)}
+        onEditComplete={() => {
+          setSelectedProducts(new Set()); // Clear selected products
+          // Optionally, re-fetch products to reflect changes or update state
+          router.refresh(); // This will refresh the page and re-fetch products
+        }}
+      />
     </div>
   )
 }

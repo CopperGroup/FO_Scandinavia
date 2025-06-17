@@ -28,9 +28,16 @@ const AdminProductCard = ({ props }: { props: ReadOnly<AdminProductCardProps>}) 
                     <div className="relative w-full h-56 flex justify-center">
                         <Image src={props.image} width={200} height={200} alt="Product image" className="absolute rounded-2xl max-w-[200px] max-h-[200px]"/>
                         <div className="w-full h-full flex justify-between items-start">
-                            <Badge price={props.price} priceToShow={props.priceToShow}/>
-                            
-                            {/* <LikeButton  likedBy={JSON.stringify(likedBy)} productId={productId} email={email}/>  */}
+                            <Badge price={props.price} priceToShow={props.priceToShow}/> 
+                            <div
+                                className={`absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                                props.isAvailable
+                                    ? "bg-green-600 text-white"
+                                    : "bg-red-600 text-white"
+                                }`}
+                            >
+                                {props.isAvailable ? "Доступний" : "Недоступний"}
+                            </div>
                         </div>
                     </div>
                     <div className=" h-[76px] overflow-hidden">

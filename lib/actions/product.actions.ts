@@ -864,3 +864,45 @@ export async function leaveReview(params: { productId: string, userId: string | 
     throw new Error(`Error adding review to the product: ${error.message}`)
   }
 }
+
+export const applyDiscountToProduct = async ({
+  productId,
+  percentage,
+  direction,
+}: {
+  productId: string;
+  percentage: number;
+  direction: "Зменшити" | "Збільшити";
+}): Promise<void> => {
+  if (!productId || typeof percentage !== 'number' || percentage < 0) {
+    throw new Error('Invalid input: productId and a non-negative percentage are required.');
+  }
+  if (direction !== "Зменшити" && direction !== "Збільшити") {
+    throw new Error('Invalid direction: Must be "Зменшити" or "Збільшити".');
+  }
+
+  await connectToDB();
+
+  let factor: number;
+  if (direction === "Зменшити") {
+    factor = 1 - percentage / 100;
+  } else {
+    factor = 1 + percentage / 100;
+  }
+
+  if (factor < 0) {
+    factor = 0;
+  }
+
+  await Product.findByIdAndUpdate(
+    productId,
+    [
+      {
+        $set: {
+          price: { $round: [{ $multiply: ['$price', factor] }, 2] },
+          priceToShow: { $round: [{ $multiply: ['$priceToShow', factor] }, 2] }
+        }
+      }
+    ],
+  );
+};
