@@ -1,0 +1,26 @@
+# Node modules (will be reinstalled inside container)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Local env files (optional — mount manually if needed)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Output directories
+.next
+out
+
+# OS / editor artifacts
+.DS_Store
+*.swp
+*.swo
+.idea
+.vscode
+
+# Git
+.git
+.gitignore
