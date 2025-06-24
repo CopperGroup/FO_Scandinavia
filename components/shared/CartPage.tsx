@@ -79,7 +79,7 @@ const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) =>
 
   const totalPrice = cartData
     .reduce((acc: number, data: { price: number; quantity: number }) => acc + data.price * data.quantity, 0)
-    .toFixed(2)
+    .toFixed(0)
 
   const handleNavigateToProductPage = async (e: any, image:string, productId: string) => {
     e.preventDefault();

@@ -108,8 +108,8 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
   const priceToPay = appliedPromo ? originalPrice * (1 - appliedPromo.discount / 100) : originalPrice
 
   // Format price to display with 2 decimal places
-  const formattedPriceToPay = priceToPay.toFixed(2)
-  const discountAmount = appliedPromo ? (originalPrice - priceToPay).toFixed(2) : "0.00"
+  const formattedPriceToPay = priceToPay.toFixed(0)
+  const discountAmount = appliedPromo ? (originalPrice - priceToPay).toFixed(0) : "0.00"
 
   useEffect(() => {
     const handleResize = () => {
@@ -1202,7 +1202,7 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
                         <h3 className="text-sm sm:text-base font-medium text-gray-900 line-clamp-2">{item.name}</h3>
                         <p className="text-xs sm:text-sm text-gray-500">Кількість: {item.quantity}</p>
                         <p className="text-sm sm:text-base font-medium text-gray-900">
-                          {item.price.toFixed(2)}
+                          {item.price.toFixed(0)}
                           {Store.currency_sign}
                         </p>
                       </div>
@@ -1219,7 +1219,7 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm sm:text-base text-gray-700">Підсумок:</span>
                     <span className="text-sm sm:text-base font-medium text-gray-900">
-                      {originalPrice.toFixed(2)}
+                      {originalPrice.toFixed(0)}
                       {Store.currency_sign}
                     </span>
                   </div>

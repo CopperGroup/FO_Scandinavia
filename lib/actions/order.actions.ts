@@ -3117,7 +3117,7 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
         {
           PayerType: "Recipient",
           CargoType: "Money",
-          RedeliveryString: value.toFixed(2)
+          RedeliveryString: value.toFixed(0)
         }
       ];
     }

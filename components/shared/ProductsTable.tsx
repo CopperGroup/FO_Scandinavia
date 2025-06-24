@@ -63,8 +63,8 @@ export default function ProductsTable({ stringifiedProducts, categoryName, selec
                 <TableCell className="px-2 sm:px-4 font-medium">
                   <div className="truncate max-w-[150px] sm:max-w-none">{product.name}</div>
                 </TableCell>
-                <TableCell className="px-2 sm:px-4">{Store.currency_sign}{product.price.toFixed(2)}</TableCell>
-                <TableCell className={`px-2 sm:px-4 ${product.price !== product.priceToShow ? "text-red-500" : ""}`}>{Store.currency_sign}{product.priceToShow.toFixed(2)}</TableCell>
+                <TableCell className="px-2 sm:px-4">{Store.currency_sign}{product.price.toFixed(0)}</TableCell>
+                <TableCell className={`px-2 sm:px-4 ${product.price !== product.priceToShow ? "text-red-500" : ""}`}>{Store.currency_sign}{product.priceToShow.toFixed(0)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -63,7 +63,7 @@ export function TotalRevenue() {
       <div className="w-full h-full">
         <div className="w-full h-fit flex gap-2 justify-end max-[1300px]:flex-col">
           <div className="w-full h-full">
-            <h3 className="text-heading3-bold font-semibold">Загальний дохід <span className="text-green-500 text-heading4-medium">+{totalRevenue.toFixed(2)}{Store.currency_sign}</span></h3>
+            <h3 className="text-heading3-bold font-semibold">Загальний дохід <span className="text-green-500 text-heading4-medium">+{totalRevenue.toFixed(0)}{Store.currency_sign}</span></h3>
           </div>
           <div className="flex gap-1 max-[1300px]:mt-2 max-[460px]:flex-col">
             <div className={cn("grid gap-2 justify-items-end max-[460px]:justify-items-start")}>
@@ -183,7 +183,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className={`bg-white/70 rounded-xl shadow-lg p-3`}>
         <p className="text-small-semibold">{label}</p>
-        <p className="text-subtle-medium mt-1">Загальний дохід: <span className={`${payload[0].value > 0 && "text-green-500"}`}>{Store.currency_sign}{payload[0].value.toFixed(2)}</span></p>
+        <p className="text-subtle-medium mt-1">Загальний дохід: <span className={`${payload[0].value > 0 && "text-green-500"}`}>{Store.currency_sign}{payload[0].value.toFixed(0)}</span></p>
       </div>
     );
   }

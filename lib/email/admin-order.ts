@@ -284,7 +284,7 @@ export async function sendAdminOrderNotification(order: any) {
                     
                     <div class="order-row">
                         <span class="order-label">Загальна сума:</span>
-                        <span class="order-value">₴${order.value.toFixed(2)}</span>
+                        <span class="order-value">₴${order.value.toFixed(0)}</span>
                     </div>
                     
                     <div class="order-row">
@@ -348,21 +348,21 @@ export async function sendAdminOrderNotification(order: any) {
                 <table class="totals-table">
                     <tr>
                         <td class="total-label">Проміжна сума:</td>
-                        <td class="total-value">₴${subtotal.toFixed(2)}</td>
+                        <td class="total-value">₴${subtotal.toFixed(0)}</td>
                     </tr>
                     ${
                       order.discount
                         ? `
                     <tr>
                         <td class="total-label">Знижка (${order.discount}%):</td>
-                        <td class="total-value" style="color: #10b981;">-₴${discountAmount.toFixed(2)}</td>
+                        <td class="total-value" style="color: #10b981;">-₴${discountAmount.toFixed(0)}</td>
                     </tr>
                     `
                         : ""
                     }
                     <tr>
                         <td class="total-label grand-total">Загальна сума:</td>
-                        <td class="total-value grand-total">₴${order.value.toFixed(2)}</td>
+                        <td class="total-value grand-total">₴${order.value.toFixed(0)}</td>
                     </tr>
                 </table>
                 

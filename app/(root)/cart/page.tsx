@@ -78,7 +78,7 @@ export default function CartPage() {
 
   const totalPrice = cartData
     .reduce((acc: number, data: { price: number; quantity: number }) => acc + data.price * data.quantity, 0)
-    .toFixed(2)
+    .toFixed(0)
 
   return (
     <div className="container max-w-6xl mx-auto px-4 py-8">
@@ -170,7 +170,7 @@ export default function CartPage() {
                         <div className="col-span-2 text-right flex items-center justify-end">
                           <p className="font-semibold mr-3">
                             {Store.currency_sign}
-                            {(data.price * data.quantity).toFixed(2)}
+                            {(data.price * data.quantity).toFixed(0)}
                           </p>
                           <Button
                             onClick={(e) => removeProduct(index, e)}

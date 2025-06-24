@@ -181,7 +181,7 @@ export async function sendOrderEmail(order: any) {
                             </table>
                         </td>
                         <td align="center" style="padding: 15px 0; border-top: 1px solid #e5e7eb; color: #4a5568; font-size: 16px;" class="hide-mobile">${product.amount}</td>
-                        <td align="right" style="padding: 15px 0; border-top: 1px solid #e5e7eb; color: #2a4365; font-size: 16px; font-weight: 500;">₴${(product.product.priceToShow * product.amount).toFixed(2)}</td>
+                        <td align="right" style="padding: 15px 0; border-top: 1px solid #e5e7eb; color: #2a4365; font-size: 16px; font-weight: 500;">₴${(product.product.priceToShow * product.amount).toFixed(0)}</td>
                         </tr>
                         `,
                           )
@@ -200,7 +200,7 @@ export async function sendOrderEmail(order: any) {
                             <table border="0" cellpadding="0" cellspacing="0">
                             <tr>
                                 <td style="padding: 5px 0; color: #4a5568; font-size: 16px; text-align: right;">Проміжна сума:</td>
-                                <td style="padding: 5px 0 5px 20px; color: #2a4365; font-size: 16px; text-align: right;">₴${subtotal.toFixed(2)}</td>
+                                <td style="padding: 5px 0 5px 20px; color: #2a4365; font-size: 16px; text-align: right;">₴${subtotal.toFixed(0)}</td>
                             </tr>
                             
                             ${
@@ -208,14 +208,14 @@ export async function sendOrderEmail(order: any) {
                                 ? `
                             <tr>
                                 <td style="padding: 5px 0; color: #4a5568; font-size: 16px; text-align: right;">Знижка (${order.discount}%):</td>
-                                <td style="padding: 5px 0 5px 20px; color: #10b981; font-size: 16px; text-align: right;">-₴${discountAmount.toFixed(2)}</td>
+                                <td style="padding: 5px 0 5px 20px; color: #10b981; font-size: 16px; text-align: right;">-₴${discountAmount.toFixed(0)}</td>
                             </tr>
                             `
                                 : ""
                             }
                             <tr>
                                 <td style="padding: 15px 0 5px 0; color: #2c5282; font-size: 18px; font-weight: 600; text-align: right; border-top: 2px solid #e5e7eb;">Загальна сума:</td>
-                                <td style="padding: 15px 0 5px 20px; color: #2c5282; font-size: 18px; font-weight: 600; text-align: right; border-top: 2px solid #e5e7eb;">₴${order.value.toFixed(2)}</td>
+                                <td style="padding: 15px 0 5px 20px; color: #2c5282; font-size: 18px; font-weight: 600; text-align: right; border-top: 2px solid #e5e7eb;">₴${order.value.toFixed(0)}</td>
                             </tr>
                             </table>
                         </td>

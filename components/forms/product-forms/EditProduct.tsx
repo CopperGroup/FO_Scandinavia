@@ -521,8 +521,8 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategories }: 
                               discount = 0
                             }
                             form.setValue("price", `${Store.currency_sign}${rawValue}`);
-                            form.setValue("priceToShow", `${Store.currency_sign}${discount.toFixed(2)}`)
-                            setDiscountPrice(discount.toFixed(2))
+                            form.setValue("priceToShow", `${Store.currency_sign}${discount.toFixed(0)}`)
+                            setDiscountPrice(discount.toFixed(0))
                           }}
                         />
                     </FormControl>
@@ -560,8 +560,8 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategories }: 
                                 const discountValue = p - (numericValue / 100) * p;
                                 // console.log("D", discountValue);
                             
-                                form.setValue("priceToShow", `${Store.currency_sign}${discountValue.toFixed(2)}`);
-                                setDiscountPrice(discountValue.toFixed(2))
+                                form.setValue("priceToShow", `${Store.currency_sign}${discountValue.toFixed(0)}`);
+                                setDiscountPrice(discountValue.toFixed(0))
                               } else {
                                 console.error("Invalid price format.");
                               }
@@ -614,7 +614,7 @@ const EditProduct = ({ stringifiedProduct, categories, stringifiedCategories }: 
                                   }
                                   
                                   form.setValue("priceToShow", `${Store.currency_sign}${rawInput}`);
-                                  setDiscountPrice(rawValue.toFixed(2));
+                                  setDiscountPrice(rawValue.toFixed(0));
                                   
                                   let percentage = 0;
                                   if (rawValue !== 0) {

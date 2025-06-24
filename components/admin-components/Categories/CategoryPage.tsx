@@ -190,7 +190,7 @@ const StatCard: React.FC<{ title: string; value: number; prefix?: string; suffix
     <h3 className="text-base-semibold text-gray-600 mb-2">{title}</h3>
     <p className="text-heading3-bold">
       {prefix}
-      <AnimatedNumber number={Number.parseFloat(value.toFixed(2))} duration={2000} easingName="easeOutExpo" />
+      <AnimatedNumber number={Number.parseFloat(value.toFixed(0))} duration={2000} easingName="easeOutExpo" />
       {suffix}
     </p>
   </div>

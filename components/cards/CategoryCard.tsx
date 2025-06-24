@@ -12,7 +12,7 @@ function formatNumber(num: number): string {
   } else if (num >= 1000) {
     return (num / 1000).toFixed(1) + 'K'
   } else {
-    return num.toFixed(2)
+    return num.toFixed(0)
   }
 }
 
@@ -65,13 +65,13 @@ const CategoryCard = ({ categoryInfo }: {categoryInfo: Category}) => {
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-inner">
                   <p className="text-small-medium text-gray-500 mb-1">Total Value</p>
-                  <p className="text-heading3-bold text-gray-800 truncate" title={`${Store.currency_sign}${categoryInfo.values.totalValue.toFixed(2)}`}>
+                  <p className="text-heading3-bold text-gray-800 truncate" title={`${Store.currency_sign}${categoryInfo.values.totalValue.toFixed(0)}`}>
                     {Store.currency_sign}{formatNumber(categoryInfo.values.totalValue)}
                   </p>
                 </div>
                 <div className="col-span-2 bg-white p-4 rounded-lg shadow-inner">
                   <p className="text-small-medium text-gray-500 mb-1">Average Price</p>
-                  <p className="text-heading3-bold text-gray-800 truncate" title={`$${categoryInfo.values.averageProductPrice.toFixed(2)}`}>
+                  <p className="text-heading3-bold text-gray-800 truncate" title={`$${categoryInfo.values.averageProductPrice.toFixed(0)}`}>
                     {Store.currency_sign}{formatNumber(categoryInfo.values.averageProductPrice)}
                   </p>
                 </div>

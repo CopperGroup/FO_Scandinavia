@@ -47,7 +47,7 @@ const OrderedProductCard = ({ _id, id, name, image, priceToShow, amount, article
             <p>
               Ціна за одиницю:{" "}
               <span className="font-medium">
-                {priceToShow.toFixed(2)}
+                {priceToShow.toFixed(0)}
                 {Store.currency_sign}
               </span>
             </p>
@@ -55,7 +55,7 @@ const OrderedProductCard = ({ _id, id, name, image, priceToShow, amount, article
 
           <div className="text-right">
             <p className="text-base-semibold text-green-600">
-              {(priceToShow * amount).toFixed(2)}
+              {(priceToShow * amount).toFixed(0)}
               {Store.currency_sign}
             </p>
             <p className="text-subtle-medium text-slate-500">Загальна сума</p>

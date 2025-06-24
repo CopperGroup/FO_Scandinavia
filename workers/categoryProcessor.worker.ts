@@ -30,7 +30,7 @@ self.onmessage = (event: MessageEvent<RawCategory[]>) => {
     
     const averageProductPrice =
       totalProducts > 0
-        ? parseFloat((currentTotalValue / totalProducts).toFixed(2))
+        ? parseFloat((currentTotalValue / totalProducts).toFixed(0))
         : 0;
 
     const stringifiedProducts = JSON.stringify(productsArray);

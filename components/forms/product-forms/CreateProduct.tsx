@@ -545,8 +545,8 @@ const CreateProduct = () => {
                               discount = 0
                             }
                             form.setValue("price", `₴${rawValue}`);
-                            form.setValue("priceToShow", `₴${discount.toFixed(2)}`)
-                            setDiscountPrice(discount.toFixed(2))
+                            form.setValue("priceToShow", `₴${discount.toFixed(0)}`)
+                            setDiscountPrice(discount.toFixed(0))
                           }}
                         />
                     </FormControl>
@@ -584,8 +584,8 @@ const CreateProduct = () => {
                                 const discountValue = p - (numericValue / 100) * p;
                                 // console.log("D", discountValue);
                             
-                                form.setValue("priceToShow", `₴${discountValue.toFixed(2)}`);
-                                setDiscountPrice(discountValue.toFixed(2))
+                                form.setValue("priceToShow", `₴${discountValue.toFixed(0)}`);
+                                setDiscountPrice(discountValue.toFixed(0))
                               } else {
                                 console.error("Invalid price format.");
                               }
@@ -638,7 +638,7 @@ const CreateProduct = () => {
                                   }
                                   
                                   form.setValue("priceToShow", `₴${rawInput}`);
-                                  setDiscountPrice(rawValue.toFixed(2));
+                                  setDiscountPrice(rawValue.toFixed(0));
                                   
                                   let percentage = 0;
                                   if (rawValue !== 0) {
