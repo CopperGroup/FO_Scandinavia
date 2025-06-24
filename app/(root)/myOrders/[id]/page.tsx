@@ -1,10 +1,5 @@
-
-import OrderedProductCard from "@/components/cards/OrderedProductCard";
 import OrderPage from "@/components/shared/OrderPage";
 import { fetchOrder } from "@/lib/actions/order.actions";
-import { fetchUserById } from "@/lib/actions/user.actions";
-import Image from "next/image";
-import Link from "next/link";
 
 interface Product {
     product: {

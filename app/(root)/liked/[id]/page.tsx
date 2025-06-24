@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 const Page = async ({ params }: { params: { id: string } }) => {
     if(!params.id) return null;
  
-    const user = await fetchUserById(params.id);
+    const user = await fetchUserById({userId: params.id});
     const likedProducts = await fetchLikedProducts(params.id);
    
  
