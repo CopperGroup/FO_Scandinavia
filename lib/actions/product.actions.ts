@@ -899,8 +899,8 @@ export const applyDiscountToProduct = async ({
     [
       {
         $set: {
-          price: { $round: [{ $multiply: ['$price', factor] }, 2] },
-          priceToShow: { $round: [{ $multiply: ['$priceToShow', factor] }, 2] }
+          price: { $round: [{ $multiply: ['$price', factor] }, 0] },
+          priceToShow: { $round: [{ $multiply: ['$priceToShow', factor] }, 0] }
         }
       }
     ],
