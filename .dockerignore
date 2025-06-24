@@ -5,7 +5,7 @@ yarn-error.log
 
 # Local env files (optional — mount manually if needed)
 .env
-.env.local
+# .env.local
 .env.development
 .env.production
 .env.test
