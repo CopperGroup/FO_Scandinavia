@@ -1,21 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { motion } from "framer-motion"
 import { Plus } from 'lucide-react'
 
 interface ClearFilterButtonProps {
-  onClick?: () => void; // Optional onClick prop
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => any; // accept event
 }
 
 export default function ApplyFilterButton({ onClick }: ClearFilterButtonProps) {
   const [isClicked, setIsClicked] = useState(false)
 
-  const handleClear = () => {
+  const handleClear = (e: React.MouseEvent<HTMLButtonElement>) => {
     setIsClicked(true);
 
     if (onClick) {
-      onClick();
+      onClick(e);
     }
 
     setTimeout(() => setIsClicked(false), 200);
