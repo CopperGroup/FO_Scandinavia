@@ -244,7 +244,12 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
             filterButtonRef.current.style.transform = `translateX(0px)`;
           }
         } else {
+          console.log("Hello")
           e.target.style.transform = `translateX(0px)`;
+          if(filterButtonRef.current) {
+            filterButtonRef.current.style.display = "block";
+            filterButtonRef.current.style.transform = `translateX(0px)`;
+          }
         }
       } else {
         document.body.style.overflow = 'hidden';
