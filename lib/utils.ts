@@ -671,8 +671,6 @@ export function transformPageDataInputs<
     if (!dataInputs) {
         return {} as any;
     }
-
-    console.log(dataInputs)
     const transformedObject = dataInputs.reduce<Record<string, string | undefined | null>>((accumulator, currentInput) => {
         const key = currentInput?.name;
         const value = currentInput?.value;

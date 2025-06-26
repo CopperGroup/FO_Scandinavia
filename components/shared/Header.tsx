@@ -17,10 +17,10 @@ const Links = [
   { label: "Уподобані", href: "/liked" },
   // { label: "Про нас", href: "/aboutUs"},
   { label: "Мої замовлення", href: "/myOrders" },
-  { label: "Інформація", href: "/info" },
+  { label: "Контакти", href: "/info/contacts" },
 ]
 
-const infoNames = ["Контакти", "Доставка та оплата", "Гаратнія та сервіси"]
+const infoNames = ["Контакти"]
 
 export default function Header({ email, user }: { email: string; user: string }) {
   const [is404, setIs404] = useState(false);
@@ -93,7 +93,7 @@ export default function Header({ email, user }: { email: string; user: string })
                         <p className="text-small-medium font-normal transition-colors duration-300">{label}</p>
                       </MenubarTrigger>
                       <MenubarContent className="min-w-[9rem] bg-[#005a8e] text-white border border-[#004d7a] rounded-lg shadow-md">
-                        {["contacts", "delivery-payment", "warranty-services"].map((subItem, subIndex) => (
+                        {["contacts"].map((subItem, subIndex) => (
                           <MenubarItem
                             key={subItem}
                             className="text-small-medium font-normal cursor-pointer hover:text-[#FECC02] transition-colors duration-300"
@@ -103,10 +103,7 @@ export default function Header({ email, user }: { email: string; user: string })
                               onClick={() => handleLead(`/info/${subItem}`)}
                               className="block w-full px-2 py-1"
                             >
-                              {infoNames[subIndex]
-                                .split("-")
-                                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                                .join(" ")}
+                              {infoNames[subIndex]}
                             </TransitionLink>
                           </MenubarItem>
                         ))}

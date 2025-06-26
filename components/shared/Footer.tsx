@@ -35,19 +35,6 @@ const Footer = ({ stringifiedData }: FooterProps) => {
                   Контакти
                 </Link>
               </li>
-              <li>
-                <Link href="info/delivery-payment" className="hover:text-[#FECC02] transition-colors duration-300">
-                  Доставка та оплата
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="info/warranty-services"
-                  className="text-white hover:text-[#FECC02] transition-colors duration-300"
-                >
-                  Гарантія та сервіс
-                </Link>
-              </li>
             </ul>
           </div>
 
