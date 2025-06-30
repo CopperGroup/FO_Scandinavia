@@ -40,7 +40,6 @@ export default function LoginPage() {
 
     const user = JSON.parse(result)
     // console.log(user);
-
     if(user) {
       if(!user.selfCreated) {
           try {

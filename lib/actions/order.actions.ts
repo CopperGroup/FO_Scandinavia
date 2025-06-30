@@ -3166,7 +3166,7 @@ export async function getInvoiceDetails(documentNumber: string, phone?: string) 
     const response = await axios.post("https://api.novaposhta.ua/v2.0/json/", requestData)
     const { data, success, errors } = response.data
 
-    // console.log(data)
+    console.log(data)
     if (!success || !data || data.length === 0) {
       throw new Error(errors?.join(", ") || "Failed to fetch invoice details")
     }
