@@ -3130,6 +3130,7 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
     };
 
     const response = await axios.post("https://api.novaposhta.ua/v2.0/json/", baseFields);
+    console.log(response)
     const { data } = response.data;
 
     console.log(data)
