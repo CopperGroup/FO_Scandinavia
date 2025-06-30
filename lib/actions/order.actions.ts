@@ -2945,6 +2945,7 @@ export async function createCounterParty({ stringifiedOrder }: { stringifiedOrde
     };
   
     const counterpartyResponse = await axios.post("https://api.novaposhta.ua/v2.0/json/", counterpartyFields);
+    console.log(counterpartyResponse)
     const counterpartyData = counterpartyResponse.data;
 
     if (!counterpartyData || !counterpartyData.success) throw new Error("Failed to create counterparty");
