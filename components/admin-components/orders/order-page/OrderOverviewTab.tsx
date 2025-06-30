@@ -95,7 +95,7 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({
 
               <div className="space-y-3 sm:space-y-4">
                 <div>
-                  <p className="text-xs sm:text-sm text-slate-500 mb-0.5 sm:mb-1">Ім'я</p>
+                  <p className="text-xs sm:text-sm text-slate-500 mb-0.5 sm:mb-1">Ім&apos;я</p>
                   {isEditMode ? (
                     <div className="flex gap-2">
                       <Input
