@@ -48,7 +48,8 @@ interface OrderCardProps {
     number: string
     date: string
     trackingNumber: string
-  }
+  },
+  warehouse: string,
   invoiceString?: string
 }
 
@@ -73,6 +74,7 @@ const AdminOrderCard = ({
   discount,
   invoice,
   invoiceString,
+  warehouse
 }: OrderCardProps) => {
   const formatter = new Intl.NumberFormat("uk-UA", {
     style: "currency",
@@ -297,7 +299,7 @@ const AdminOrderCard = ({
             <div>
               <p className="text-small-regular text-slate-500">Адреса</p>
               <p className="text-small-semibold text-slate-700">
-                {city}, {adress}, {postalCode}
+                {city}, {warehouse}
               </p>
             </div>
           </div>

@@ -87,7 +87,7 @@
     "react-resizable-panels": "^2.1.7",
     "react-schemaorg": "^2.0.0",
     "recharts": "^2.12.7",
-    "sonner": "^2.0.2",
+    "sonner": "^2.0.5",
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",
     "uploadthing": "^6.13.2",

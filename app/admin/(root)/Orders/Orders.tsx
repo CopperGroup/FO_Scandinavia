@@ -188,6 +188,7 @@ const Orders = ({orders}:{orders:string}) => {
                 key={order.id}
                 id={order.id}
                 products={order.products}
+                warehouse={order.warehouse}
                 user={order.user}
                 value={order.value}
                 name={order.name}

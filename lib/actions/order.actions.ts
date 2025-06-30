@@ -3192,3 +3192,117 @@ export async function addInvoiceString({ orderId, invoiceString}: { orderId: str
     throw new Error(`Error adding invoice stringto order: ${error.message}`)
   }
 }
+
+interface ProductDataForBackend {
+  product: string; // This is the _id string of the product
+  amount: number;
+}
+
+interface UserDataForBackend {
+  name: string;
+  surname: string;
+  phoneNumber: string;
+  email: string;
+  city: string;
+  adress: string;
+  comment: string;
+  warehouse: string;
+}
+
+// Updated updateOrder function
+export async function updateOrder({
+  orderId,
+  userData,
+  productsData,
+  // Optionally, allow updating invoiceString if needed outside of generateInvoice
+  invoiceString,
+}: {
+  orderId: string;
+  userData: UserDataForBackend;
+  productsData: ProductDataForBackend[];
+  invoiceString?: string; // Optional: for manual invoice string updates
+}) {
+  try {
+    await connectToDB();
+
+    // 1. Recalculate the order value on the backend
+    // Fetch actual product prices from the database for security
+    let calculatedValue = 0;
+    if (productsData && productsData.length > 0) {
+      const productIds = productsData.map(p => p.product);
+      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('priceToShow');
+
+      const productMap = new Map(dbProducts.map(p => [p._id.toString(), p.priceToShow]));
+
+      for (const item of productsData) {
+        const productPrice = productMap.get(item.product.toString());
+        if (productPrice !== undefined) {
+          calculatedValue += productPrice * item.amount;
+        } else {
+          // Handle case where a product ID is invalid or not found
+          console.warn(`Product with ID ${item.product} not found or invalid. Skipping calculation for this item.`);
+          // You might choose to throw an error here, or exclude the item, etc.
+        }
+      }
+    }
+
+    // 2. Prepare the update object for Mongoose
+    const updateFields: any = {
+      // User Data
+      name: userData.name,
+      surname: userData.surname,
+      phoneNumber: userData.phoneNumber,
+      email: userData.email,
+      city: userData.city,
+      adress: userData.adress,
+      comment: userData.comment,
+      warehouse: userData.warehouse,
+      
+      // Products Array (replace entirely)
+      products: productsData.map(p => ({
+        product: new mongoose.Types.ObjectId(p.product), // Convert string ID back to ObjectId
+        amount: p.amount,
+      })),
+
+      // Recalculated Value
+      value: calculatedValue,
+    };
+
+    // Add invoiceString if provided
+    if (invoiceString !== undefined) {
+      updateFields.invoiceString = invoiceString;
+    }
+
+    // Apply the update
+    await Order.findByIdAndUpdate(
+      orderId,
+      { $set: updateFields }, // Use $set to update specific fields
+      { runValidators: true } // Return the updated document, run schema validators
+    );
+
+    const updatedOrder = await Order.findById(orderId)
+      .populate({
+        path: 'products',
+        populate: {
+            path: 'product',
+            model: 'Product',
+            select: '_id id name images priceToShow params articleNumber'
+        }
+      })
+      .populate({
+          path: 'user',
+          model: 'User',
+      });
+  
+
+    if (!updatedOrder) {
+      throw new Error("Order not found or could not be updated.");
+    }
+
+    console.log(`Order ${orderId} updated successfully.`);
+    return JSON.stringify(updatedOrder); // Return the updated order document
+  } catch (error: any) {
+    console.error("Error in updateOrder:", error); // Log the full error
+    throw new Error(`Error updating order: ${error.message}`);
+  }
+}

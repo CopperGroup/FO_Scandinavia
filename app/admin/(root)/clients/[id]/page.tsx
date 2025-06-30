@@ -55,6 +55,7 @@ const Page = async ({ params }: { params: { id: string } }) => {
                   data={formatDateString(order.data)}
                   paymentStatus={order.paymentStatus}
                   deliveryStatus={order.deliveryStatus}
+                  warehouse={order.warehouse}
                   url="/admin/Orders/"
                 />
               ))}
