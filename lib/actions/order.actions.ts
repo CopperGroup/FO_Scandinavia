@@ -11,7 +11,7 @@ import clearCache from "./cache";
 import { generateLongPassword } from "../utils";
 import axios from "axios";
 import { Store } from "@/constants/store";
-import { Console } from "console";
+import { DateTime } from 'luxon';
 
 interface CreateOrderParams {
   products: {
@@ -3072,11 +3072,7 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
     } = JSON.parse(stringifiedOrder);
 
     function getFormattedDateTime(): string {
-      const now = new Date();
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = now.getFullYear();
-      return `${day}.${month}.${year}`;
+      return DateTime.now().setZone('Europe/Kiev').toFormat('dd.MM.yyyy');
     }
 
     const methodProperties: Record<string, any> = {
