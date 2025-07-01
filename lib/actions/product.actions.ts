@@ -268,7 +268,7 @@ export async function fetchProducts(){
     try {
         connectToDB();
 
-        const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID }}).select("_id id vendor name isAvailable price priceToShow category articleNumber").lean();
+        const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID }}).select("_id id vendor name isAvailable price priceToShow category articleNumber quantity createdAt updatedAt").lean();
         
         return JSON.stringify(products)
     } catch (error:any) {
@@ -906,3 +906,16 @@ export const applyDiscountToProduct = async ({
     ],
   );
 };
+
+export async function fetchProductsLength() {
+  try {
+    await connectToDB();
+
+    const products = await Product.find().select("_id")
+
+
+    return products.length
+  } catch (error: any) {
+    throw new Error(`${error.message}`)
+  }
+}

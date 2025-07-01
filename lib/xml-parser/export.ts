@@ -212,7 +212,12 @@ export function generateFullCatalogXmlOnClient(
 
 
     if (product.vendor) offer.ele('vendor').txt(product.vendor);
-    offer.ele('country_of_origin').txt("");
+    const countryParam = product.params?.find(
+      (p: any) => typeof p.name === 'string' && /Країна/i.test(p.name)
+    );
+    if (countryParam) {
+      offer.ele('country_of_origin').txt(countryParam.value);
+    }
     if (typeof product.quantity === 'number') offer.ele('stock_quantity').txt(String(product.quantity));
     offer.ele('name').txt(product.name);
 
