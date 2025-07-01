@@ -136,14 +136,14 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
                 </span>
               </p>
               <Link
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${order.adress}, ${order.city}, ${order.postalCode}`)}`}
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${order.warehouse}, ${order.city}, ${order.postalCode}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-blue-500 hover:text-amber-500 text-sm"
               >
                 <MapPin size={14} />
                 <span>
-                  {order.city}, {order.adress}, {order.postalCode}
+                  {order.city}, {order.warehouse}, {order.postalCode}
                 </span>
               </Link>
               <Link

@@ -280,7 +280,7 @@ export async function sendOrderEmail(order: any) {
                         <tr>
                         <td style="padding-bottom: 20px;">
                             <p style="color: #ffffff; font-size: 16px; font-weight: 600; margin: 0 0 5px 0; text-align: center;">${Store.name}</p>
-                            <p style="color: #e2e8f0; font-size: 14px; margin: 0; text-align: center;">Якісні технології для повсякденного життя</p>
+                            <p style="color: #e2e8f0; font-size: 14px; margin: 0; text-align: center;">Скандинавська якість</p>
                         </td>
                         </tr>
                         <tr>

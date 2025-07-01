@@ -5,13 +5,12 @@ export const Store = {
     domain: "https://nordiva.com.ua",
     catalog_link: "/catalog?page=1&sort=default",
     email: "contact@nordiva.com.ua",
-    phoneNumber: "",
     "default_image": {
         "product_card": 0,
         "product_page": 0,
         "checkout_page": 0
     },
-    "phoneNumber": "",
+    "phoneNumber": "+380960871457",
     "freeDelivery": 3000,
     "social_media": {
         "instagram": "",
@@ -20,6 +19,7 @@ export const Store = {
     },
     "catalog_link": "/catalog?page=1&sort=default",
     "additional_emails": {
-        "thank_you": "thankyou@nordiva.com.ua"
+        "thank_you": "thankyou@nordiva.com.ua",
+        "admin": "admin_panel@nordiva.com.ua"
     }
 }

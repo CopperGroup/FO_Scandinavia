@@ -1,26 +1,25 @@
 "use server"
 
 import nodemailer from "nodemailer"
-import Order, { OrderType } from "../models/order.model"
 import { Store } from "@/constants/store"
 
+// Configure transporter for Brevo
 const transporter = nodemailer.createTransport({
-  service: "gmail", // Using Gmail as in the contact email
+  host: "smtp-relay.brevo.com",
+  port: 587,
   auth: {
-    user: process.env.EMAIL_USER, // Your email
-    pass: process.env.EMAIL_PASS, // Your password or app password
+    user: process.env.BREVO_LOGIN, // Your Brevo SMTP login
+    pass: process.env.BREVO_PASSWORD, // Your Brevo SMTP password
   },
 })
 
 export async function sendAdminOrderNotification(order: any) {
   try {
-
     const orderDate = new Date(order.data).toLocaleDateString("uk-UA")
     const orderTime = new Date(order.data).toLocaleTimeString("uk-UA")
 
     const subtotal = order.products.reduce((acc: number, p: any) => acc + p.product.priceToShow * p.amount, 0)
     const discountAmount = order.discount ? (subtotal * order.discount) / 100 : 0
-
 
     const emailHtml = `
         <!DOCTYPE html>
@@ -404,7 +403,7 @@ export async function sendAdminOrderNotification(order: any) {
     `
 
     await transporter.sendMail({
-      from: process.env.EMAIL_USER, // <- your authenticated email
+      from: `"НОВЕ ЗАМОВЛЕННЯ НА САЙТІ" <${Store.additional_emails.admin}>`, // Use Store.name and Store.email for the sender
       to: process.env.CONTACT_RECEIVER_EMAIL,
       subject: `Нове замовлення #${order.id} | ${Store.name}`,
       html: emailHtml,
@@ -416,4 +415,3 @@ export async function sendAdminOrderNotification(order: any) {
     return { success: false, error: error.message }
   }
 }
-1

@@ -1,4 +1,5 @@
 import ProductsTable from "@/components/admin-components/ProductsTable"
+import { fetchProductsCache } from "@/lib/actions/cache"
 import { fetchAllProducts, fetchProducts } from "@/lib/actions/product.actions"
 
 
@@ -19,7 +20,15 @@ interface PageProps {
 }
 
 const Page = async ({ searchParams }: PageProps) => {
-  const products = await fetchProducts()
+  let products = "[]" 
+  
+  try {
+    products = await fetchProductsCache()
+  } catch(error) {
+    console.log("Cashed function failed, trying default beckup function")
+
+    products = await fetchProducts()
+  }
 
   return (
     <section className="w-full px-2 py-10 pt-3">

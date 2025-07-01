@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cache } from "react";
 import { ProductType } from "../types/types";
-import { fetchAllProducts, fetchProductAndRelevantParams, fetchProductsLength, fetchPurchaseNotificationsInfo } from "./product.actions";
+import { fetchAllProducts, fetchProductAndRelevantParams, fetchProducts, fetchPurchaseNotificationsInfo } from "./product.actions";
 import { Store } from "@/constants/store";
 import { fetchPageDataByName } from "./page.actions";
 
@@ -235,114 +235,14 @@ export const fetchPageDataByNameCache = cache(
     }
   );
 
-  const BATCH_SIZE = 250;
+export const fetchProductsCache = cache(
+    unstable_cache(
+        async () => {
+            const products = await fetchProducts();
 
-  export const fetchAllProductsLength = unstable_cache(
-    async () => {
-        const length = await fetchProductsLength();
-        console.log(`Cached product length: ${length}`);
-        return length;
-    },
-    [`${Store.name}-products-length`],
-    { tags: [`${Store.name}-product-length`, `${Store.name}-product-all`] }
-);
-
-// This caches individual batches of products.
-const fetchProductBatchCache = (batchIndex: number) => {
-    return cache(
-        unstable_cache(
-            async (index: number) => {
-                // This function will only be called if a batch is not in cache or revalidated.
-                // It fetches the full list *if needed* for slicing.
-                // In a highly optimized scenario, your backend would provide an API for paginated fetching.
-                console.log(`Fetching batch ${index} data to be cached.`);
-                const allProducts = await fetchAllProducts();
-                const start = index * BATCH_SIZE;
-                const end = start + BATCH_SIZE;
-                const batch = allProducts.slice(start, end);
-                console.log(`Caching batch ${index}: ${batch.length} products`);
-                return batch;
-            },
-            [`${Store.name}-products-batch-${batchIndex}`],
-            { tags: [`${Store.name}-product-batch-${batchIndex}`, `${Store.name}-product-all`] }
-        )
-    );
-};
-
-// Main function to get all products. It checks the length first.
-// Uses React's `cache` for memoization within the request.
-export const fetchAllProductsCache = cache(
-    async () => {
-        // 1. Get the current total number of products from its cache
-        const currentTotalLength = await fetchAllProductsLength();
-
-        let products: any[] = [];
-        let numBatches = Math.ceil(currentTotalLength / BATCH_SIZE);
-        let shouldRefetchAll = false;
-
-        // Try to gather products from existing batches
-        const productPromises: Promise<any[]>[] = [];
-        for (let i = 0; i < numBatches; i++) {
-            // We use a try-catch for each batch to detect if any batch is missing or corrupted
-            // A more robust check might involve comparing a version/hash
-            productPromises.push(fetchProductBatchCache(i)(i).catch(e => {
-                console.warn(`Error fetching batch ${i}: ${e.message}. Will trigger full refetch.`);
-                shouldRefetchAll = true; // Mark to refetch all if any batch fails
-                return []; // Return empty for this promise to allow Promise.all to complete
-            }));
-        }
-
-        const batchedResults = await Promise.all(productPromises);
-        const combinedBatches = batchedResults.flat();
-
-        // 2. Determine if a full refetch of all products is necessary
-        //    - If `shouldRefetchAll` is true (e.g., a batch was missing/corrupted)
-        //    - If the combined length from existing batches doesn't match the current total length
-        if (shouldRefetchAll || combinedBatches.length !== currentTotalLength) {
-            console.log("Product count mismatch or batch error. Re-fetching and re-caching all products.");
-            const allProducts = await fetchAllProducts();
-            products = allProducts; // Use the freshly fetched products
-
-            // Re-cache all batches
-            const reCachePromises: Promise<any[]>[] = [];
-            const newNumBatches = Math.ceil(products.length / BATCH_SIZE);
-
-            // Revalidate the total length cache if the actual length changed
-            if (products.length !== currentTotalLength) {
-                 // Trigger revalidation for the total length cache
-                 // In a real app, you'd call revalidateTag here if you can access it in this context
-                 // For now, we'll rely on fetchAllProductsLength to eventually get the new value.
-                 // A more direct way would be to call `revalidateTag(`${Store.name}-product-length`)`
-                 // from a Server Action or Route Handler when a product is added/removed.
-                 console.log("Total product length changed. Ensure `revalidateTag` for length is triggered elsewhere.");
-            }
-
-            for (let i = 0; i < newNumBatches; i++) {
-                const batchData = products.slice(i * BATCH_SIZE, (i * BATCH_SIZE) + BATCH_SIZE);
-                // Directly call the underlying async function of unstable_cache for manual caching
-                // This bypasses the memoization of `fetchProductBatchCache` for this specific "force re-cache" scenario
-                // This is a bit advanced and usually managed by `revalidateTag`
-                // A simpler, but less direct, way is just to let the next calls to `fetchProductBatchCache` re-fill the cache
-                // if they were invalidated by `revalidateTag(`${Store.name}-product-all`)`.
-                // For demonstration, let's trigger the batched cache function directly.
-                reCachePromises.push(
-                    unstable_cache(
-                        async (idx: number) => {
-                            console.log(`Force re-caching batch ${idx}`);
-                            return batchData; // Use the slice from the fresh `allProducts`
-                        },
-                        [`${Store.name}-products-batch-${i}`],
-                        { tags: [`${Store.name}-product-batch-${i}`, `${Store.name}-product-all`] }
-                    )(i) // Execute the cached function with the index
-                );
-            }
-            await Promise.all(reCachePromises); // Wait for all batches to be re-cached
-        } else {
-            // If lengths match and no errors, use the combined batches
-            products = combinedBatches;
-            console.log("Using products from existing cached batches.");
-        }
-
-        return JSON.stringify(products);
-    }
-);
+            return products
+        },
+        [`${Store.name}-prodcuts-all`],
+        { tags: [`${Store.name}-product`] }
+    )
+)
