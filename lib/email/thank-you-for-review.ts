@@ -5,6 +5,7 @@ import Order from '../models/order.model';
 import { Store } from '@/constants/store';
 import { getTop3ProductsBySales } from '../actions/product.actions';
 import { socials, year_and_rights } from '@/constants/emails';
+import { DateTime } from 'luxon';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp-relay.brevo.com',
@@ -81,7 +82,7 @@ export async function sendThankYouForReviewEmail(toEmail: string, promoCode: str
                                 </p>
                             </div>
                             <p style="margin: 0; font-size: 14px; line-height: 20px; color: #a3a3a3;">
-                                Діє до ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, "")}. Застосовується при наступній покупці.
+                                Діє до ${DateTime.now().setZone('Europe/Kiev').plus({ days: 30 }).toFormat('dd.LL.yyyy')}. Застосовується при наступній покупці.
                             </p>
                             </td>
                         </tr>

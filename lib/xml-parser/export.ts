@@ -1,3 +1,4 @@
+import { Store } from '@/constants/store';
 import { create } from 'xmlbuilder2';
 
 export interface CategoryData {
@@ -145,9 +146,9 @@ export function generateFullCatalogXmlOnClient(
   rawProducts: any[]
 ): string {
   const shopData: ShopData = {
-    name: 'Интернет-магазин "Sveamoda',
-    company: 'Интернет-магазин "Sveamoda',
-    url: "https://sveamoda.com.ua/",
+    name: `Интернет-магазин "${Store.name}"`,
+    company: `Интернет-магазин "${Store.name}`,
+    url: Store.domain,
     currencies: [
       { id: "USD", rate: "CB" }, { id: "RUR", rate: "CB" },
       { id: "UAH", rate: "1" },  { id: "BYN", rate: "CB" },

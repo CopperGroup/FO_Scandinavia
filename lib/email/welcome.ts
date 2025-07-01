@@ -3,6 +3,7 @@
 import { Store } from "@/constants/store"
 import nodemailer from "nodemailer"
 import { getTop3ProductsBySales } from "../actions/product.actions"
+import { DateTime } from "luxon"
 
 export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
   const transporter = nodemailer.createTransport({
@@ -123,7 +124,7 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
                             <li style="margin-bottom: 10px;">На сторінці оформлення замовлення введіть промокод у відповідне поле</li>
                             <li style="margin-bottom: 10px;">Знижка буде автоматично застосована до вашого замовлення</li>
                         </ol>
-                        <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">Промокод дійсний протягом 30 (${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, "")}) днів і може бути використаний лише один раз.</p>
+                        <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">Промокод дійсний протягом 30 (${DateTime.now().setZone('Europe/Kiev').plus({ days: 30 }).toFormat('dd.LL.yyyy')}) днів і може бути використаний лише один раз.</p>
                         </td>
                     </tr>
                     

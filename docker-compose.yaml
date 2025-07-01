@@ -8,4 +8,10 @@ services:
     restart: always
     environment:
       - TZ=Europe/Kiev
-
+    deploy:  # Will be ignored in Compose, shown just for completeness
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3g
+    mem_limit: 3g
+    cpus: 1.5

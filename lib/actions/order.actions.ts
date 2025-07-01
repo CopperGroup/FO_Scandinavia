@@ -164,7 +164,7 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
 
       user.orders.push({
           order: createdOrder._id,
-          createdAt: Date.now(),
+          createdAt: DateTime.now().setZone('Europe/Kiev'),
       });
 
       user.totalOrders += 1;

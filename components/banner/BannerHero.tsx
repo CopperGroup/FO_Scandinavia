@@ -2,6 +2,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import ExploreCollectionsButton from "./BannerActions/ExploreCollectionsButton"
 import Link from "next/link"
+import { Store } from "@/constants/store"
 
 export default function BannerHero() {
   return (
@@ -19,7 +20,7 @@ export default function BannerHero() {
         <div className="container mx-auto h-full flex items-center">
           <div className="max-w-2xl space-y-8">
             <h1 className="font-extrabold text-white adaptiveHeading">
-              Sveamoda
+              {Store.name}
             </h1>
             <p className="text-body-normal md:text-heading4-medium md:font-normal text-neutral-300 max-w-xl max-[420px]:text-base-regular">
               Скандинавська якість у кожному ковтку, кроці та страві.

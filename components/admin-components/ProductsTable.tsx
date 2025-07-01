@@ -36,6 +36,7 @@ import { generateFullCatalogXmlOnClient } from "@/lib/xml-parser/export"
 import { fetchProductsByBatches } from "@/lib/actions/product.actions"
 import { applyDiscountToProduct } from "@/lib/actions/product.actions" // Ensure this is imported for the PriceAdjustmentForm
 import BulkEditProductsModal from "./modals/BulkEditProductsModal/BulkEditProductsModal"
+import { Store } from "@/constants/store"
 
 interface Product {
   _id: string
@@ -289,7 +290,7 @@ const ProductsTable = ({ stringifiedProducts }: { stringifiedProducts: string })
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = "sveamoda_catalog_client.xml";
+      a.download = `${Store.name}_catalog_client.xml`;
       document.body.appendChild(a);
       a.click();
 

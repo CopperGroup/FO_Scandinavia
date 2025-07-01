@@ -6,7 +6,8 @@ const storeSchema = new mongoose.Schema({
             name: String,
             settings: String
         }
-    ]
+    ],
+    local: { type: String, default:'{"delivery":{"novapost":{"warehouses":[]}}}'}
 })
 
 const Store = mongoose.models.Store || mongoose.model("Store", storeSchema);

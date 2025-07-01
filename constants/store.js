@@ -2,9 +2,9 @@ export const Store = {
     name: "Nordiva",
     currency: "UAH",
     currency_sign: "₴",
-    domain: "https://nordiva.vercel.app",
+    domain: "https://nordiva.com.ua",
     catalog_link: "/catalog?page=1&sort=default",
-    email: "coppergroupstudio@gmail.com",
+    email: "contact@nordiva.com.ua",
     phoneNumber: "",
     "default_image": {
         "product_card": 0,
@@ -20,6 +20,6 @@ export const Store = {
     },
     "catalog_link": "/catalog?page=1&sort=default",
     "additional_emails": {
-        "thank_you": "coppergroupstudio@gmail.com"
+        "thank_you": "thankyou@nordiva.com.ua"
     }
 }
