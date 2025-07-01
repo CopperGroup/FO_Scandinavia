@@ -1,10 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight, ZoomIn } from "lucide-react"
+import { ChevronLeft, ChevronRight, Expand } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 type ProductCarouselProps = {
@@ -50,6 +49,11 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
     }
   }
 
+  // Function to open current image in new tab
+  const handleOpenCurrentImageInNewTab = () => {
+    window.open(images[currentIndex], "_blank", "noopener,noreferrer")
+  }
+
   // Scroll thumbnails left
   const scrollThumbnailsLeft = () => {
     if (thumbnailsContainerRef.current) {
@@ -78,11 +82,9 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (imageContainerRef.current) {
       const { left, top, width, height } = imageContainerRef.current.getBoundingClientRect()
-
       // Calculate relative position (0 to 1)
       const x = (e.clientX - left) / width
       const y = (e.clientY - top) / height
-
       // Update mouse position
       setMousePosition({ x, y })
     }
@@ -116,7 +118,17 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
           onMouseLeave={handleMouseLeave}
           onMouseMove={handleMouseMove}
         >
-          {/* Zoom indicator */}
+          {/* Full Size Button - Opens current image in new tab */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="absolute top-3 right-3 z-50 bg-white/95 backdrop-blur-sm hover:bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200 rounded-full px-3 py-2 text-xs font-medium pointer-events-auto"
+            onClick={handleOpenCurrentImageInNewTab}
+          >
+            <Expand className="h-3 w-3 mr-1.5" />
+            <span className="hidden sm:inline">Повний розмір</span>
+            <span className="sm:hidden">Збільшити</span>
+          </Button>
 
           {/* Main image - contained in its own div with overflow hidden */}
           <div className="absolute inset-0 overflow-hidden">
@@ -142,7 +154,7 @@ export default function ProductImagesCarousel({ images }: ProductCarouselProps) 
 
           {/* Navigation arrows - in a separate layer above the image */}
           {images.length > 1 && (
-            <div className="absolute inset-0 z-50 pointer-events-none">
+            <div className="absolute inset-0 z-40 pointer-events-none">
               <div className="relative w-full h-full flex items-center justify-between px-2 sm:px-4">
                 <Button
                   variant="secondary"

@@ -17,9 +17,9 @@ import type { CategoryType } from "@/lib/types/types"
 import Link from "next/link"
 import ProductImagesCarousel from "../interface/ProductImagesCarousel"
 import ProductVariantSelector from "../interface/ProductVariantSelector"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 
 // Only dynamically import the variant selector which is less critical for initial view
+
 type Review = {
   user: string
   rating: number
@@ -91,6 +91,7 @@ const ProductReviews = ({
             </div>
             <span className="text-xs sm:text-sm text-gray-500">{reviews.length} відгуків</span>
           </div>
+
           <div>
             <h3 className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2">Відгуки покупців</h3>
             <p className="text-sm text-gray-500">
@@ -99,6 +100,7 @@ const ProductReviews = ({
             <p className="text-xs text-gray-500 mt-1">Показано тільки відгуки з рейтингом 3 зірки і вище</p>
           </div>
         </div>
+
         <div className="mt-4 sm:mt-6">
           <a
             href={`/catalog/${productId}/review?name=${encodeURIComponent(productName)}`}
@@ -108,7 +110,7 @@ const ProductReviews = ({
           >
             <Button
               variant="outline"
-              className="font-medium rounded-full px-4 sm:px-8 py-2 sm:py-6 h-auto border-gray-300 hover:border-gray-900 hover:bg-gray-50 w-full sm:w-auto"
+              className="font-medium rounded-full px-4 sm:px-8 py-2 sm:py-6 h-auto border-gray-300 hover:border-gray-900 hover:bg-gray-50 w-full sm:w-auto bg-transparent"
             >
               Написати відгук
             </Button>
@@ -148,6 +150,7 @@ const ProductReviews = ({
                   ))}
                 </div>
               </div>
+
               <time
                 dateTime={review.time}
                 itemProp="datePublished"
@@ -210,7 +213,7 @@ const ProductReviews = ({
           <Button
             variant="outline"
             onClick={handleShowMore}
-            className="font-medium rounded-full px-4 sm:px-8 py-2 sm:py-6 h-auto border-gray-300 hover:border-gray-900 hover:bg-gray-50 w-full sm:w-auto"
+            className="font-medium rounded-full px-4 sm:px-8 py-2 sm:py-6 h-auto border-gray-300 hover:border-gray-900 hover:bg-gray-50 w-full sm:w-auto bg-transparent"
           >
             Показати більше відгуків <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
@@ -233,7 +236,7 @@ const NoReviews = ({ productId, productName }: { productId: string; productName:
     >
       <Button
         variant="outline"
-        className="font-medium rounded-full px-4 sm:px-8 py-2 sm:py-6 h-auto border-gray-300 hover:border-gray-900 hover:bg-gray-50 w-full sm:w-auto mx-4"
+        className="font-medium rounded-full px-4 sm:px-8 py-2 sm:py-6 h-auto border-gray-300 hover:border-gray-900 hover:bg-gray-50 w-full sm:w-auto mx-4 bg-transparent"
       >
         Написати відгук
       </Button>
@@ -281,7 +284,7 @@ export default function ProductPage({
       : 0
 
   // Check if product is in stock (assuming it is for this example)
-  const inStock = true
+  const inStock = product.isAvailable;
 
   // Calculate average rating if filtered reviews exist
   const hasReviews = filteredReviews.length > 0
@@ -304,9 +307,6 @@ export default function ProductPage({
   // Pre-calculate content heights to prevent layout shifts
   const titleHeight = pretifiedName.length > 50 ? "h-[4.5rem] sm:h-[6rem]" : "h-[3rem] sm:h-[4rem]"
   const descriptionPreviewHeight = "h-[4.5rem] sm:h-[5.5rem]"
-
-  const [modalImage, setModalImage] = useState<string | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     setHasMounted(true)
@@ -540,75 +540,6 @@ export default function ProductPage({
               <div className="w-full max-w-full relative">
                 <ProductImagesCarousel images={product.images} />
 
-                {/* Full Image Modal */}
-                <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm hover:bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200 rounded-full px-3 py-2 text-xs font-medium"
-                      onClick={() => {
-                        setModalImage(product.images[0])
-                        setIsModalOpen(true)
-                      }}
-                    >
-                      <Expand className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Повний розмір</span>
-                      <span className="sm:hidden">Збільшити</span>
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-[90vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] xl:max-w-[50vw] max-h-[90vh] p-3 sm:p-4 md:p-6">
-                    <div className="relative w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
-                      {modalImage && isModalOpen && (
-                        <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[75vh] max-h-[600px]">
-                          <Image
-                            src={modalImage || "/placeholder.svg"}
-                            alt={`${pretifiedName} - повний розмір`}
-                            fill
-                            className="object-contain"
-                            quality={95}
-                            priority={false}
-                            sizes="(max-width: 640px) 90vw, (max-width: 768px) 80vw, (max-width: 1024px) 70vw, (max-width: 1280px) 60vw, 50vw"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Image navigation if multiple images */}
-                    {product.images.length > 1 && (
-                      <div className="flex justify-center gap-2 mt-3 sm:mt-4 flex-wrap max-w-full overflow-x-auto pb-2">
-                        {product.images.map((image, index) => (
-                          <Button
-                            key={index}
-                            variant={modalImage === image ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setModalImage(image)}
-                            className={`w-10 h-10 sm:w-12 sm:h-12 p-0 overflow-hidden rounded-lg border-2 transition-all duration-200 flex-shrink-0 ${
-                              modalImage === image
-                                ? "border-gray-900 shadow-md"
-                                : "border-gray-200 hover:border-gray-400"
-                            }`}
-                          >
-                            <Image
-                              src={image || "/placeholder.svg"}
-                              alt={`${pretifiedName} - зображення ${index + 1}`}
-                              width={48}
-                              height={48}
-                              className="w-full h-full object-cover"
-                              sizes="48px"
-                            />
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Close button hint for mobile */}
-                    <div className="sm:hidden text-center mt-2">
-                      <p className="text-xs text-gray-500">Торкніться поза зображенням, щоб закрити</p>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
                 <meta itemProp="image" content={product.images[0]} />
               </div>
             </div>
@@ -633,7 +564,6 @@ export default function ProductPage({
                       Немає в наявності
                     </Badge>
                   )}
-
                   {/* Best Seller Badge - only show if available */}
                   {isBestSeller && product.isAvailable && (
                     <Badge className="bg-orange-100 text-orange-700 border-0 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium flex items-center">
@@ -770,7 +700,7 @@ export default function ProductPage({
                     </Button>
                     <Button
                       variant="outline"
-                      className="w-full py-3 sm:py-4 text-sm sm:text-base font-medium rounded-full"
+                      className="w-full py-3 sm:py-4 text-sm sm:text-base font-medium rounded-full bg-transparent"
                       onClick={() => window.open(`tel:${Store.phoneNumber}`, "_self")}
                     >
                       Зв&apos;язатися з нами
