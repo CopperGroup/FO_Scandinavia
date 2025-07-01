@@ -9,7 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (response.ok) {
           const result  = await response.json();
 
-          filtredProducts = result.data
+          filtredProducts = result
         } else {
         console.error("Failed to fetch catalog for sitemap.");
         }
