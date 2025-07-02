@@ -546,8 +546,8 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({
                   onClick={() => {
                     const phoneNumber = isEditMode ? editedUserData.phoneNumber : order.phoneNumber
                     const formatted = phoneNumber.replace(/\D/g, "")
-                    const number = formatted.startsWith("38") ? `%2B${formatted}` : `%2B38${formatted}`
-                    window.location.href = `viber://contact?number=${number}`
+                    const number = formatted.startsWith("38") ? `${formatted}` : `38${formatted}`
+                    window.location.href = `https://viber://chat?number=${number}`
                   }}
                 >
                   <Send className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
