@@ -284,7 +284,7 @@ export default function ProductPage({
       : 0
 
   // Check if product is in stock (assuming it is for this example)
-  const inStock = product.isAvailable;
+  const inStock = product.isAvailable
 
   // Calculate average rating if filtered reviews exist
   const hasReviews = filteredReviews.length > 0
@@ -299,7 +299,8 @@ export default function ProductPage({
   const canonicalUrl = `${Store.domain}/catalog/${product._id}`
 
   // Extract main category and subcategory for breadcrumbs
-  const mainCategory = product.category[0]
+  // Provide a fallback object for mainCategory if product.category is empty or undefined.
+  const mainCategory = product.category?.[0] || { name: "Без категорії", _id: "uncategorized" }
 
   // For SEO, ensure the page has mounted before rendering client-side only components
   const [hasMounted, setHasMounted] = useState(false)
@@ -457,15 +458,21 @@ export default function ProductPage({
               name: "Головна",
               item: Store.domain,
             },
+            // Only include the category breadcrumb if a valid category exists
+            ...(product.category && product.category.length > 0
+              ? [
+                  {
+                    "@type": "ListItem",
+                    position: 2,
+                    name: mainCategory.name, // Use the safely accessed mainCategory name
+                    item: `${Store.domain}/catalog?categories=${mainCategory._id}`, // Use the safely accessed mainCategory _id
+                  },
+                ]
+              : []),
             {
               "@type": "ListItem",
-              position: 2,
-              name: mainCategory.name,
-              item: `${Store.domain}/catalog?categories=${mainCategory._id}`,
-            },
-            {
-              "@type": "ListItem",
-              position: 3,
+              // Adjust position based on whether category breadcrumb is included
+              position: product.category && product.category.length > 0 ? 3 : 2,
               name: pretifiedName,
               item: canonicalUrl,
             },
@@ -499,7 +506,8 @@ export default function ProductPage({
       <section className="bg-white w-full overflow-x-hidden" lang="uk">
         <ContentView
           productName={pretifiedName}
-          productCategory={product.category[0].name}
+          // Safely access category name, provide default if not available
+          productCategory={mainCategory.name}
           productId={product._id}
           contentType="product"
           value={product.priceToShow}
@@ -513,13 +521,18 @@ export default function ProductPage({
               Каталог
             </Link>
             <ChevronRight className="h-3 w-3 mx-1 sm:mx-2 flex-shrink-0" aria-hidden="true" />
-            <Link
-              href={`/catalog?page=1&sort=default&categories=${product.category[0]._id}`}
-              className="hover:text-gray-900 transition-colors flex-shrink-0"
-            >
-              {product.category[0].name}
-            </Link>
-            <ChevronRight className="h-3 w-3 mx-1 sm:mx-2 flex-shrink-0" aria-hidden="true" />
+            {/* CONDITIONAL RENDERING FOR CATEGORY LINK */}
+            {product.category && product.category.length > 0 && (
+              <>
+                <Link
+                  href={`/catalog?page=1&sort=default&categories=${mainCategory._id}`}
+                  className="hover:text-gray-900 transition-colors flex-shrink-0"
+                >
+                  {mainCategory.name}
+                </Link>
+                <ChevronRight className="h-3 w-3 mx-1 sm:mx-2 flex-shrink-0" aria-hidden="true" />
+              </>
+            )}
             <span
               className="text-gray-900 font-medium truncate max-w-[120px] sm:max-w-[200px] block"
               aria-current="page"

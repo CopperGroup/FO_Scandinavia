@@ -315,7 +315,8 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
       // No full page refresh needed, state update handles it
     } catch (error) {
       console.error("Error generating invoice:", error);
-      toast.error("Не вдалося сформувати накладну. Спробуйте ще раз."); // Sonner error toast
+      toast.error(`Не вдалося сформувати накладну.`); // Sonner error toast
+      toast.error(`Відповідь нової пошти: "${error}"`)
     } finally {
       setIsGeneratingInvoice(false);
     }

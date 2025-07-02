@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 import { revalidatePath } from "next/cache";
 import moment from "moment";
 import clearCache from "./cache";
-import { generateLongPassword } from "../utils";
+import { generateLongPassword, latinToKyrylic } from "../utils";
 import axios from "axios";
 import { Store } from "@/constants/store";
 import { DateTime } from 'luxon';
@@ -2900,165 +2900,251 @@ const NOVA_SENDER_PHONE = process.env.NOVA_SENDER_PHONE
 
 export async function makeNovaPoshtaRequest(payload: any) {
   try {
-    const response = await axios.post(NOVA_POSHTA_API_URL, payload);
-    const { data } = response.data;
-    if (!response.data.success || !data || data.length === 0) {
-      const errorMessage = response.data.errors?.join(', ') || 'Nova Poshta API request failed';
-      console.error('Nova Poshta API Error:', errorMessage, payload);
-      throw new Error(errorMessage);
+    const response = await axios.post(NOVA_POSHTA_API_URL, payload)
+    const apiResponse = response.data // Store the whole data object
+
+    if (!apiResponse.success || !apiResponse.data || apiResponse.data.length === 0) {
+      // Extract error messages from the 'errors' array if available, otherwise use a generic message
+      const errorMessage =
+        apiResponse.errors?.join(", ") || "Nova Poshta API request failed without specific error message."
+      console.error("Nova Poshta API Error:", errorMessage, payload)
+      throw new Error(errorMessage)
     }
-    return data[0];
+    return apiResponse.data[0]
   } catch (error: any) {
-    console.error('Error making Nova Poshta API request:', error);
-    throw error;
+    console.error("Error making Nova Poshta API request:", error)
+    // If it's an Axios error and has a response data, try to extract error messages
+    if (axios.isAxiosError(error) && error.response?.data?.errors) {
+      throw new Error(error.response.data.errors.join(", "))
+    }
+    throw error // Re-throw the original error if it's not from API response
   }
 }
 
-export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string}): Promise<string>;
-export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string}, type: 'json'): Promise<string>;
+export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string }): Promise<string>
+export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string }, type: "json"): Promise<string>
 
-export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string}, type?: 'json') {
-   try {
-      
+export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string }, type?: "json") {
+  try {
     const order = JSON.parse(stringifiedOrder)
 
-    const {
-      name,
-      surname,
-      phoneNumber,
-    } = order;
-  
+    const { name, surname, phoneNumber } = order
+
+    function smartTransliterate(str: string): string {
+      // Assuming latinToKyrylic is correctly defined elsewhere
+      return str.replace(/[A-Za-z]+/g, (match) => latinToKyrylic(match))
+    }
+
+    const cleanedName = smartTransliterate(name)
+    const cleanedSurname = smartTransliterate(surname)
+
     // Step 1: Create the counterparty (recipient)
     const counterpartyFields = {
-      apiKey: process.env.NOVA_POSHTA_API_KEY,  // Your API Key
+      apiKey: process.env.NOVA_POSHTA_API_KEY, // Your API Key
       modelName: "CounterpartyGeneral",
       calledMethod: "save",
       methodProperties: {
-        FirstName: name,
+        FirstName: cleanedName,
         MiddleName: "",
-        LastName: surname,
+        LastName: cleanedSurname,
         Phone: phoneNumber.replace("+38", ""),
-        Email: order.email,  // Assuming `email` is stored on the order
+        Email: order.email, // Assuming `email` is stored on the order
         CounterpartyType: "PrivatePerson",
         CounterpartyProperty: "Recipient",
       },
-    };
-  
-    const counterpartyResponse = await axios.post("https://api.novaposhta.ua/v2.0/json/", counterpartyFields);
-    console.log(counterpartyResponse)
-    const counterpartyData = counterpartyResponse.data;
+    }
 
-    if (!counterpartyData || !counterpartyData.success) throw new Error("Failed to create counterparty");
+    const counterpartyResponse = await axios.post(NOVA_POSHTA_API_URL, counterpartyFields)
+    const counterpartyData = counterpartyResponse.data
 
-    if(type === 'json'){
+    if (!counterpartyData || !counterpartyData.success || !counterpartyData.data || counterpartyData.data.length === 0) {
+      const errorMessage =
+        counterpartyData.errors?.join(", ") || "Failed to create counterparty without specific error message."
+      throw new Error(errorMessage)
+    }
+
+    if (type === "json") {
       return JSON.stringify(counterpartyData.data[0].Ref)
     } else {
       return counterpartyData.data[0].Ref
     }
-   } catch (error: any) {
-     throw new Error(`Error, creating counterparty: ${error.message}`)
-   }
+  } catch (error: any) {
+    console.error("Error creating counterparty:", error)
+    // If it's an Axios error and has a response data, try to extract error messages
+    if (axios.isAxiosError(error) && error.response?.data?.errors) {
+      throw new Error(error.response.data.errors.join(", "))
+    }
+    throw new Error(`Error creating counterparty: ${error.message}`) // Fallback for other errors
+  }
 }
 
-export async function createCounterPartyContact({ stringifiedOrder, ref }: { stringifiedOrder: string, ref: string }): Promise<string>;
-export async function createCounterPartyContact({ stringifiedOrder, ref }: { stringifiedOrder: string, ref: string }, type: 'json'): Promise<string>;
+export async function createCounterPartyContact({
+  stringifiedOrder,
+  ref,
+}: {
+  stringifiedOrder: string
+  ref: string
+}): Promise<string>
+export async function createCounterPartyContact(
+  { stringifiedOrder, ref }: { stringifiedOrder: string; ref: string },
+  type: "json",
+): Promise<string>
 
-export async function createCounterPartyContact({ stringifiedOrder, ref }: { stringifiedOrder: string, ref: string }, type?: 'json') {
-   try {
-    
-  const {
-    name,
-    surname,
-    phoneNumber,
-  } = JSON.parse(stringifiedOrder);
+export async function createCounterPartyContact(
+  { stringifiedOrder, ref }: { stringifiedOrder: string; ref: string },
+  type?: "json",
+) {
+  try {
+    const { name, surname, phoneNumber } = JSON.parse(stringifiedOrder)
 
     const contactPersonFields = {
-      apiKey: process.env.NOVA_POSHTA_API_KEY,  // Your API Key
+      apiKey: process.env.NOVA_POSHTA_API_KEY, // Your API Key
       modelName: "ContactPersonGeneral",
       calledMethod: "save",
       methodProperties: {
-        CounterpartyRef: ref,  // Use the counterparty's reference
+        CounterpartyRef: ref, // Use the counterparty's reference
         FirstName: name,
         LastName: surname,
-        MiddleName: "",  // Assuming this is part of the contact person details
+        MiddleName: "", // Assuming this is part of the contact person details
         Phone: phoneNumber,
       },
-    };
-  
-    const contactPersonResponse = await axios.post("https://api.novaposhta.ua/v2.0/json/", contactPersonFields);
-    const contactPersonData = contactPersonResponse.data;
-  
-    if (!contactPersonData || !contactPersonData.success) throw new Error("Failed to create contact person");
+    }
 
+    const contactPersonResponse = await axios.post(NOVA_POSHTA_API_URL, contactPersonFields)
+    const contactPersonData = contactPersonResponse.data
 
-    if(type === 'json'){
+    if (
+      !contactPersonData ||
+      !contactPersonData.success ||
+      !contactPersonData.data ||
+      contactPersonData.data.length === 0
+    ) {
+      const errorMessage =
+        contactPersonData.errors?.join(", ") || "Failed to create contact person without specific error message."
+      throw new Error(errorMessage)
+    }
+
+    if (type === "json") {
       return JSON.stringify(contactPersonData.data[0].Ref)
     } else {
       return contactPersonData.data[0].Ref
     }
-   } catch (error: any) {
-     throw new Error(`Error creating counterparty contact: ${error.message}`)
-   }
+  } catch (error: any) {
+    console.error("Error creating counterparty contact:", error)
+    // If it's an Axios error and has a response data, try to extract error messages
+    if (axios.isAxiosError(error) && error.response?.data?.errors) {
+      throw new Error(error.response.data.errors.join(", "))
+    }
+    throw new Error(`Error creating counterparty contact: ${error.message}`)
+  }
 }
 
+export async function calculateDeliveryCost({
+  stringifiedOrder,
+  senderCityRef,
+}: {
+  stringifiedOrder: string
+  senderCityRef: string
+}): Promise<string>
+export async function calculateDeliveryCost(
+  { stringifiedOrder, senderCityRef }: { stringifiedOrder: string; senderCityRef: string },
+  type: "json",
+): Promise<string>
 
-export async function calculateDeliveryCost({ stringifiedOrder, senderCityRef }: { stringifiedOrder: string, senderCityRef: string }): Promise<string>;
-export async function calculateDeliveryCost({ stringifiedOrder, senderCityRef }: { stringifiedOrder: string, senderCityRef: string }, type: 'json'): Promise<string>;
+export async function calculateDeliveryCost(
+  { stringifiedOrder, senderCityRef }: { stringifiedOrder: string; senderCityRef: string },
+  type?: "json",
+) {
+  try {
+    const { deliveryMethod, cityRef, value } = JSON.parse(stringifiedOrder)
 
-export async function calculateDeliveryCost({ stringifiedOrder, senderCityRef }: { stringifiedOrder: string, senderCityRef: string }, type?: 'json') {
-   try {
-
-    const {
-      deliveryMethod,
-      cityRef,
-      value,
-    } = JSON.parse(stringifiedOrder);
-
-    const response = await fetch('https://api.novaposhta.ua/v2.0/json/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const requestBody = {
+      apiKey: process.env.NOVA_POSHTA_API_KEY,
+      modelName: "InternetDocumentGeneral",
+      calledMethod: "getDocumentPrice",
+      methodProperties: {
+        Weight: "1", // weight in kg
+        CitySender: senderCityRef,
+        CityRecipient: cityRef,
+        ServiceType: deliveryMethod === "Нова пошта (Поштомат)" ? "DoorsWarehouse" : "WarehouseWarehouse", // service type
+        Cost: value.toFixed(0),
+        CargoType: "Cargo",
+        SeatsAmount: "1",
+        // RedeliveryCalculate : {
+        //   CargoType: "Money",
+        //   Amount: value.toFixed(0)
+        // },
       },
-      body: JSON.stringify({
-        apiKey: process.env.NOVA_POSHTA_API_KEY,
-        modelName: "InternetDocumentGeneral",
-        calledMethod: "getDocumentPrice",
-        methodProperties: {
-          Weight: "1",  // weight in kg
-          CitySender: senderCityRef,
-          CityRecipient: cityRef,
-          ServiceType: deliveryMethod === "Нова пошта (Поштомат)" ? "DoorsWarehouse" : "WarehouseWarehouse", // service type
-          Cost : value.toFixed(0),
-          CargoType : "Cargo",
-          SeatsAmount : "1",
-          // RedeliveryCalculate : {
-          //   CargoType: "Money",
-          //   Amount: value.toFixed(0)
-          // },
-        }
-      }),
-    });
-  
-    if (!response.ok) {
-      throw new Error('Failed to fetch shipment cost');
     }
-  
-    const data = await response.json();
 
-    if(type === 'json'){
+    const response = await fetch(NOVA_POSHTA_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    const data = await response.json() // Parse JSON from fetch response
+
+    if (!response.ok || !data.success || !data.data || data.data.length === 0) {
+      const errorMessage = data.errors?.join(", ") || "Failed to calculate shipment cost without specific error message."
+      throw new Error(errorMessage)
+    }
+
+    if (type === "json") {
       return JSON.stringify(data.data[0].Cost)
     } else {
       return data.data[0].Cost
     }
-   } catch (error: any) {
-     throw new Error(`Error calculating shipmnet cost: ${error.message}`)
-   }
+  } catch (error: any) {
+    console.error("Error calculating shipment cost:", error)
+    // If it's a network error or fetch throws, re-throw with a generic message or original error
+    if (error instanceof Error) {
+      throw error // Re-throw if it's already an Error object
+    }
+    throw new Error(`Error calculating shipment cost: ${error.message}`)
+  }
 }
 
-export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }): Promise<any>;
-export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }, type: 'json'): Promise<string>;
+export async function generateInvoice({
+  stringifiedOrder,
+  counterPartyRef,
+  contactRef,
+  deliveryCost,
+  senderCityRef,
+  senderWarehouseRef,
+}: {
+  stringifiedOrder: string
+  counterPartyRef: string
+  contactRef: string
+  deliveryCost: string
+  senderCityRef: string
+  senderWarehouseRef: string
+}): Promise<any>
+export async function generateInvoice(
+  {
+    stringifiedOrder,
+    counterPartyRef,
+    contactRef,
+    deliveryCost,
+    senderCityRef,
+    senderWarehouseRef,
+  }: { stringifiedOrder: string; counterPartyRef: string; contactRef: string; deliveryCost: string; senderCityRef: string; senderWarehouseRef: string },
+  type: "json",
+): Promise<string>
 
-export async function generateInvoice({ stringifiedOrder, counterPartyRef, contactRef, deliveryCost, senderCityRef, senderWarehouseRef }: { stringifiedOrder: string, counterPartyRef: string, contactRef: string , deliveryCost: string, senderCityRef: string, senderWarehouseRef: string }, type?: 'json') {
+export async function generateInvoice(
+  {
+    stringifiedOrder,
+    counterPartyRef,
+    contactRef,
+    deliveryCost,
+    senderCityRef,
+    senderWarehouseRef,
+  }: { stringifiedOrder: string; counterPartyRef: string; contactRef: string; deliveryCost: string; senderCityRef: string; senderWarehouseRef: string },
+  type?: "json",
+) {
   try {
     const {
       _id,
@@ -3068,11 +3154,11 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
       warehouseIndex,
       value,
       phoneNumber,
-      paymentType // <- Add paymentType here
-    } = JSON.parse(stringifiedOrder);
+      paymentType, // <- Add paymentType here
+    } = JSON.parse(stringifiedOrder)
 
     function getFormattedDateTime(): string {
-      return DateTime.now().setZone('Europe/Kiev').toFormat('dd.MM.yyyy');
+      return DateTime.now().setZone("Europe/Kiev").toFormat("dd.MM.yyyy")
     }
 
     const methodProperties: Record<string, any> = {
@@ -3103,10 +3189,10 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
           volumetricWidth: "20",
           volumetricLength: "20",
           volumetricHeight: "20",
-          weight: "1"
-        }
-      ]
-    };
+          weight: "1",
+        },
+      ],
+    }
 
     // ✅ Add backward delivery if NOT 'За реквізитами'
     if (paymentType !== "За реквізитами") {
@@ -3114,39 +3200,42 @@ export async function generateInvoice({ stringifiedOrder, counterPartyRef, conta
         {
           PayerType: "Recipient",
           CargoType: "Money",
-          RedeliveryString: value.toFixed(0)
-        }
-      ];
+          RedeliveryString: value.toFixed(0),
+        },
+      ]
     }
 
     const baseFields = {
       apiKey: process.env.NOVA_POSHTA_API_KEY,
       modelName: "InternetDocumentGeneral",
       calledMethod: "save",
-      methodProperties
-    };
+      methodProperties,
+    }
 
-    const response = await axios.post("https://api.novaposhta.ua/v2.0/json/", baseFields);
-    console.log(response)
-    const { data } = response.data;
+    const response = await axios.post(NOVA_POSHTA_API_URL, baseFields)
+    const apiResponse = response.data
 
-    console.log(data)
-    if (!data || !data[0]) throw new Error("Failed to create invoice");
+    if (!apiResponse.success || !apiResponse.data || apiResponse.data.length === 0) {
+      const errorMessage = apiResponse.errors?.join(", ") || "Failed to create invoice without specific error message."
+      throw new Error(errorMessage)
+    }
 
     await Order.findByIdAndUpdate(_id, {
-      invoice: JSON.stringify(data[0])
-    });
+      invoice: JSON.stringify(apiResponse.data[0]),
+    })
 
-    return type === 'json' ? JSON.stringify(data[0]) : data[0];
-
+    return type === "json" ? JSON.stringify(apiResponse.data[0]) : apiResponse.data[0]
   } catch (error: any) {
-    throw new Error(`Error generating invoice: ${error.message}`);
+    console.error("Error generating invoice:", error)
+    // If it's an Axios error and has a response data, try to extract error messages
+    if (axios.isAxiosError(error) && error.response?.data?.errors) {
+      throw new Error(error.response.data.errors.join(", "))
+    }
+    throw new Error(`Error generating invoice: ${error.message}`)
   }
 }
 
 export async function getInvoiceDetails(documentNumber: string, phone?: string) {
-
-  // console.log(documentNumber)
   const requestData = {
     apiKey: process.env.NOVA_POSHTA_API_KEY,
     modelName: "TrackingDocument",
@@ -3155,23 +3244,28 @@ export async function getInvoiceDetails(documentNumber: string, phone?: string) 
       Documents: [
         {
           DocumentNumber: documentNumber,
-          ...(phone && { Phone: phone }) // optionally include Phone if available
-        }
-      ]
-    }
+          ...(phone && { Phone: phone }), // optionally include Phone if available
+        },
+      ],
+    },
   }
 
   try {
-    const response = await axios.post("https://api.novaposhta.ua/v2.0/json/", requestData)
+    const response = await axios.post(NOVA_POSHTA_API_URL, requestData)
     const { data, success, errors } = response.data
 
     if (!success || !data || data.length === 0) {
-      throw new Error(errors?.join(", ") || "Failed to fetch invoice details")
+      const errorMessage = errors?.join(", ") || "Failed to fetch invoice details without specific error message."
+      throw new Error(errorMessage)
     }
 
     return data[0]
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching invoice details:", error)
+    // If it's an Axios error and has a response data, try to extract error messages
+    if (axios.isAxiosError(error) && error.response?.data?.errors) {
+      throw new Error(error.response.data.errors.join(", "))
+    }
     throw error
   }
 }
