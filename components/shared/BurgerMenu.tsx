@@ -17,7 +17,7 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
     { label: "Головна", href: "/" },
     { label: "Каталог", href: "/catalog?page=1&sort=default" },
     { label: "Уподобані", href: `/liked/${userInfo?._id}` },
-    { label: "Мої замовлення", href: "/myOrders" },
+    { label: "Мої замовлення", href: `/myOrders/user/${userInfo?._id}` },
     { label: "Контакти", href: "/info/contacts" },
   ]
 
