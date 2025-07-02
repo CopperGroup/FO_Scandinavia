@@ -388,7 +388,7 @@ export async function sendAdminOrderNotification(order: any) {
                     </div>
                 </div>
                 
-                <a href="${Store.domain}/admin/orders/${
+                <a href="${Store.domain}/admin/Orders/${
                   order.id
                 }" class="action-button" target="_blank">Переглянути замовлення</a>
             </div>
