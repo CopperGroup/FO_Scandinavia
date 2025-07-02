@@ -19,9 +19,6 @@ export default function BurgerMenu({ email, user }: { email: string; user: strin
     { label: "Уподобані", href: `/liked/${userInfo?._id}` },
     { label: "Мої замовлення", href: "/myOrders" },
     { label: "Контакти", href: "/info/contacts" },
-    { label: "Доставка та оплата", href: "/info/delivery-payment" },
-    { label: "Гарантія та сервіси", href: "/info/warranty-services" },
-    { label: "Презентації", href: "/info/presentations" },
   ]
 
   useEffect(() => {
