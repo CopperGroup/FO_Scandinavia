@@ -712,3 +712,49 @@ export function kyrylicToLatinUrl(kyrylicString: string): string {
   }
   return latinString;
 }
+
+export function latinToKyrylic(latinString: string): string {
+  const reverseMapping: { [key: string]: string } = {
+    'shch': 'щ', 'zh': 'ж', 'kh': 'х', 'ts': 'ц', 'ch': 'ч',
+    'sh': 'ш', 'ye': 'є', 'yi': 'ї', 'yu': 'ю', 'ya': 'я',
+    'yo': 'ьо', 'j': 'й',
+    'a': 'а', 'b': 'б', 'v': 'в', 'h': 'г', 'g': 'ґ',
+    'd': 'д', 'e': 'е', 'z': 'з', 'y': 'и', 'i': 'і',
+    'k': 'к', 'l': 'л', 'm': 'м', 'n': 'н', 'o': 'о',
+    'p': 'п', 'r': 'р', 's': 'с', 't': 'т', 'u': 'у',
+    'f': 'ф',
+
+    'Shch': 'Щ', 'Zh': 'Ж', 'Kh': 'Х', 'Ts': 'Ц', 'Ch': 'Ч',
+    'Sh': 'Ш', 'Ye': 'Є', 'Yi': 'Ї', 'Yu': 'Ю', 'Ya': 'Я',
+    'J': 'Й',
+    'A': 'А', 'B': 'Б', 'V': 'В', 'H': 'Г', 'G': 'Ґ',
+    'D': 'Д', 'E': 'Е', 'Z': 'З', 'Y': 'И', 'I': 'І',
+    'K': 'К', 'L': 'Л', 'M': 'М', 'N': 'Н', 'O': 'О',
+    'P': 'П', 'R': 'Р', 'S': 'С', 'T': 'Т', 'U': 'У',
+    'F': 'Ф'
+  };
+
+  const keys = Object.keys(reverseMapping).sort((a, b) => b.length - a.length);
+  let result = '';
+  let i = 0;
+
+  while (i < latinString.length) {
+    let matched = false;
+
+    for (const key of keys) {
+      if (latinString.startsWith(key, i)) {
+        result += reverseMapping[key];
+        i += key.length;
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      result += latinString[i]; // Keep unknown characters
+      i++;
+    }
+  }
+
+  return result;
+}
