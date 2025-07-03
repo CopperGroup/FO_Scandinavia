@@ -1,8 +1,11 @@
 "use client"
 
 import Link from "next/link"
+
 import { Store } from "@/constants/store"
+
 import { useEffect, useState } from "react"
+
 import { transformPageDataInputs } from "@/lib/utils"
 
 interface FooterProps {
@@ -26,18 +29,17 @@ const Footer = ({ stringifiedData }: FooterProps) => {
   return (
     <footer className="bg-[#006AA7] text-white z-40 pt-16 pb-8 w-full min-w-[320px]">
       <div className="max-w-screen-2xl mx-auto px-4 lg:px-8 w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          <div className="w-full">
-            <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Фіз. особам</h3>
-            <ul className="space-y-3">
-              <li>
-                <Link href="info/contacts" className="text-white hover:text-[#FECC02] transition-colors duration-300">
-                  Контакти
-                </Link>
-              </li>
-            </ul>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+          {/* First column - Horizontal lines (desktop only) */}
+          <div className="hidden lg:flex w-full justify-center items-start pt-8">
+            <div className="flex flex-col space-y-4 drop-shadow-lg">
+              <div className="w-20 h-1 bg-[#FECC02]"></div>
+              <div className="w-20 h-1 bg-[#FECC02]"></div>
+              <div className="w-20 h-1 bg-[#FECC02]"></div>
+            </div>
           </div>
 
+          {/* Second column - Каталоги */}
           <div className="w-full">
             <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Каталоги</h3>
             <ul className="space-y-3">
@@ -80,6 +82,7 @@ const Footer = ({ stringifiedData }: FooterProps) => {
             </ul>
           </div>
 
+          {/* Third column - Контакти */}
           <div className="w-full">
             <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Контакти</h3>
             <div className="space-y-3">
@@ -91,6 +94,15 @@ const Footer = ({ stringifiedData }: FooterProps) => {
               </p>
             </div>
           </div>
+
+          {/* Fourth column - Horizontal lines (desktop only) */}
+          <div className="hidden lg:flex w-full justify-center items-start pt-8">
+            <div className="flex flex-col space-y-4 drop-shadow-lg">
+              <div className="w-20 h-1 bg-[#FECC02]"></div>
+              <div className="w-20 h-1 bg-[#FECC02]"></div>
+              <div className="w-20 h-1 bg-[#FECC02]"></div>
+            </div>
+          </div>
         </div>
 
         <div className="border-t border-[#004d7a] pt-8 mt-8 w-full">
@@ -98,6 +110,7 @@ const Footer = ({ stringifiedData }: FooterProps) => {
             <p className="text-small-regular text-[#e0e0e0] mb-4 lg:mb-0 text-center lg:text-left">
               © {currentYear} <span className="font-semibold text-[#FECC02]">{Store.name}</span>. Всі права захищені.
             </p>
+
             <div className="flex flex-col items-center lg:items-end space-y-2 lg:space-y-0">
               <p className="text-xs text-[#e0e0e0] mt-1">Розроблено з ❤️ в Україні</p>
             </div>
