@@ -264,16 +264,24 @@ export async function fetchAllProducts() {
     }
 }
 
-export async function fetchProducts(){
-    try {
-        connectToDB();
+export async function fetchProducts() {
+  try {
+    connectToDB();
 
-        const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID }}).select("_id id vendor name isAvailable price priceToShow category articleNumber quantity createdAt updatedAt").lean();
-        
-        return JSON.stringify(products)
-    } catch (error:any) {
-        throw new Error(`Error fetching products, ${error.message}`)
-    }
+    const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID } })
+      .select("_id id vendor name isAvailable price priceToShow images category articleNumber quantity createdAt updatedAt")
+      .lean();
+
+    // Keep only the first image for each product
+    const processedProducts = products.map(product => ({
+      ...product,
+      images: product.images?.length ? [product.images[0]] : []
+    }));
+
+    return JSON.stringify(processedProducts);
+  } catch (error: any) {
+    throw new Error(`Error fetching products, ${error.message}`);
+  }
 }
 
 export async function fetchProductsByBatches(limit: number = 500, skip: number = 0) {

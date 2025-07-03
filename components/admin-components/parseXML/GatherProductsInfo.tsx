@@ -47,7 +47,6 @@ export default function GatherProductsInfo() {
                 if (result) {
                   setFetchedResult(result);
                 } else {
-                  console.log("No valid data returned.");
                 }
             } catch (error) {
                 console.error('Error fetching products:', error);

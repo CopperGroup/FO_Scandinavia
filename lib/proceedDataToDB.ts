@@ -37,7 +37,7 @@ async function processInBatches<T>(
         if (operationCount > 0 && operationCount % batchSize === 0) {
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
-        console.log(item)
+        // console.log(item)
         await asyncOperation(item);
         operationCount++;
     }
