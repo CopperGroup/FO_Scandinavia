@@ -59,18 +59,18 @@ const ProductActionsBar: React.FC<ProductActionsBarProps> = ({
         </div>
         <div className="flex gap-2 flex-wrap"> {/* Added flex-wrap for better mobile layout */}
           <Button
-            variant={viewMode === "table" ? "secondary" : "outline"}
+            variant={viewMode === "table" ? "default" : "outline"}
             size="sm"
-            className="border-slate-200 text-slate-700 hover:bg-slate-50 text-small-medium bg-transparent"
+            className={`border-slate-200 hover:bg-slate-50 text-small-medium ${viewMode === "table" ? "text-white" : "text-slate-700"}`}
             onClick={() => onViewModeChange("table")}
             aria-label="Переглянути таблицею"
           >
             <TableIcon className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === "grid" ? "secondary" : "outline"}
+            variant={viewMode === "grid" ? "default" : "outline"}
             size="sm"
-            className="border-slate-200 text-slate-700 hover:bg-slate-50 text-small-medium bg-transparent"
+            className={`border-slate-200 hover:bg-slate-50 text-small-medium ${viewMode === "grid" ? "text-white" : "text-slate-700"}`}
             onClick={() => onViewModeChange("grid")}
             aria-label="Переглянути сіткою"
           >

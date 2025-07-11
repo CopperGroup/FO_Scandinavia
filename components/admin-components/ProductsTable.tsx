@@ -1,9 +1,9 @@
+// app/(root)/products/ProductsTable.tsx
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card } from "@/components/ui/card"; // Only need Card for the main wrapper now
-// Re-import shared types/actions/constants
+import { Card } from "@/components/ui/card";
 import { fetchAllCategories } from "@/lib/actions/categories.actions";
 import { fetchProductsByBatches } from "@/lib/actions/product.actions";
 import { Store } from "@/constants/store";
@@ -22,7 +22,6 @@ import DateFilterModal from "./products/DateFilterModal";
 import { generateFullCatalogXmlOnClient } from "@/lib/xml-parser/export";
 import SortModal from "./products/SortModal";
 
-// IMPORTANT: Define or import Product type here if not already in a shared file
 interface Product {
   _id: string;
   id: string;
@@ -31,14 +30,13 @@ interface Product {
   isAvailable: boolean;
   price: number;
   priceToShow: number;
-  category: string; // Assuming category is a string ID or name
+  category: string;
   articleNumber: string;
   createdAt?: string;
   updatedAt?: string;
-  images: string[]; // Ensure this is present
+  images: string[];
 }
 
-// Define filter and initial filter types here
 interface PriceFilter { min: string; max: string; }
 interface DateFilter { from: string; to: string; }
 interface FilterState {
@@ -88,15 +86,13 @@ const ProductsTable = ({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // State management for main view
   const [pageNumber, setPageNumber] = useState(initialFilters.page);
   const [viewMode, setViewMode] = useState<"table" | "grid">(initialFilters.viewMode || "table");
   const [inputValue, setInputValue] = useState(initialFilters.search);
   const [searchField, setSearchField] = useState(initialFilters.searchField);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
-  const [isMobileView, setIsMobileView] = useState(false); // For responsive rendering of cards/table
+  const [isMobileView, setIsMobileView] = useState(false);
 
-  // Modals and their related states
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStage, setExportStage] = useState("");
@@ -105,28 +101,21 @@ const ProductsTable = ({
   const [isSortModalOpen, setIsSortModalOpen] = useState(false);
   const [isDateFilterModalOpen, setIsDateFilterModalOpen] = useState(false);
 
-
-  // Filter states
   const [filters, setFilters] = useState<FilterState>({
     price: { min: initialFilters.priceMin || "", max: initialFilters.priceMax || "" },
     createdAt: { from: initialFilters.createdFrom || "", to: initialFilters.createdTo || "" },
     updatedAt: { from: initialFilters.updatedFrom || "", to: initialFilters.updatedTo || "" },
   });
 
-  // Temporary date filter state for modal
   const [tempDateFilters, setTempDateFilters] = useState<FilterState>(filters);
 
-  // Sort state
   const [sortConfig, setSortConfig] = useState<{
     field: string;
     direction: "asc" | "desc";
   } | null>(initialFilters.sortField ? { field: initialFilters.sortField, direction: initialFilters.sortDirection } : null);
 
-  // Common formatter for prices
   const formatter = useMemo(() => new Intl.NumberFormat("uk-UA", { style: "currency", currency: "UAH", currencyDisplay: "code" }), []);
 
-
-  // --- Callbacks for URL and State Synchronization ---
 
   const updateSearchParams = useCallback(
     (updates: Partial<InitialFilters>) => {
@@ -144,39 +133,34 @@ const ProductsTable = ({
     [router, searchParams]
   );
 
-  // Effect to apply filters/search and update URL, resetting page to 1
   useEffect(() => {
-    // Only update URL if there are actual filter/search changes
     const currentParams = Object.fromEntries(searchParams.entries());
     const newFilterParams: Partial<InitialFilters> = {
-        search: inputValue,
-        searchField: searchField,
-        priceMin: filters.price.min,
-        priceMax: filters.price.max,
-        createdFrom: filters.createdAt.from,
-        createdTo: filters.createdAt.to,
-        updatedFrom: filters.updatedAt.from,
-        updatedTo: filters.updatedAt.to,
+      search: inputValue,
+      searchField: searchField,
+      priceMin: filters.price.min,
+      priceMax: filters.price.max,
+      createdFrom: filters.createdAt.from,
+      createdTo: filters.createdAt.to,
+      updatedFrom: filters.updatedAt.from,
+      updatedTo: filters.updatedAt.to,
     };
 
     const hasFilterChanged = Object.entries(newFilterParams).some(([key, value]) => {
-        // Compare new filter value with current URL param value
-        return String(value || '') !== String(currentParams[key] || '');
+      return String(value || '') !== String(currentParams[key] || '');
     });
 
     if (hasFilterChanged) {
-        updateSearchParams({
-            ...newFilterParams,
-            page: 1 // Always reset to page 1 when filters or search change
-        });
+      updateSearchParams({
+        ...newFilterParams,
+        page: 1
+      });
     }
-  }, [inputValue, searchField, filters, updateSearchParams, searchParams]); // Add searchParams to dependencies
+  }, [inputValue, searchField, filters, updateSearchParams, searchParams]);
 
 
-  // Effect to sync page number and view mode from URL
   useEffect(() => {
     const urlPage = Number.parseInt(searchParams.get("page") || "1");
-    // Only update state if the URL param is different from current state
     if (urlPage !== pageNumber) {
       setPageNumber(urlPage);
     }
@@ -185,10 +169,7 @@ const ProductsTable = ({
     if (urlViewMode !== viewMode) {
       setViewMode(urlViewMode);
     }
-  }, [searchParams]); // Depend only on searchParams
-
-
-  // --- Derived States (useMemo) ---
+  }, [searchParams]);
 
   const availableProducts = useMemo(() => products.filter((p) => p.isAvailable).length, [products]);
   const discountedProducts = useMemo(() => products.filter((p) => p.priceToShow < p.price).length, [products]);
@@ -298,8 +279,6 @@ const ProductsTable = ({
   }, [inputValue, filters]);
 
 
-  // --- Event Handlers ---
-
   const toggleProductSelection = (productId: string) => {
     setSelectedProducts((prev) => {
       const newSet = new Set(prev);
@@ -334,39 +313,36 @@ const ProductsTable = ({
       updatedAt: { from: "", to: "" },
     });
     setInputValue("");
-    // The useEffect that listens to filter changes will reset the page to 1
   };
 
   const handleSort = (field: string, direction: "asc" | "desc") => {
     setSortConfig({ field, direction });
     setIsSortModalOpen(false);
-    updateSearchParams({ sortField: field, sortDirection: direction, page: 1 }); // Explicitly reset page to 1
+    updateSearchParams({ sortField: field, sortDirection: direction, page: 1 });
   };
 
   const clearSort = () => {
     setSortConfig(null);
     setIsSortModalOpen(false);
-    updateSearchParams({ sortField: "", sortDirection: "asc", page: 1 }); // Explicitly reset page to 1
+    updateSearchParams({ sortField: "", sortDirection: "asc", page: 1 });
   };
 
   const handlePageChange = (newPage: number) => {
-    // Only update the page URL parameter
     updateSearchParams({ page: newPage });
   };
 
   const handleViewModeChange = (mode: "table" | "grid") => {
     setViewMode(mode);
-    updateSearchParams({ viewMode: mode, page: 1 }); // Reset page to 1 when changing view mode
+    updateSearchParams({ viewMode: mode, page: 1 });
   };
 
   const handleDateFilterApply = () => {
     setFilters(tempDateFilters);
     setIsDateFilterModalOpen(false);
-    // The useEffect that listens to filter changes will reset the page to 1
   };
 
   const handleDateFilterCancel = () => {
-    setTempDateFilters(filters); // Revert to currently applied filters
+    setTempDateFilters(filters);
     setIsDateFilterModalOpen(false);
   };
 
@@ -375,9 +351,8 @@ const ProductsTable = ({
       createdAt: { from: "", to: "" },
       updatedAt: { from: "", to: "" },
     };
-    setTempDateFilters(prev => ({ ...prev, ...clearedDates })); // Clear in modal temp state
-    setFilters(prev => ({ ...prev, ...clearedDates })); // Apply clear to main filters immediately
-    // The useEffect that listens to filter changes will reset the page to 1
+    setTempDateFilters(prev => ({ ...prev, ...clearedDates }));
+    setFilters(prev => ({ ...prev, ...clearedDates }));
   };
 
   const updateTempDateFilter = (filterType: "createdAt" | "updatedAt", field: "from" | "to", value: string) => {
@@ -387,7 +362,8 @@ const ProductsTable = ({
     }));
   };
 
-  const handleExportXml = async () => {
+  // Modified handleExportXml to accept a boolean argument
+  const handleExportXml = async (exportSelected: boolean) => {
     try {
       setIsExporting(true);
       setExportProgress(10);
@@ -397,14 +373,36 @@ const ProductsTable = ({
         throw new Error("Дані про товари не знайдено або вони некоректні.");
       }
 
-      if (products.length === 0) {
+      let productsToExport: Product[] = [];
+      if (exportSelected && selectedProducts.size > 0) {
+        // Filter products based on selectedProductIds
+        productsToExport = products.filter(product => selectedProducts.has(product._id));
+      } else {
+        // Export all products if no selection or exportSelected is false
+        // Fetch all products from the server to ensure we have the complete, unfiltered list
+        setExportProgress(30);
+        setExportStage("Отримання всіх товарів з сервера...");
+        const allFetchedProducts: Product[] = [];
+        const batchSize = 500;
+        let skip = 0;
+        let batch: Product[] = [];
+        do {
+          const raw = await fetchProductsByBatches(batchSize, skip);
+          batch = JSON.parse(raw);
+          allFetchedProducts.push(...batch);
+          skip += batchSize;
+        } while (batch.length === batchSize);
+        productsToExport = allFetchedProducts;
+      }
+
+      if (productsToExport.length === 0) {
         setExportStage("Немає товарів для експорту.");
         setTimeout(() => { setIsExporting(false); setExportProgress(0); setExportStage(""); }, 2000);
         return;
       }
 
       await new Promise((resolve) => setTimeout(resolve, 200));
-      setExportProgress(30);
+      setExportProgress(30); // Adjust based on whether products were fetched or already available
       setExportStage("Отримання категорій...");
       const categoriesJsonString = await fetchAllCategories("json");
       const rawCategories: CategoryType[] = JSON.parse(categoriesJsonString);
@@ -412,22 +410,9 @@ const ProductsTable = ({
         throw new Error("Не вдалося завантажити або обробити категорії.");
       }
 
-      setExportProgress(30); // Reset or keep 30, it's fine.
-      setExportStage("Отримання всіх товарів з сервера...");
-      const allProducts: any[] = [];
-      const batchSize = 500;
-      let skip = 0;
-      let batch: any[] = [];
-      do {
-        const raw = await fetchProductsByBatches(batchSize, skip);
-        batch = JSON.parse(raw);
-        allProducts.push(...batch);
-        skip += batchSize;
-      } while (batch.length === batchSize);
-
       setExportProgress(60);
       setExportStage("Генерація XML файлу на вашому пристрої...");
-      const xmlString = generateFullCatalogXmlOnClient(rawCategories, allProducts);
+      const xmlString = generateFullCatalogXmlOnClient(rawCategories, productsToExport); // Use productsToExport
       if (!xmlString) {
         throw new Error("Помилка під час генерації XML файлу.");
       }
@@ -454,20 +439,21 @@ const ProductsTable = ({
     }
   };
 
-  // Effect for mobile view detection
   useEffect(() => {
     const handleResize = () => {
       setIsMobileView(window.innerWidth < 640);
     };
-    handleResize(); // Set initial state
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-
   return (
     <div className="space-y-4 sm:space-y-6 w-full">
-      <ProductsHeader onExportXml={handleExportXml} />
+      <ProductsHeader
+        onExportXml={handleExportXml}
+        selectedProductsCount={selectedProducts.size} // Pass the count here
+      />
       <ProductStatsCards
         totalProducts={products.length}
         availableProducts={availableProducts}
@@ -482,11 +468,11 @@ const ProductsTable = ({
           sortConfig={sortConfig}
           sortFields={sortFields}
           selectedProductsCount={selectedProducts.size}
-          allProductsCount={products.length} // Pass allProductsCount for select all toggle
+          allProductsCount={products.length}
           onSearchChange={setInputValue}
           onSearchFieldChange={setSearchField}
           onBulkEditClick={() => setIsBulkEditModalOpen(true)}
-          onDeleteSelected={() => setSelectedProducts(new Set())} // Clear selections after delete
+          onDeleteSelected={() => setSelectedProducts(new Set())}
           onSortClick={() => setIsSortModalOpen(true)}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
