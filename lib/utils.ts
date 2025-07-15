@@ -563,6 +563,12 @@ export function groupProducts(
   const TARGET_PRODUCT_NAME = "Чоботи Tretorn гумові 44 Синій 1518326-04-44";
   let productThatGroupedTarget: ProductType | null = null;
 
+  // --- START: Added hardcoded list of article numbers that should never be grouped ---
+  const NEVER_GROUP_ARTICLE_NUMBERS = new Set([
+    "X-t3",
+  ]);
+  // --- END ---
+
   // We need to sort consistently to ensure the same product is always the "first" for a group
   return products.sort((a, b) => {
     const articleA = a.articleNumber || '';
@@ -576,6 +582,13 @@ export function groupProducts(
   }).filter((product) => {
     const { articleNumber, name, category } = product;
     const isTargetProduct = name === TARGET_PRODUCT_NAME;
+
+    // --- START: Logic to prevent grouping for hardcoded article numbers ---
+    if (articleNumber && NEVER_GROUP_ARTICLE_NUMBERS.has(articleNumber)) {
+      return true; // Always keep products with these specific article numbers
+    }
+    // --- END ---
+
     if (typeof articleNumber !== "string" || typeof name !== "string" || !Array.isArray(category) || category.length === 0) {
       // If the target product has malformed data, log it. Otherwise, no log for others.
       return true; // Keep if data is malformed (or change to false if you want to filter these out)
@@ -593,7 +606,7 @@ export function groupProducts(
 
     // Sort categories for consistent key generation, and join them
     const sortedCategories = [...category].sort().join(',');
-    
+
     // --- CRITICAL CHANGE: Added sortedCategories to the grouping key ---
     const valueToCompare = `${baseArticleNumber}::${firstTwoWordsOfName}::${colorValue}::${sortedCategories}`;
 
