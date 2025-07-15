@@ -71,6 +71,7 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
   const filterSidebarRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const [checkParamsSearchTerms, setCheckParamsSearchTerms] = useState<{ [key: string]: string }>({});
+  const [mounted, setMounted] = useState(false)
 
   // Effect to set initial catalogData.sort from URL
   useEffect(() => {
@@ -79,6 +80,34 @@ const Filter = ({ maxPrice, minPrice, categories, checkParams, selectParams, uni
   }, [search, setCatalogData]);
 
 
+    // Effect to set initial catalogData.sort from URL
+  useEffect(() => {
+
+    if(mounted) {
+
+      let search = catalogData.search;
+  
+      if(catalogData.search !== "") {
+        search = " "
+      }
+      const searchString = createSearchString({
+        pNumber: "1", // Reset to page 1 on filter change
+        sort: catalogData.sort,
+        categories: filter.categories,
+        vendors: filter.vendors,
+        search: catalogData.search,
+        price: filter.price,
+        category, // Assuming 'category' is a single string/ID for the current catalog view
+        minPrice, // Pass original minPrice for initial range setup
+        maxPrice, // Pass original maxPrice for initial range setup
+        selectParamsValues: filter.categories.length > 0 ? filter.selectParamsValues : [],
+        unitParamsValues: filter.categories.length > 0 ? filter.unitParamsValues : []
+      });
+      router.push(`/catalog?${searchString}`);
+    } else {
+      setMounted(true)
+    }
+  }, [catalogData.search]);
   // Effect to manage body overflow based on mobile filter state
   useEffect(() => {
     // Only apply this logic on screens where the filter sidebar can hide/show

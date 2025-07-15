@@ -109,7 +109,7 @@ const Catalog = async ({searchParams }:any) => {
           />
           <div className='w-full'>
             <div className='w-full flex gap-2 justify-center items-center px-6 ml-auto max-md:w-full max-[560px]:px-10 max-[450px]:px-4'>
-              <Search initialSearchText={searchParams.search}/>
+              <Search initialSearchText={searchParams.search} minPossiblePrice={minPrice} maxPossiblePrice={maxPrice}/>
               
             </div> 
           
