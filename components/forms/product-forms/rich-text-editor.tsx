@@ -50,7 +50,7 @@ export function RichTextEditor({ value, onChange, placeholder = "Введіть 
   // Оновити вміст редактора при зовнішніх змінах значення
   useEffect(() => {
     if (editor && editor.getHTML() !== value) {
-      editor.commands.setContent(value)
+      editor.commands.setContent(value, false) // Use false to avoid dispatching an update event if content is identical
     }
   }, [value, editor])
 
@@ -64,7 +64,7 @@ export function RichTextEditor({ value, onChange, placeholder = "Введіть 
 
   const handleCancel = () => {
     if (editor) {
-      editor.commands.setContent(value)
+      editor.commands.setContent(value, false) // Revert to original value without dispatching
     }
     setIsOpen(false)
   }
@@ -88,7 +88,7 @@ export function RichTextEditor({ value, onChange, placeholder = "Введіть 
       <div className="relative min-h-[80px] p-3 text-small-regular text-gray-700 text-[13px] bg-neutral-100 border rounded-md ml-1 focus-within:ring-1 focus-within:ring-black">
         {hasContent ? (
           <div
-            className="prose prose-sm max-w-none [&>*]:my-1 [&>ul]:my-2 [&>ol]:my-2 [&>li]:my-0 [&>h2]:text-xl [&>h2]:font-bold [&>h2]:mt-3 [&>h2]:mb-2 [&>h3]:text-lg [&>h3]:font-semibold [&>h3]:mt-2 [&>h3]:mb-1 [&>h4]:text-base [&>h4]:font-medium [&>h4]:mt-1 [&>h4]:mb-1"
+            className="prose prose-sm max-w-none [&>*]:my-1 [&>ul]:my-2 [&>ol]:my-2 [&>li]:my-0 [&>h2]:text-xl [&>h2]:font-bold [&>h2]:mt-3 [&>h2]:mb-2 [&>h3]:text-lg [&>h3]:font-semibold [&>h3]:mt-2 [&>h3]:mb-1 [&>h4]:text-base [&>h4]:font-medium [&>h4]:mt-1 [&>h4]:mb-1 [&_p:empty]:min-h-[1em]" // Added [&_p:empty]:min-h-[1em]
             dangerouslySetInnerHTML={{ __html: value }}
           />
         ) : (

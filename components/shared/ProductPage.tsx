@@ -253,7 +253,7 @@ export default function ProductPage({
 }) {
   const product = JSON.parse(productJson) as Product
   const pretifiedName = pretifyProductName(product.name, [], product.articleNumber || "", 0)
-  const optimizedDescription = product.description.replace(/<p>\s*<\/p>/g, "") // Removes empty <p></p>
+  const optimizedDescription = product.description // Removes empty <p></p>
 
   // Extract key product features for meta description
   const keyFeatures = product.params
@@ -762,7 +762,7 @@ export default function ProductPage({
                 {/* Fix the prose content to prevent overflow */}
                 <div className="max-w-3xl">
                   <div
-                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none text-gray-700 overflow-hidden"
+                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none text-gray-700 overflow-hidden [&_p:empty]:min-h-[1em]"
                     itemProp="description"
                     dangerouslySetInnerHTML={{ __html: optimizedDescription }}
                   />

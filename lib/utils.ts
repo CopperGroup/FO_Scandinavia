@@ -183,7 +183,14 @@ export function getFiltredProducts(products: ProductType[], searchParams: { [key
   
   return products.filter(product => {
 
-    const matchesSearch = search ? product.name.toLowerCase().includes(search.toLowerCase()) : true;
+    // --- MODIFIED LINE ---
+    // Now searches if the 'search' term is present in either product.name OR product.articleNumber
+    const matchesSearch = search 
+      ? (product.name.toLowerCase().includes(search.toLowerCase()) || 
+         (product.articleNumber && product.articleNumber.toLowerCase().includes(search.toLowerCase()))) 
+      : true;
+    // --- END MODIFIED LINE ---
+
     const matchesPrice = (minPrice || maxPrice) ? product.priceToShow >= parseFloat(minPrice || '0') && product.priceToShow <= parseFloat(maxPrice || 'Infinity') : true;
     const matchesVendor = vendor ? vendor.includes(product.vendor) : true;
 
