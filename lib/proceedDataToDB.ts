@@ -25,6 +25,26 @@ interface Product {
     categoryId: string
 }
 
+interface UrlProduct {
+  _id: string,
+  id: string | null,
+  name: string | null,
+  isAvailable: boolean,
+  quantity: number,
+  url: string | null,
+  priceToShow: number,
+  price: number,
+  images: (string | null)[],
+  vendor: string | null,
+  description: string | null,
+  articleNumber: string | null,
+  params: {
+      name: string | null,
+      value: string | null
+  }[],
+  isFetched: boolean,
+  category: string[]
+}
 // Helper function to process items in batches with a delay
 async function processInBatches<T>(
     items: T[],
@@ -83,11 +103,12 @@ async function createUrlCategories(
     data: Product[],
     selectedRowsIds: (string | null)[],
     categories: FetchedCategory[],
-    mergeProducts: boolean
+    mergeProducts: boolean,
+    lockCategories: boolean, 
   ) {
     try {
       const stringifiedUrlProducts = await fetchUrlProducts("json");
-      let urlProducts: Product[] = JSON.parse(stringifiedUrlProducts as string);
+      let urlProducts: UrlProduct[] = JSON.parse(stringifiedUrlProducts as string);
   
       const leftOverProducts = urlProducts.filter(
         urlProduct =>
@@ -98,7 +119,10 @@ async function createUrlCategories(
       const newProducts = [];
       const productsToUpdate = [];
   
-      const result = await createUrlCategories({ categories });
+      let result ="[]"
+      if(!lockCategories) {
+        result = await createUrlCategories({ categories });
+      }
       const createdCategories: CategoryType[] = JSON.parse(result);
   
       for (const product of data) {
@@ -120,7 +144,7 @@ async function createUrlCategories(
             productsToUpdate.push({
               ...product,
               _id: urlProducts[existingProductIndex]._id,
-              category: [category_id],
+              category: lockCategories ? urlProducts.find(urlProduct => urlProduct.articleNumber === product.articleNumber)!.category :[category_id],
             });
           } else {
             newProducts.push({

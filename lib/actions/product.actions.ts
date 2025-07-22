@@ -66,7 +66,7 @@ export async function createUrlProduct({ id, name, isAvailable, quantity, url, p
             params: params,
             articleNumber: articleNumber,
             isFetched: isFetched,
-            category: category ? category : "No-category"
+            category: category ? category : ["No-category"]
         })
 
         clearCache("createProduct", undefined)
@@ -204,7 +204,7 @@ export async function updateUrlProduct({_id, id, name, isAvailable, quantity, ur
             description: description,
             params: params,
             isFetched: isFetched,
-            category: category ? category : "No-category"
+            category: category ? category : ["No-category"]
         })
         
         clearCache("updateProduct", _id as string)
@@ -234,7 +234,7 @@ export async function fetchUrlProducts(type?: "json"){
     try {
         connectToDB();
         
-        const urlProducts = await Product.find({_id: {$ne: DELETEDPRODUCT_ID}, isFetched: true }).select("_id id articleNumber");
+        const urlProducts = await Product.find({_id: {$ne: DELETEDPRODUCT_ID}, isFetched: true }).select("_id id articleNumber category");
 
         if(type === "json"){
             return JSON.stringify(urlProducts)

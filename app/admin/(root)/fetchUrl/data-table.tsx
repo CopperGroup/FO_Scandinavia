@@ -10,7 +10,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
-  getSortedRowModel,
+  getSortedRowModel, // Corrected import
   useReactTable,
 } from "@tanstack/react-table"
 
@@ -38,6 +38,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox" // Import Checkbox component
+import { Label } from "@/components/ui/label" // Import Label component
 
 export type Product = {
   _id: string
@@ -77,9 +79,16 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
     update: { text: "Оновити", isProcessing: false },
   })
 
+  // State for the "Update Confirmation" modal
   const [showConfirmModal, setShowConfirmModal] = React.useState(false)
   const [confirmText, setConfirmText] = React.useState("")
   const [pendingData, setPendingData] = React.useState<Product[] | null>(null)
+
+  // State for the "Add Confirmation" modal
+  const [showAddModal, setShowAddModal] = React.useState(false)
+
+  // NEW: State for locking category updates
+  const [lockCategories, setLockCategories] = React.useState(true)
 
   const router = useRouter()
 
@@ -90,7 +99,7 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getSortedRowModel: getSortedRowModel(), // Changed from getSortedRowModel
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
@@ -104,7 +113,8 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
 
   const isProceedDisabled = !(table.getIsAllRowsSelected() || table.getIsSomeRowsSelected())
 
-  const handleProceed = async (data: Product[], merge: boolean) => {
+  // Modified handleProceed to accept lockCategories
+  const handleProceed = async (data: Product[], merge: boolean, currentLockCategories: boolean) => {
     const buttonType = merge ? "update" : "add"
 
     setButtonStates({
@@ -115,7 +125,8 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
 
     try {
       const allSelectedRowsIds = table.getSelectedRowModel().rows.map((row) => row.original.id)
-      await proceedDataToDB(data, allSelectedRowsIds, categories, merge)
+      // Pass currentLockCategories to proceedDataToDB
+      await proceedDataToDB(data, allSelectedRowsIds, categories, merge, currentLockCategories)
     } finally {
       setButtonStates({
         ...buttonStates,
@@ -129,7 +140,7 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
         })
       }, 4000)
 
-      // router.push("/admin/products")
+      // router.push("/admin/products") // Optional: Re-enable if you want a redirect
     }
   }
 
@@ -180,7 +191,7 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
           </DropdownMenu>
         </div>
 
-        <div className="rounded-md border overflow-hidden">
+        <div className="rounded-md border overflow-hidden max-w-[1140px]">
           <Table>
             <TableHeader className="bg-muted/30">
               {table.getHeaderGroups().map((headerGroup) => (
@@ -255,7 +266,7 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
               <Button
                 variant="default"
                 size="sm"
-                onClick={() => handleProceed(data, false)}
+                onClick={() => setShowAddModal(true)} // Open Add modal
                 disabled={isProceedDisabled || buttonStates.update.isProcessing}
                 className="text-small-medium flex-1 sm:flex-none bg-neutral-900 hover:bg-neutral-900/90 text-white"
               >
@@ -291,6 +302,8 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for "Оновити" (Update) */}
       <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -299,13 +312,21 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
               Ця дія замінить всі попередні товари на вибрані вами. Для підтвердження введіть &quot;Так, оновити&quot;.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center space-y-4 py-4">
+          <div className="flex flex-col space-y-4 py-4"> {/* Added flex-col and space-y-4 */}
             <Input
               placeholder="Так, оновити"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               className="w-full"
             />
+            <div className="flex items-center space-x-2"> {/* Checkbox for Update modal */}
+              <Checkbox
+                id="lockCategoriesUpdate"
+                checked={lockCategories}
+                onCheckedChange={(checked) => setLockCategories(Boolean(checked))}
+              />
+              <Label htmlFor="lockCategoriesUpdate">Заблокувати оновлення категорій</Label>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -323,7 +344,7 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
                 if (confirmText === "Так, оновити" && pendingData) {
                   setShowConfirmModal(false)
                   setConfirmText("")
-                  handleProceed(pendingData, true)
+                  handleProceed(pendingData, true, lockCategories) // Pass lockCategories
                 }
               }}
               disabled={confirmText !== "Так, оновити"}
@@ -334,7 +355,47 @@ export function DataTable<TData extends Product, TValue>({ columns, data, catego
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* NEW: Confirmation Modal for "Додати" (Add) */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Підтвердження додавання</DialogTitle>
+            <DialogDescription>
+              Ви збираєтеся додати вибрані товари.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col space-y-4 py-4">
+            <div className="flex items-center space-x-2"> {/* Checkbox for Add modal */}
+              <Checkbox
+                id="lockCategoriesAdd"
+                checked={lockCategories}
+                onCheckedChange={(checked) => setLockCategories(Boolean(checked))}
+              />
+              <Label htmlFor="lockCategoriesAdd">Заблокувати оновлення категорій</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAddModal(false)}
+            >
+              Скасувати
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                setShowAddModal(false)
+                handleProceed(data, false, lockCategories) // Pass lockCategories
+              }}
+              disabled={isProceedDisabled || buttonStates.update.isProcessing} // Keep original disabled logic for add button
+              className="bg-neutral-900 hover:bg-neutral-900/90 text-white" // Keep original add button styling
+            >
+              Додати
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-
