@@ -127,8 +127,7 @@ async function createUrlCategories(
   
       for (const product of data) {
         const category_id =
-          createdCategories.find(cat => cat.id === product.categoryId)?._id ||
-          "No-category";
+          createdCategories.find(cat => cat.id === product.categoryId)?._id;
   
         if (
           product.id &&

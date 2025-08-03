@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<yml_catalog date="2019-02-27 17:49">
+    <shop>
+        <name>Интернет-магазин "Sveamoda</name>
+        <company>Интернет-магазин "Sveamoda</company>
+        <url>https://sveamoda.сom.ua/</url>
+        <currencies>
+            <currency id="USD" rate="CB"/>
+            <currency id="RUR" rate="CB"/>
+            <currency id="UAH" rate="1"/>
+            <currency id="BYN" rate="CB"/>
+            <currency id="KZT" rate="CB"/>
+            <currency id="EUR" rate="CB"/>
+        </currencies>
+        <categories>
+			<category id="c4633305" parentId="c4633097">Новорічний декор на стіну</category>
+			<category id="c2048367" parentId="c4629305">Косметика та парфумерія</category>
+			<category id="c20483677" parentId="c4629305">Аптека</category>
+			<category id="c4629812" parentId="c20483677">Лікувально-профілактичні засоби</category>
+			<category id="c4658950" parentId="c4629305">Фарбування волосся</category>
+			<category id="c3565580" parentId="c4658950">Фарба для волосся</category>
+			<category id="c2324702" parentId="c2048367">Доглядова косметика</category>
+			<category id="c2048497" parentId="c2324702">Догляд за волоссям</category>
+			<category id="c4657716" parentId="c2048497">Сухий шампунь</category>
+			<category id="c3512690" parentId="c2048497">Засоби для гоління</category>
+				<category id="c4658647" parentId="c3512690">Станок для гоління</category>
+
+		
+		
+			<category id="c4625734">Офіс, школа, книги</category>
+			<category id="c4326572" parentId="c4625734">Книги</category>
+			<category id="c4620235" parentId="c4326572">Книги для бізнесу</category>
+			<category id="c4674681" parentId="c4326572">Саморозвиток та мотивація</category>
+
+            <category id="c4626923">Алкогольні напої та продукти харчування</category>
+            <category id="c4624997" parentId="c4626923">Харчові продукти</category>
+			<category id="c4644304" parentId="c4624997">Хлібобулочні вироби</category>
+			<category id="c4627659" parentId="c4624997">Бакалія</category>
+			<category id="c4626916" parentId="c4627659">Сухі сніданки</category>
+			<category id="c4627659" parentId="c4633009">Соуси та олія</category>
+			<category id="c4628019" parentId="c4627659">Соуси</category>
+			<category id="c4628075" parentId="c4627659">Рибні консерви</category>
+			<category id="c4633041" parentId="c4627659">Консервація</category>
+			<category id="c4638575" parentId="c4627659">Інгредієнти для випічки</category>
+			<category id="c4629038" parentId="c4627659">Паштети</category>
+			<category id="c4654703" parentId="c4627659">Желе і десерти</category>
+			<category id="c4626718" parentId="c4633041">Варення та джеми</category>
+            <category id="c4633017" parentId="c4626923">Кондитерські вироби</category>
+			<category id="c4629410" parentId="c4633017">Драже та льодяники</category>
+			<category id="c4626712" parentId="c4633017">Сиропи, топінги та концентрати</category>
+			<category id="c4649262" parentId="c4633017">Борошняні вироби</category>
+			<category id="c4629445" parentId="c4649262">Печиво</category>
+            <category id="c4625025" parentId="c4633017">Шоколад і цукерки</category>
+			<category id="c4629506" parentId="c4625025">Цукерки у коробці</category>
+            <category id="c4629452" parentId="c4625025">Шоколад</category>
+			<category id="c4629431" parentId="c4625025">Новорічні солодкі подарунки</category>
+            <category id="c4633001" parentId="c4624997">Напої</category>
+			<category id="c4632768" parentId="c4624997">Молочні продукти</category>
+			<category id="c4645952" parentId="c4632768">Масло і маргарин</category>
+			<category id="c4645960" parentId="c4645952">Масло</category>
+			<category id="c4645472" parentId="c4632768">Сири</category>
+            <category id="c4639952" parentId="c4633001">Гарячі напої</category>
+			<category id="c4625018" parentId="c4633001">Вода та напої</category>
+			<category id="c4639880" parentId="c4625018">Напої та лимонади</category>
+            <category id="c4625011" parentId="c4639952">Кава</category>
+
+            <category id="1212123">Детский текстиль</category>
+            <category id="17056153343" parentId="1212123">Детское постельное белье</category>
+			
+            <category id="121212">Домашній текстиль</category>
+			<category id="c169829" parentId="121212">Рушники</category>
+            <category id="1705615334" parentId="121212">Постельное белье</category>
+            <category id="1284510456" parentId="121212">Штори та фіранки</category>
+            <category id="3961844" parentId="121212">Аксесуари для штор</category>
+            <category id="282136" parentId="121212">Наволочки</category>
+            <category id="169826" parentId="121212">Подушки</category>
+            <category id="4652751" parentId="121212">Підставки для взуття</category>
+            <category id="4648488" parentId="121212">Інтер'єрні тканини</category>
+            <category id="105281" parentId="121212">Торшери</category>
+            <category id="c245547" parentId="121212">Вазони</category>
+            <category id="c4647606" parentId="121212">Подсвечники</category>
+            <category id="141414">Туризм і кемпінг</category>
+            <category id="1014017607" parentId="141414">Рюкзаки та термомішки</category>
+
+             <category id="151515">Товари для дому</category>
+			 <category id="c4639416" parentId="151515">Декор для дому</category>
+			 <category id="c4639408" parentId="c4639416">Аромати для дому</category>
+			 <category id="c46394167" parentId="c4639408">Аромадифузори</category>
+			 <category id="c152458" parentId="151515">Меблі</category>
+			 <category id="c4630013" parentId="c152458">Меблева фурнітура</category>
+			 <category id="c4631616" parentId="c4630013">Меблеві ручки та гачки</category>
+			 <category id="c4631700" parentId="c4631616">Меблеві ручки</category>
+			 <category id="c4626594" parentId="151515">Посуд</category>
+			 <category id="c4626604" parentId="c4626594">Кухонне приладдя</category>
+			 <category id="c4627192" parentId="c4626604">Мірний посуд</category>
+			 <category id="c4626524" parentId="c4626594">Форми та деко для випікання</category>
+			 <category id="c169823" parentId="151515">Домашній текстиль</category>
+			 <category id="c282136" parentId="c169823">Наволочки</category>
+			 <category id="c173644" parentId="c169823">Пледи</category>
+			 <category id="c173873" parentId="c169823">Поркривала</category>
+			 <category id="c4626609" parentId="c4626594">Cервірування столу</category>
+			 <category id="c4627003" parentId="c4626609">Чашки</category>
+			 <category id="c4627031" parentId="c4626609">Тарілки та салатники</category>
+			<category id="c3547641" parentId="151515">Господарський інвентар</category>
+			<category id="c4394353" parentId="c3547641">Господарські товари</category>
+			<category id="c4581462" parentId="c4394353">Пакети для сміття</category>
+            <category id="1313131" parentId="151515">Килимові вироби</category>
+            <category id="4650556" parentId="151515">Фіранки для ванної</category>
+            <category id="4648848" parentId="151515">Вішаки для ванної кімнати</category>
+            <category id="105280" parentId="151515">Настільні лампи</category>
+            <category id="c4657833" parentId="151515">Пуфи</category>
+			
+			<category id="c4628418">Сантехніка та ремонт</category>
+			<category id="c4657833" parentId="c4628418">Освітлення</category>
+			<category id="c241315" parentId="c4657833">Вуличне освітлення</category>
+			<category id="p416598144" parentId="c4657833">Нічники</category>
+
+
+            <category id="4285331">Дитячий одяг</category>
+			<category id="c1285573" parentId="4285331">Одяг для дівчаток</category>
+			<category id="c4668205" parentId="c1285573">Спідня білизна для дівчаток</category>
+			<category id="c4668211" parentId="c4668205">Труси для дівчаток</category>
+			<category id="c4636719" parentId="c1285573">Піжами і домашній одяг для дівчаток</category>
+			<category id="c4636735" parentId="c4636719">Піжами для дівчаток</category>
+			<category id="c4635463" parentId="4285331">Пальто для дівчаток</category>
+			<category id="65644421" parentId="4285331">Футболки з довгими рукавами для дівчаток</category>
+            <category id="10140176077" parentId="4285331">Боді і чоловічки для малюків, Стать Для дівчаток</category>
+            <category id="338329066" parentId="4285337">Кардиганы для девочек</category>
+            <category id="33832958" parentId="4285331">Водолазки для девочек</category>
+            <category id="4636919" parentId="4285331">Майки для дівчаток</category>
+            <category id="13010137" parentId="4285331">Футболки для дівчаток</category>
+            <category id="130130130" parentId="4285331">Мокасины для девочек</category>
+            <category id="13055506" parentId="4285331">Плаття, сарафани та спідниці</category>
+            <category id="13013006" parentId="4285331">Юбки для девочек</category>
+            <category id="4637015" parentId="4285331">Лосины для девочек</category>
+            <category id="33832962" parentId="4285331">Леггинсы для девочек</category>
+            <category id="33833862" parentId="4285331">Джеггинсы для девочек</category>
+            <category id="33832965" parentId="4285331">Брюки для девочек</category>
+            <category id="33832876" parentId="4285331">Вітрівки для дівчаток</category>
+            <category id="33832971" parentId="4285331">Платья для девочек</category>
+            <category id="495690" parentId="4285331">Сарафаны для девочек</category>
+            <category id="521416" parentId="4285331">Слипоны для девочек</category>
+            <category id="33832972" parentId="4285331">Світери для дівчаток</category>
+            <category id="33833872" parentId="4285331">Блузи для дівчаток</category>
+            <category id="33832968" parentId="33832959">Теплі жилети для дівчаток</category>
+            <category id="338329060" parentId="4285337">Кардиганы для девочек</category>
+            <category id="338060060" parentId="4285337">Толстовки для девочек</category>
+            <category id="33842958" parentId="4285238">Джинси для дівчаток</category>
+            <category id="33832989" parentId="4285238">Спортивні кофти для дівчаток</category>
+            <category id="4187104" parentId="4285331">Шорты для девочек</category>
+            <category id="207961106104" parentId="4285331">Куртки для дівчаток</category>
+            <category id="8137824" parentId="4285331">Светри для дівчаток</category>
+            <category id="9104153" parentId="4285331">Топи для дівчаток</category>
+            <category id="062657" parentId="4285331">Сорочки для дівчаток</category>
+            <category id="657062657" parentId="4285331">Свитшоты для девочек</category>
+            <category id="10683050135" parentId="4285331">Костюмы для девочек</category>
+            
+			
+            <category id="65444421" parentId="4285331">Дитячі шкарпетки</category>
+            <category id="4634041" parentId="4285331">Пінетки</category>
+            <category id="434045" parentId="4285331">Теплые комбинезоны для малышей</category>
+            <category id="4635687" parentId="4285331">Куртки для малюків</category>
+            <category id="c4636303" parentId="4285331">Куртки для мальчиков</category>
+            <category id="434343" parentId="4285331">Дутые жилетки для малышей</category>
+            <category id="33832967" parentId="33832959">Комплекти для малюків</category>
+            <category id="33833867" parentId="33832959">Толстовки для малышей</category>
+            <category id="4635655" parentId="33832959">Джинсы для мальчиков</category>
+            <category id="33832959" parentId="4285331">Одяг для малюків</category>
+            <category id="33832976" parentId="33832959">Взуття для малят</category>
+            <category id="31086626" parentId="4285331">Бриджі для малят</category>
+            <category id="4636247" parentId="4285337">Кардиганы для мальчиков</category>
+            <category id="1114017607" parentId="4285331">Светри для малюків</category>
+            <category id="130884730" parentId="4285331">Мокасины для мальчиков</category>
+            <category id="33832961" parentId="4285331">Дитячі колготки</category>
+            <category id="c4669759" parentId="4285331">Дитячі шапки</category>
+            <category id="33832970" parentId="4285331">Джинсовые куртки</category>
+            <category id="33833984" parentId="4285331">Аксесуари для дітей</category>
+            <category id="262503188" parentId="4285238">Школьная форма</category>
+            <category id="33832960" parentId="33832959">Кардигани для хлопчиків</category>
+            <category id="1579512895" parentId="4285238">Светри для хлопчиків</category>
+            <category id="33832964" parentId="33832959">Футболки для хлопчиків</category>
+            <category id="c4636431" parentId="4285331">Шорты для мальчиков</category>
+            <category id="c4633809" parentId="4285331">Чоботи для хлопчиків</category>
+            <category id="4633721" parentId="4285331">Кеды для мальчиков</category>
+            <category id="c4633801" parentId="4285331">Резиновые сапоги для мальчиков</category>
+
+
+            <category id="4285337">Взуття для дівчаток</category>
+            <category id="c4634193" parentId="4285337">Резиновые сапоги для девочек</category>
+            <category id="c4634185" parentId="4285337">Угги для девочек</category>
+            <category id="33832974" parentId="4285337">Чоботи для дівчаток</category>
+            <category id="4634265" parentId="4285337">Комнатные тапочки для девочек</category>
+            <category id="33832975" parentId="4285337">Кросівки для дівчаток</category>
+            <category id="33832977" parentId="4285337">Балетки для дівчаток</category>
+            <category id="33832979" parentId="4285337">Босоніжки для дівчаток</category>
+            <category id="4634169" parentId="4285337">Кеды для девочек</category>
+
+            <category id="2048527" parentId="4285238">Аксесуари</category>
+            <category id="4669777" parentId="4285238">Детские повязки и косынки</category>
+            <category id="1138710" parentId="33832953">Намиста</category>
+            <category id="1238710" parentId="33832953">Кулоны и подвески</category>
+            <category id="1338130" parentId="33832953">Кільця біжутерія</category>
+            <category id="1131130" parentId="33832953">Браслети</category>
+            <category id="566595" parentId="33832953">Сережки</category>
+            <category id="378466" parentId="33832953">Изделия для головы</category>
+            <category id="33832953" parentId="4285238">Аксессуары</category>
+            <category id="34832953" parentId="4285238">Головні убори, Категорія Для жінок</category>
+			<category id="c4629998" parentId="4285238">Головні убори</category>
+			<category id="c4673905" parentId="c4629998">Кепки</category>
+            <category id="4422000511" parentId="2048527">Краватки та метелики</category>
+            <category id="c1321132" parentId="2048527">Сумки</category>
+
+            <category id="4285238">Одяг жіночий</category>
+			<category id="c4637623" parentId="4285238">Спортивний жіночий одяг</category>
+			<category id="c4638999" parentId="c4637623">Жіночі спортивні легінси</category>
+            <category id="c4637415" parentId="4285238">Жіночі халати</category>
+            <category id="2868554" parentId="4285238">Жіночі светри</category>
+            <category id="c4635225" parentId="4285238">Жіночі тренчі</category>
+            <category id="c4637367" parentId="4285238">Женские толстовки</category>
+            <category id="c4635185" parentId="4285238">Жіночі пончо</category>
+            <category id="4637375" parentId="4285238">Жіночі худі</category>
+            <category id="4635161" parentId="4285238">Жіночі шкіряні куртки</category>
+            <category id="2862864" parentId="4285238">Женские джемперы</category>
+            <category id="23080002" parentId="4285238">Женские юбки</category>
+            <category id="1043974" parentId="4285238">Женские водолазки</category>
+            <category id="01583147" parentId="4285238">Женские футболки с длинными рукавами</category>
+            <category id="7333382" parentId="4285238">Жіночі легінси</category>
+            <category id="1678015025" parentId="4285238">Жіночі шкарпетки</category>
+            <category id="1949613640" parentId="4285238">Жіночі пальта</category>
+            <category id="33832952" parentId="4285238">Верхній одяг жіночий</category>
+            <category id="33832984" parentId="33832952">Женские пуховики</category>
+            <category id="7642421" parentId="33832952">Женские платья</category>
+            <category id="17056153344" parentId="33832952">Жіночі міжсезонні куртки</category>
+            <category id="333832984" parentId="33832952">Демисезонные женские куртки</category>
+            <category id="33832985" parentId="33832952">Женские зимние куртки</category>
+            <category id="4285139" parentId="33832952">Жіночі вітрівки</category>
+            <category id="33832986" parentId="33832952">Женские джинсовые куртки</category>
+            <category id="33832987" parentId="33832952">Женские кожаные куртки</category>
+            <category id="33832988" parentId="33832952">Женские пальто</category>
+            <category id="33832990" parentId="33832952">Женские теплые жилеты</category>
+            <category id="250664106" parentId="33832952">Женские топы</category>
+            <category id="32395824" parentId="4285238">Жіночі блузи</category>
+            <category id="4285239" parentId="4285238">Жіночі вишиванки</category>
+            <category id="4285240" parentId="4285238">Жіночі сорочки</category>
+            <category id="4285241" parentId="4285238">Жіночі майки</category>
+            <category id="42852411" parentId="4285238">Жіночі спортивні майки</category>
+            <category id="4285242" parentId="4285238">Жіночі топи</category>
+            <category id="26250343" parentId="4285238">Жіночі футболки з довгими рукавами</category>
+            <category id="31869151" parentId="4285238">Жіночі кардигани</category>
+            <category id="31151151" parentId="4285238">Женские лосины</category>
+            <category id="31869152" parentId="4285238">Жіночі болеро</category>
+			<category id="33832956" parentId="4285238">Жіночі колготки</category>
+            <category id="32395837" parentId="4285238">Бюстгалтери</category>
+            <category id="31869150" parentId="4285238">Жіночі Світери</category>
+            <category id="31870150" parentId="4285238">Жіночі пуловери</category>
+            <category id="32395838" parentId="4285238">Корсети, бюстьє</category>
+            <category id="32395839" parentId="4285238">Купальники</category>
+            <category id="32395840" parentId="4285238">Жіночі нічні сорочки</category>
+            <category id="32395841" parentId="4285238">Пояси та підв'язки</category>
+            <category id="32395842" parentId="4285238">Жіночий домашній одяг</category>
+            <category id="32395843" parentId="4285238">Коригувальна білизна</category>
+            <category id="31084626" parentId="4285238">Женские брюки</category>
+            <category id="31086627" parentId="4285238">Жіночі шорти</category>
+            <category id="31085626" parentId="4285238">Жіночі джегінси</category>
+            <category id="31184626" parentId="4285238">Жіночі напівкомбінезони</category>
+            <category id="31284626" parentId="4285238">Жіночі капрі</category>
+            <category id="31084627" parentId="4285238">Женские джинсы</category>
+            <category id="31084628" parentId="4285238">Спортивні шорти</category>
+            <category id="31084629" parentId="4285238">Жіночі спортивні кофти</category>
+            <category id="4638303" parentId="4285238">Женские спортивные топы</category>
+            <category id="26250342" parentId="4285238">Жіночі футболки</category>
+            <category id="26250318" parentId="4285238">Жіночі жакети</category>
+            <category id="25771470" parentId="4285238">Платья</category>
+            <category id="25771471" parentId="4285238">Жіночі сарафани</category>
+            <category id="25771472" parentId="4285238">Жіночі спідниці</category>
+            <category id="323955824" parentId="4285238">Жіночі туніки</category>
+			<category id="546766" parentId="4285238">Бюстгальтери</category>
+            <category id="8130464" parentId="4285238">Жіночі трусики</category>
+
+
+            
+
+            <!--skor-->
+            <category id="4633433" parentId="4285238">Жіночі чоботи</category>
+            <category id="46333433" parentId="4285238">Женские ботинки</category>
+            <category id="c4634697" parentId="4285238">Женские резиновые сапоги</category>
+            <category id="4634689" parentId="4285238">Жіночі ботфорти</category>
+            <category id="31869147" parentId="4285238">Жіночі туфлі</category>
+            <category id="4633425" parentId="4285238">Женские туфли и лодочки</category>
+            <category id="31869247" parentId="4285238">Жіночі мокасини</category>
+            <category id="c4634473" parentId="4285238">Жіночі кросівки</category>
+            <category id="4634489" parentId="4285238">Женские кеды</category>
+            <category id="31869148" parentId="4285238">Жіночі балетки</category>
+            <category id="31869149" parentId="4285238">Жіночі босоніжки</category>
+            <category id="31869129" parentId="4285238">Жіночі сандалі</category>
+            <category id="31869153" parentId="4285238">Жіночі ботильйони</category>
+            <category id="32869153" parentId="4285238">Жіночі черевики</category>
+            <category id="31869154" parentId="4285238">Женские угги</category>
+            <category id="0511" parentId="4285238">Женские сандалии</category>
+            <category id="05110511" parentId="4285238">Женские шлепанцы</category>
+			<category id="1575211000" parentId="4285238">Жіночі кімнатні капці</category>
+            
+			
+			<!--acc-->
+			<category id="33832954" parentId="4285238">Сонцезахисні окуляри</category>
+            <category id="33832955" parentId="4285238">Ремені та пояси</category>
+            <category id="c4630244" parentId="4285238">Рукавички та рукавиці</category>
+			            <category id="1053515925" parentId="4285238">Шарфи та хустки</category>
+            
+            
+            <category id="4285311">Чоловічий одяг</category>
+			<category id="c4635343" parentId="4285311">Чоловічі тренчі</category>
+			<category id="31868733" parentId="4285311">Чоловічий верхній одяг</category>
+			<category id="c4635743" parentId="31868733">Чоловічі куртки</category>
+			<category id="c4635519" parentId="c4635743">Демісезонні чоловічі куртки</category>
+            <category id="31868701" parentId="4285311">Мужские брюки</category>
+			
+			<category id="c2349087" parentId="4285311">Спідня білизна для чоловіків</category>
+			<category id="c2349092" parentId="c2349087">Труси чоловічі</category>
+			
+            <category id="4637943" parentId="4285311">Чоловічі піджаки</category>
+            <category id="31868702" parentId="4285311">Головні убори, Категорія Для чоловіків</category>
+            <category id="31868703" parentId="4285311">Рукавички та рукавиці</category>
+            <category id="31868704" parentId="4285311">Чоловічі шкарпетки</category>
+            <category id="31704704" parentId="4285311">Чоловічі поло</category>
+            <category id="4285324" parentId="4285311">Мужские кардиганы</category>
+            <category id="4284284" parentId="4285311">Мужские пуловеры</category>
+            <category id="42853245" parentId="4285311">Мужские кофты</category>
+            <category id="31868711" parentId="4285311">Чоловічі шорти</category>
+            <category id="4285325" parentId="4285311">Мужские свитеры</category>
+            <category id="42853188" parentId="4285311">Мужские футболки</category>
+            <category id="c4637887" parentId="4285311">Мужские рашгарды</category>
+            <category id="42853888" parentId="4285311">Мужские толстовки</category>
+            <category id="4285318" parentId="4285311">Мужские рубашки</category>
+            <category id="44285318" parentId="4285311">Мужские лонгсливы</category>
+            <category id="44285888" parentId="4285311">Мужские худи</category>
+            <category id="44244288" parentId="4285311">Мужские свитшоты</category>
+			
+			
+			
+			<category id="4285328" parentId="4285311">Взуття чоловіче</category>
+			<category id="c4634801" parentId="4285328">Чоловіче спортивне взуття</category>
+			<category id="c4634865" parentId="4285328">Чоловічі кросівки</category>
+            <category id="4285329" parentId="4285328">Чоловічі кеди</category>
+            <category id="1373519620" parentId="4285328">Чоловічі мокасини, топсайдери</category>
+            <category id="c4634953" parentId="44244288">Мужские ботинки</category>
+			<category id="c4634961" parentId="44244288">Чоловічі чоботи</category>
+            <category id="c4633897" parentId="4285328">Мужские резиновые сапоги</category>
+			
+			<category id="c4630220">Сумки та аксесуари</category>
+			<category id="c1315537" parentId="c4630220">Аксесуари для дітей</category>
+			 
+        </categories>
+        <local_delivery_cost>50.00</local_delivery_cost>
+        <offers>
+		
+		
+		
+<offer id="Ad61046501-40 см" available="true">
+<url>http://www.sveamoda.com.ua/component/page,shop.product_details/flypage,flypage.tpl/product_id,5499/category_id,23/manufacturer_id,2/option,com_virtuemart/Itemid,44/</url>
+<price>270</price>
+<currencyId>UAH</currencyId>
+<categoryId>c4633305</categoryId>
+<picture>http://www.sveamoda.com.ua/components/com_virtuemart/shop_image/product/Ad61046501_0.jpg</picture>
+<picture>http://www.sveamoda.com.ua/components/com_virtuemart/shop_image/product/Ad61046501_1.jpg</picture>
+<picture>http://www.sveamoda.com.ua/components/com_virtuemart/shop_image/product/Ad61046501_2.jpg</picture>
+<vendor>Ahlens</vendor>
+<country_of_origin>Швеція</country_of_origin>
+<stock_quantity>10</stock_quantity>
+<name>Зірка декоративна Ahlens, 40 см Ad61046501</name>
+<description><![CDATA[<p>Улюблена біла класична зірка отримала новий костюм. Sally 40 White - це стильна паперова зірка зі стриманою бавовняною структурою. Для дому цього Різдва у всій своїй простоті зі строгими лініями в поєднанні зі справжнім різдвяним відчуттям.</p> <p></p> <p>Детальні параметри:</p> <p>Матеріал: Папір</p> <p>Розмір: 40 см</p> <p>Цоколь/лампа:1 шт. E14, світлодіод макс. 5 Вт. Джерело світла не входить</p> <p>тип: різдвяна зірка</p> <p>колір: білий</p>]]></description>
+
+<param name="Матеріал" unit="">Папір</param>
+<param name="Розмір" unit="см">40</param>
+<param name="Цоколь/лампа" unit="">1 шт. E14, світлодіод макс. 5 Вт. Джерело світла не входить</param>
+<param name="тип" unit="">різдвяна зірка</param>
+<param name="колір" unit="">білий</param>
+</offer>
+</offers>
+  </shop>
+</yml_catalog>

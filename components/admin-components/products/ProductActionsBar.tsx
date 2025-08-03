@@ -19,7 +19,7 @@ interface ProductActionsBarProps {
   searchFields: { value: string; label: string }[];
   sortConfig: { field: string; direction: "asc" | "desc" } | null;
   sortFields: { value: string; label: string }[];
-  selectedProductsCount: number;
+  selectedProductsIds: string[];
   allProductsCount: number;
   onSearchChange: (value: string) => void;
   onSearchFieldChange: (value: string) => void;
@@ -36,7 +36,7 @@ const ProductActionsBar: React.FC<ProductActionsBarProps> = ({
   searchFields,
   sortConfig,
   sortFields,
-  selectedProductsCount,
+  selectedProductsIds,
   allProductsCount,
   onSearchChange,
   onSearchFieldChange,
@@ -126,14 +126,14 @@ const ProductActionsBar: React.FC<ProductActionsBarProps> = ({
             variant="outline"
             className="w-full sm:w-auto border-slate-200 text-slate-700 hover:bg-slate-50 text-small-medium bg-transparent"
             onClick={onBulkEditClick}
-            disabled={selectedProductsCount === 0}
+            disabled={selectedProductsIds.length === 0}
           >
             <Edit className="mr-2 h-4 w-4" />
-            Редагувати вибрані ({selectedProductsCount})
+            Редагувати вибрані ({selectedProductsIds.length})
           </Button>
 
           <DeleteProductsButton
-            selectedIds={Array.from(Array.from(new Array(selectedProductsCount).keys()).map(i => `id-${i}`))} // Placeholder for selected IDs
+            selectedIds={selectedProductsIds} // Placeholder for selected IDs
             onDeleteComplete={() => onDeleteSelected([])} // Placeholder for onDeleteComplete
           />
         </div>
