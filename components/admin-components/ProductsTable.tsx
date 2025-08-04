@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { fetchAllCategories } from "@/lib/actions/categories.actions";
-import { fetchProductsByBatches } from "@/lib/actions/product.actions";
+import { fetchAllProducts, fetchExportProducts, fetchProductsByBatches } from "@/lib/actions/product.actions";
 import { Store } from "@/constants/store";
 import { CategoryType } from "@/lib/types/types";
 import ProductsHeader from "./products/ProductsHeader";
@@ -376,7 +376,12 @@ const ProductsTable = ({
       let productsToExport: Product[] = [];
       if (exportSelected && selectedProducts.size > 0) {
         // Filter products based on selectedProductIds
-        productsToExport = products.filter(product => selectedProducts.has(product._id));
+        const result = await fetchExportProducts();
+
+        const fullProducts: Product[] = await JSON.parse(result)
+
+        console.log(fullProducts)
+        productsToExport = fullProducts.filter(product => selectedProducts.has(product._id));
       } else {
         // Export all products if no selection or exportSelected is false
         // Fetch all products from the server to ensure we have the complete, unfiltered list

@@ -264,6 +264,19 @@ export async function fetchAllProducts() {
     }
 }
 
+export async function fetchExportProducts() {
+  try {
+      connectToDB();
+      
+      const fetchedProducts = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID } })
+      
+      return JSON.stringify(fetchedProducts)
+
+  } catch (error:any) {
+      throw new Error(`Error fetching all products for export, ${error.message}`)
+  }
+}
+
 export async function fetchProducts() {
   try {
     connectToDB();
