@@ -319,6 +319,7 @@ export async function fetchProductById(_id: string, type: "json"): Promise<strin
 
 export async function fetchProductById( _id: string, type?: "json") {
     try {
+      await connectToDB();
         const product = await Product.findById(_id);
 
         if(!product) {

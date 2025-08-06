@@ -71,34 +71,37 @@ const CreateProduct = () => {
 
   const { startUpload, permittedFileInfo } = useUploadThing("imageUploader", {
     onClientUploadComplete: (res) => {
-      setUploadingState("success")
-      setImages([...images, res[0].url])
+      setUploadingState("success");
+      // Correctly handle multiple image uploads by mapping through the response
+      // and adding all new URLs to the images array.
+      const newImageUrls = res.map((file) => file.url);
+      setImages((prevImages) => [...prevImages, ...newImageUrls]);
 
       setTimeout(() => {
-        setUploadingState("initial")
-        setUploadProgress(0)
-      }, 300)
+        setUploadingState("initial");
+        setUploadProgress(0);
+      }, 300);
     },
     onUploadError: () => {
-      setUploadingState("error")
+      setUploadingState("error");
 
       setTimeout(() => {
-        setUploadingState("initial")
-        setUploadProgress(0)
-      }, 700)
+        setUploadingState("initial");
+        setUploadProgress(0);
+      }, 700);
     },
     onUploadProgress: (progress: number) => {
-      setUploadProgress(progress)
+      setUploadProgress(progress);
       if (progress === 100) {
         setTimeout(() => {
-          setUploadingState("success")
-        }, 200)
+          setUploadingState("success");
+        }, 200);
       }
     },
     onUploadBegin: () => {
-      setUploadingState("uploading")
+      setUploadingState("uploading");
     },
-  })
+  });
 
   const handleChange = (event: { target: { value: string } }) => {
     setInputValue(event.target.value)
