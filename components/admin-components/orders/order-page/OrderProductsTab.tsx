@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, Edit, Save, X, Plus, Trash2, Package, ArrowUp, ArrowDown } from "lucide-react"
 import { Dialog, DialogTrigger } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import Image from "next/image"
 
 interface OrderProductsTabProps {
   orderProducts: any[] // Use specific Product type
@@ -132,7 +133,7 @@ const OrderProductsTab: React.FC<OrderProductsTabProps> = ({
           </div>
         </div>
 
-        <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+        <div className="space-y-4 max-h-[600px] overflow-y-auto">
           <div className="overflow-x-auto -mx-4 sm:-mx-6">
             <div className="inline-block min-w-full align-middle px-4 sm:px-6">
               <table className="min-w-full">
@@ -153,8 +154,8 @@ const OrderProductsTab: React.FC<OrderProductsTabProps> = ({
                     >
                       <td className="py-1 sm:py-4">
                         <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="bg-slate-100 h-10 w-10 sm:h-12 sm:w-12 rounded-md flex items-center justify-center">
-                            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
+                          <div className="relative bg-slate-100 h-10 w-10 sm:h-12 sm:w-12 rounded-md flex items-center justify-center">
+                          <Image src={product.product.images[0]} fill alt="Product image" className="object-contain"/>
                           </div>
                           <Tooltip>
                             <TooltipTrigger asChild>

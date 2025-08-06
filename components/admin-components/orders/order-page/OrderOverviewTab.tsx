@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
 import ChangeOrdersStatuses from "@/components/interface/ChangeOrdersStatuses"
+import Image from "next/image"
 
 interface OrderOverviewTabProps {
   order: any // Use specific type if defined elsewhere
@@ -347,8 +348,8 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({
                           <tr key={index} className="border-b border-slate-100 last:border-0">
                             <td className="py-2 sm:py-3">
                               <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="bg-slate-100 p-1.5 sm:p-2 rounded-md">
-                                  <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600" />
+                                <div className="relative bg-slate-100 p-1.5 sm:p-2 rounded-md">
+                                  <Image src={product.product.images[0]} fill alt="Product image" className="object-contain"/>
                                 </div>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
