@@ -658,8 +658,11 @@ const getFirstTwoWordsCombined = (name: string): string => {
 const getProductGroupKey = (product: ProductType): string => {
   const { articleNumber, name, params, category } = product;
 
+  // Add log to see the entire product object
+  console.log("Processing product:", product);
+
   if (typeof articleNumber !== "string" || typeof name !== "string" || !Array.isArray(params) || !Array.isArray(category)) {
-      return '';
+    return '';
   }
 
   const articleParts = articleNumber.split("-");
@@ -670,7 +673,21 @@ const getProductGroupKey = (product: ProductType): string => {
   const colorParam = params.find(p => ["Колір", "колір", "Color", "color", "Colour", "color"].includes(p.name));
   const colorValue = colorParam ? colorParam.value : "no_color";
 
-  const categoryIds = category.map(cat => typeof cat === 'string' ? cat : cat._id);
+  // Add log to check the category array content
+  console.log("Category array:", category);
+
+  // Add log to see the mapped IDs before the error
+  const categoryIds = category.map(cat => {
+    // Log each individual category item
+    console.log("Mapping category item:", cat);
+    if (typeof cat === 'string') {
+      return cat;
+    }
+    // This is where the error likely occurs if 'cat' is null
+    return cat?._id;
+  });
+  console.log("Mapped category IDs:", categoryIds);
+
   const sortedCategories = [...categoryIds].sort().join(',');
 
   return `${baseArticleNumber}::${firstTwoWordsOfName}::${colorValue}::${sortedCategories}`;
@@ -690,6 +707,8 @@ export async function fetchProductAndRelevantParams(
       model: Category,
       select: "_id name"
     });
+
+
 
     if (!currentProduct) {
       throw new Error("Current product not found");

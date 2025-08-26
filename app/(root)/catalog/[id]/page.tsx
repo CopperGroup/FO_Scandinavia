@@ -24,12 +24,16 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   
   try {
     ({ product, selectParams } = await fetchProductPageInfo(params.id, "articleNumber", "-", 0));
-  } catch (error) {
+
+    
+  } catch (error: any) {
+    console.error(error.message)
     try {
       revalidateTag(`${Store.name}-product`);
       ({ product, selectParams } = await fetchProductAndRelevantParams(params.id, "articleNumber", "-", 0));
-    } catch (error) {
-      notFound();
+    } catch (error: any) {
+      throw new Error(error.message)
+      // notFound();
     }
   }
 
