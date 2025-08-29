@@ -759,7 +759,27 @@ export async function getDashboardData() {
 
             const product = await Product.findById(mostPopularProduct.productId)
 
-            return { name: product.name, id: product._id, searchParam: product.params[0].value, quantity: mostPopularProduct.count }
+
+            if (!product) {
+              const allProducts = await Product.find();
+              if (!allProducts || allProducts.length === 0) {
+                return null; // or throw an error if no products exist at all
+              }
+              const firstProduct = allProducts[0];
+              return {
+                name: firstProduct.name,
+                id: firstProduct._id,
+                searchParam: firstProduct.params?.[0]?.value ?? null,
+                quantity: 0 // since it's not from mostPopularProduct
+              };
+            }
+            
+            return {
+              name: product.name,
+              id: product._id,
+              searchParam: product.params?.[0]?.value ?? null,
+              quantity: mostPopularProduct.count
+            };
           }
 
           const findPercentageValue = (previousValue: number, currentValue: number) => {

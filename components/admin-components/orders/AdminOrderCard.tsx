@@ -318,7 +318,7 @@ const AdminOrderCard = ({
                     >
                       <div className="flex items-center">
                         <Package className="h-4 w-4 mr-2 text-slate-500" />
-                        <span className="text-small-medium text-slate-700">{item.product.name}</span>
+                        <span className="text-small-medium text-slate-700">{item.product?.name}</span>
                       </div>
                       <span className="text-small-medium text-slate-600">x{item.amount}</span>
                     </div>
