@@ -484,7 +484,7 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({
                     {formatCurrency(
                       isEditMode
                         ? editedProducts.reduce(
-                          (total: number, item: any) => total + item.product.priceToShow * item.amount,
+                          (total: number, item: any) => total + item.product?.priceToShow * item.amount,
                           0,
                         )
                         : order.value,
