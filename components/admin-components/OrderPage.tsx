@@ -162,7 +162,7 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
   const [invoiceDetails, setInvoiceDetails] = useState<DetailedInvoiceInfo | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [isNovaPoshtaModalOpen, setIsNovaPoshtaModalOpen] = useState(false);
-  const [invoiceStringInput, setInvoiceStringInput] = useState("");
+  const [invoiceStringInput, setInvoiceStringInput] = useState(initialOrderData.invoiceString);
   const [isSubmittingInvoiceString, setIsSubmittingInvoiceString] = useState(false);
 
   // Add Products Modal States (for child component)
@@ -517,7 +517,6 @@ export default function OrderPage({ orderJson }: { orderJson: string }) {
     }
   };
   // --- End Helper Functions ---
-
   // Calculate original price if discount is applied
   const hasDiscount = order.discount && Number.parseFloat(order.discount) > 0;
   const discountPercentage = hasDiscount ? Number.parseFloat(order.discount) : 0;
