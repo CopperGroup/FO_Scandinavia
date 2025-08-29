@@ -349,16 +349,16 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({
                             <td className="py-2 sm:py-3">
                               <div className="flex items-center gap-2 sm:gap-3">
                                 <div className="relative bg-slate-100 p-1.5 sm:p-2 rounded-md">
-                                  <Image src={product.product.images[0]} fill alt="Product image" className="object-contain"/>
+                                  <Image src={product.product?.images[0]} fill alt="Product image" className="object-contain"/>
                                 </div>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="font-medium text-slate-800 line-clamp-1 text-xs sm:text-sm">
-                                      {product.product.name}
+                                      {product.product?.name}
                                     </span>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>{product.product.name}</p>
+                                    <p>{product.product?.name}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
@@ -372,7 +372,7 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({
                               </Badge>
                             </td>
                             <td className="py-2 sm:py-3 text-right font-medium text-slate-800 text-xs sm:text-sm">
-                              {formatCurrency(product.product.priceToShow * product.amount)}
+                              {formatCurrency(product.product?.priceToShow * product.amount)}
                             </td>
                           </tr>
                         ))}

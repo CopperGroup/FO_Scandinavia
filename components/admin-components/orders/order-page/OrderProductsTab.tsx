@@ -155,23 +155,23 @@ const OrderProductsTab: React.FC<OrderProductsTabProps> = ({
                       <td className="py-1 sm:py-4">
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div className="relative bg-slate-100 h-10 w-10 sm:h-12 sm:w-12 rounded-md flex items-center justify-center">
-                          <Image src={product.product.images[0]} fill alt="Product image" className="object-contain"/>
+                          <Image src={product.product?.images[0]} fill alt="Product image" className="object-contain"/>
                           </div>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="font-medium text-slate-800 line-clamp-1 text-xs sm:text-sm">
-                                {product.product.name}
+                                {product.product?.name}
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{product.product.name}</p>
+                              <p>{product.product?.name}</p>
                             </TooltipContent>
                           </Tooltip>
                         </div>
                       </td>
                       <td className="py-1 sm:py-4 text-slate-600 text-xs sm:text-sm">
                         <span className="sm:hidden font-medium text-slate-500 mr-2">Артикул:</span>
-                        {product.product.articleNumber}
+                        {product.product?.articleNumber}
                       </td>
                       <td className="py-1 sm:py-4 text-left sm:text-center">
                         <span className="sm:hidden font-medium text-slate-500 mr-2">Кількість:</span>
@@ -194,7 +194,7 @@ const OrderProductsTab: React.FC<OrderProductsTabProps> = ({
                       </td>
                       <td className="py-1 sm:py-4 text-left sm:text-right font-medium text-slate-800 text-xs sm:text-sm">
                         <span className="sm:hidden font-medium text-slate-500 mr-2">Ціна:</span>
-                        {formatCurrency(product.product.priceToShow * product.amount)}
+                        {formatCurrency(product.product?.priceToShow * product.amount)}
                       </td>
                       {isEditMode && (
                         <td className="py-1 sm:py-4 text-left sm:text-right">
@@ -244,7 +244,7 @@ const OrderProductsTab: React.FC<OrderProductsTabProps> = ({
             <span className="text-slate-800 font-semibold text-sm sm:text-base">Загальна вартість:</span>
             <span className="text-emerald-600 font-bold text-base sm:text-lg">
               {formatCurrency(
-                productsToDisplay.reduce((total: number, item: any) => total + item.product.priceToShow * item.amount, 0)
+                productsToDisplay.reduce((total: number, item: any) => total + item.product?.priceToShow * item.amount, 0)
               )}
             </span>
           </div>
