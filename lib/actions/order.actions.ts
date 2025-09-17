@@ -3216,13 +3216,7 @@ export async function generateInvoice(
 
     // ✅ Add backward delivery if NOT 'За реквізитами'
     if (paymentType !== "За реквізитами") {
-      methodProperties.BackwardDeliveryData = [
-        {
-          PayerType: "Recipient",
-          CargoType: "Money",
-          RedeliveryString: value.toFixed(0),
-        },
-      ]
+      methodProperties.AfterpaymentOnGoodsCost = value.toFixed(2)
     }
 
     const baseFields = {
