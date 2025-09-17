@@ -71,7 +71,7 @@ export const options: NextAuthOptions = {
           const userExists = await User.findOne({ email });
           
           if (!userExists) {
-            const res = await fetch("http://localhost:3000/api/users/", {
+            const res = await fetch("https://nordiva.com.ua/api/users/", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
