@@ -81,11 +81,31 @@ const Footer = ({ stringifiedData }: FooterProps) => {
               </li>
             </ul>
           </div>
+          
 
           {/* Third column - Контакти */}
           <div className="w-full">
-            <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Контакти</h3>
+            <h3 className="text-heading4-medium font-semibold mb-4 text-[#FECC02]">Контакти & Інформація</h3>
             <div className="space-y-3">
+              <div>
+                <Link
+                    href="/info/public-offer"
+                    className="hover:text-[#FECC02] transition-colors underline duration-300"
+                    title="Публічна оферта"
+                  >
+                    Публічна оферта
+                  </Link>
+              </div>
+              <div>
+                <Link
+                  href="/info/conf-policy"
+                  className="hover:text-[#FECC02] transition-colors underline duration-300"
+                  title="Політика конфіденційності"
+                >
+                  Політика конфіденційності
+                </Link>
+
+              </div>
               <p className="flex items-center gap-2">
                 <span className="font-medium">Телефон:</span> {data["'Телефон'"]}
               </p>

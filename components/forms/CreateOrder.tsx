@@ -54,6 +54,8 @@ import { WarehouseSelect } from "@/components/interface/nova/warehouse-select"
 import { validatePromoCode } from "@/lib/actions/promocode.actions"
 import { sendOrderEmail } from "@/lib/email/order"
 import { sendAdminOrderNotification } from "@/lib/email/admin-order"
+import Link from "next/link"
+import { Checkbox } from "../ui/checkbox"
 
 type CartProduct = {
   id: string
@@ -148,6 +150,7 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
     deliveryMethod: undefined,
     city: "",
     comment: "",
+    termsAgreed: false,
   }
 
   const form = useForm<z.infer<typeof OrderValidation>>({
@@ -1152,6 +1155,53 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
                             />
                           </FormControl>
                           <FormMessage className="text-sm" />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="bg-white p-5 sm:p-8 rounded-2xl sm:rounded-3xl border-blue-100 shadow-sm">
+                    <FormField
+                      control={form.control}
+                      name="termsAgreed"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className={`h-5 w-5 rounded-md transition-colors ${
+                                form.formState.errors.termsAgreed &&
+                                form.formState.isDirty && // Check if form has been touched/focused
+                                Object.keys(form.formState.errors).length > 0 // Check if other fields are valid
+                                  ? "border-red-500 text-red-500 focus:ring-red-500" // Red only if there are errors and field is invalid
+                                  : "border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                              }`}
+                              disabled={isSubmitting || !isDeliveryMethodSelected}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-sm font-normal text-gray-700 cursor-pointer">
+                              Я погоджуюся з умовами&nbsp;
+                              <Link
+                                href="/info/public-offer"
+                                className="text-blue-600 hover:text-blue-800 font-medium underline"
+                                target="_blank"
+                              >
+                                Публічної оферти
+                              </Link>
+                              &nbsp;та&nbsp;
+                              <Link
+                                href="/info/conf-policy"
+                                className="text-blue-600 hover:text-blue-800 font-medium underline"
+                                target="_blank"
+                              >
+                                Політикою конфіденційності
+                              </Link>
+                              *
+                            </FormLabel>
+                            <FormMessage className="text-sm pt-1" />
+                          </div>
                         </FormItem>
                       )}
                     />

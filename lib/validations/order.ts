@@ -20,4 +20,8 @@ export const OrderValidation = z.object({
   warehouseRef: z.string().optional(),
   warehouseIndex: z.string().optional(),
   streetRef: z.string().optional(),
+
+  termsAgreed: z.boolean().refine(val => val === true, {
+    message: "Необхідно погодитися з умовами оферти та політикою конфіденційності.",
+  }),
 })
