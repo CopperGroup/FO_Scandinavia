@@ -68,4 +68,4 @@
 * **Фізична особа-підприємець Шабат Л.О.**
 * 📞 +380960871457
 * 📧 nordivaua@yahoo.com
-* 🌐 www.nordiva.com.ua
+* 🌐 [www.nordiva.com.ua](http://www.nordiva.com.ua)
