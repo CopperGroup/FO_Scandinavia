@@ -571,8 +571,18 @@ export function groupProducts(
   let productThatGroupedTarget: ProductType | null = null;
 
   // --- START: Added hardcoded list of article numbers that should never be grouped ---
+
+  products.forEach(p => {
+    if (p.articleNumber === "gevalia_crema_900") {
+      for (let i = 0; i < 5; i++) {
+        console.log(p.name);
+      }
+    }
+  });
+  
   const NEVER_GROUP_ARTICLE_NUMBERS = new Set([
     "X-t3",
+    "gevalia_crema_900"
   ]);
   // --- END ---
 
