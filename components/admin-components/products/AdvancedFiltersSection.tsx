@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Filter, X, Calendar, DollarSign } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown, Filter, X, Calendar, DollarSign, FolderX } from "lucide-react";
 
 interface FilterState {
   price: { min: string; max: string; };
@@ -19,6 +20,8 @@ interface AdvancedFiltersSectionProps {
   onUpdateFilter: (filterType: keyof FilterState, field: string, value: string) => void;
   onClearAllFilters: () => void;
   onOpenDateFilterModal: () => void;
+  emptyCategoryFilter: boolean;
+  onEmptyCategoryFilterChange: (value: boolean) => void;
 }
 
 const AdvancedFiltersSection: React.FC<AdvancedFiltersSectionProps> = ({
@@ -29,11 +32,14 @@ const AdvancedFiltersSection: React.FC<AdvancedFiltersSectionProps> = ({
   onUpdateFilter,
   onClearAllFilters,
   onOpenDateFilterModal,
+  emptyCategoryFilter,
+  onEmptyCategoryFilterChange,
 }) => {
   const hasActiveFilters = !!inputValue ||
     !!filters.price.min || !!filters.price.max ||
     !!filters.createdAt.from || !!filters.createdAt.to ||
-    !!filters.updatedAt.from || !!filters.updatedAt.to;
+    !!filters.updatedAt.from || !!filters.updatedAt.to ||
+    emptyCategoryFilter;
 
   return (
     <Collapsible open={isAdvancedFiltersOpen} onOpenChange={onToggleAdvancedFilters}>
@@ -108,6 +114,27 @@ const AdvancedFiltersSection: React.FC<AdvancedFiltersSectionProps> = ({
               )}
             </Button>
           </div>
+
+          {/* Empty Category Filter */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+              <FolderX className="h-4 w-4" />
+              Фільтр категорій
+            </Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="emptyCategory"
+                checked={emptyCategoryFilter}
+                onCheckedChange={(checked) => onEmptyCategoryFilterChange(checked === true)}
+              />
+              <Label
+                htmlFor="emptyCategory"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Показати товари без категорії
+              </Label>
+            </div>
+          </div>
         </div>
 
         {/* Active Filters Summary */}
@@ -132,6 +159,11 @@ const AdvancedFiltersSection: React.FC<AdvancedFiltersSectionProps> = ({
             {(filters.updatedAt.from || filters.updatedAt.to) && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
                 Оновлено: {filters.updatedAt.from || "..."} - {filters.updatedAt.to || "..."}
+              </span>
+            )}
+            {emptyCategoryFilter && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                Без категорії
               </span>
             )}
           </div>

@@ -16,6 +16,7 @@ interface PageProps {
     sortField?: string
     sortDirection?: string
     page?: string
+    emptyCategory?: string
   }
 }
 
@@ -46,6 +47,7 @@ const Page = async ({ searchParams }: PageProps) => {
           sortField: searchParams.sortField || "",
           sortDirection: (searchParams.sortDirection as "asc" | "desc") || "asc",
           page: Number.parseInt(searchParams.page || "1"),
+          emptyCategory: searchParams.emptyCategory || "",
         }}
       />
     </section>

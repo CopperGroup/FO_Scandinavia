@@ -30,7 +30,7 @@ interface Product {
   isAvailable: boolean;
   price: number;
   priceToShow: number;
-  category: string;
+  category: string | string[];
   articleNumber: string;
   createdAt?: string;
   updatedAt?: string;
@@ -58,6 +58,7 @@ interface InitialFilters {
   sortDirection: "asc" | "desc";
   page: number;
   viewMode?: "table" | "grid";
+  emptyCategory?: string;
 }
 
 const convertToUTC = (localDateTimeString: string): Date => {
@@ -107,6 +108,10 @@ const ProductsTable = ({
     updatedAt: { from: initialFilters.updatedFrom || "", to: initialFilters.updatedTo || "" },
   });
 
+  const [emptyCategoryFilter, setEmptyCategoryFilter] = useState<boolean>(
+    initialFilters.emptyCategory === "true"
+  );
+
   const [tempDateFilters, setTempDateFilters] = useState<FilterState>(filters);
 
   const [sortConfig, setSortConfig] = useState<{
@@ -144,6 +149,7 @@ const ProductsTable = ({
       createdTo: filters.createdAt.to,
       updatedFrom: filters.updatedAt.from,
       updatedTo: filters.updatedAt.to,
+      emptyCategory: emptyCategoryFilter ? "true" : "",
     };
 
     const hasFilterChanged = Object.entries(newFilterParams).some(([key, value]) => {
@@ -156,7 +162,7 @@ const ProductsTable = ({
         page: 1
       });
     }
-  }, [inputValue, searchField, filters, updateSearchParams, searchParams]);
+  }, [inputValue, searchField, filters, emptyCategoryFilter, updateSearchParams, searchParams]);
 
 
   useEffect(() => {
@@ -228,7 +234,19 @@ const ProductsTable = ({
         matchesUpdatedAtRange = productDate >= fromDate && productDate <= toDate;
       }
 
-      return matchesSearch && matchesPriceRange && matchesCreatedAtRange && matchesUpdatedAtRange;
+      let matchesEmptyCategory = true;
+      if (emptyCategoryFilter) {
+        // Check if category is empty array or all values are empty strings
+        const category = product.category;
+        if (Array.isArray(category)) {
+          matchesEmptyCategory = category.length === 0 || category.every(cat => !cat || cat.trim() === "");
+        } else {
+          // Handle case where category might be a string
+          matchesEmptyCategory = !category || category.trim() === "";
+        }
+      }
+
+      return matchesSearch && matchesPriceRange && matchesCreatedAtRange && matchesUpdatedAtRange && matchesEmptyCategory;
     });
 
     if (sortConfig) {
@@ -257,7 +275,7 @@ const ProductsTable = ({
       });
     }
     return filtered;
-  }, [products, searchField, inputValue, filters, sortConfig]);
+  }, [products, searchField, inputValue, filters, sortConfig, emptyCategoryFilter]);
 
   const paginatedProducts = useMemo(() => {
     const start = (pageNumber - 1) * ITEMS_PER_PAGE;
@@ -274,9 +292,10 @@ const ProductsTable = ({
       filters.createdAt.from ||
       filters.createdAt.to ||
       filters.updatedAt.from ||
-      filters.updatedAt.to
+      filters.updatedAt.to ||
+      emptyCategoryFilter
     );
-  }, [inputValue, filters]);
+  }, [inputValue, filters, emptyCategoryFilter]);
 
 
   const toggleProductSelection = (productId: string) => {
@@ -313,6 +332,7 @@ const ProductsTable = ({
       updatedAt: { from: "", to: "" },
     });
     setInputValue("");
+    setEmptyCategoryFilter(false);
   };
 
   const handleSort = (field: string, direction: "asc" | "desc") => {
@@ -493,6 +513,8 @@ const ProductsTable = ({
               onUpdateFilter={updateFilter}
               onClearAllFilters={clearAllFilters}
               onOpenDateFilterModal={() => setIsDateFilterModalOpen(true)}
+              emptyCategoryFilter={emptyCategoryFilter}
+              onEmptyCategoryFilterChange={setEmptyCategoryFilter}
             />
 
             {sortedAndFilteredProducts.length !== products.length && (
