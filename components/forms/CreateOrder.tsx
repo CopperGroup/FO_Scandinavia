@@ -1286,7 +1286,7 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
 
                   <div className="flex justify-between items-center">
                     <span className="text-sm sm:text-base text-gray-700">Доставка:</span>
-                    <span className="text-sm sm:text-base font-medium text-gray-900">Безкоштовно</span>
+                    <span className="text-sm sm:text-base font-medium text-gray-900">За тарифами перевізника</span>
                   </div>
                   <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200 flex justify-between items-center">
                     <span className="text-base sm:text-lg font-medium text-gray-900">Загальна сума:</span>

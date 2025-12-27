@@ -14,8 +14,8 @@ export function generateMetaDescription(
   
     // Create optimized meta description
     return keyFeatures
-      ? `${productName} - ${keyFeatures}. Купуйте з гарантією та безкоштовною доставкою від ${storeName}.`
-      : `${productName} - Купуйте з гарантією та безкоштовною доставкою від ${storeName}. ${description.slice(0, 120).replace(/<\/?[^>]+(>|$)/g, "")}`
+      ? `${productName} - ${keyFeatures}. Купуйте з гарантією від ${storeName}.`
+      : `${productName} - Купуйте з гарантією доставкою від ${storeName}. ${description.slice(0, 120).replace(/<\/?[^>]+(>|$)/g, "")}`
   }
   
   /**

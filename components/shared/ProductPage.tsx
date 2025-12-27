@@ -263,8 +263,8 @@ export default function ProductPage({
 
   // Create optimized meta description
   const metaDescription = keyFeatures
-    ? `${pretifiedName} - ${keyFeatures}. Купуйте з гарантією та безкоштовною доставкою від ${Store.name}.`
-    : `${pretifiedName} - Купуйте з гарантією та безкоштовною доставкою від ${Store.name}. ${product.description.slice(0, 120).replace(/<\/?[^>]+(>|$)/g, "")}`
+    ? `${pretifiedName} - ${keyFeatures}. Купуйте з гарантією від ${Store.name}.`
+    : `${pretifiedName} - Купуйте з гарантією від ${Store.name}. ${product.description.slice(0, 120).replace(/<\/?[^>]+(>|$)/g, "")}`
 
   // Check if product is a best seller (more than 20 reviews)
   const isBestSeller = product.reviews && product.reviews.length > 20
