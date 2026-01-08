@@ -49,8 +49,8 @@ interface Order{
   paymentStatus: "Pending" | "Success" | "Declined";
   deliveryStatus: "Proceeding" | "Fulfilled" | "Canceled";
   data:string
-
- 
+  warehouse?: string
+  isFreeDelivery?: boolean
 }
 
 
@@ -204,6 +204,7 @@ const Orders = ({orders}:{orders:string}) => {
                 paymentStatus={order.paymentStatus}
                 deliveryStatus={order.deliveryStatus}
                 url="/admin/Orders/"
+                isFreeDelivery={order.isFreeDelivery}
               />
           ))}
         </div>

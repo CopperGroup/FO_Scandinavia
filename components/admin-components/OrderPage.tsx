@@ -126,6 +126,7 @@ interface OrderData {
   invoice?: string
   data: string
   warehouse?: string
+  isFreeDelivery?: boolean
 }
 // --- End Interfaces ---
 

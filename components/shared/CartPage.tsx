@@ -11,6 +11,7 @@ import { Store } from "@/constants/store"
 import { Minus, Plus, ShoppingCart, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { getProductPageUrlByFirstImageUrl } from "@/lib/actions/product.actions"
+import FreeDeliveryProgress from "./FreeDeliveryProgress"
 
 const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) => {
   //@ts-ignore
@@ -174,6 +175,9 @@ const CartPage = ({ setIsOpened }: { setIsOpened: (value: boolean) => void }) =>
       </div>
 
       <div className="border-t p-4">
+        <div className="mb-3">
+          <FreeDeliveryProgress currentAmount={Number.parseFloat(totalPrice)} />
+        </div>
         <div className="flex justify-between items-center mb-3">
           <span className="text-body-medium">Разом:</span>
           <span className="text-heading4-medium font-bold">

@@ -231,6 +231,11 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500" />
                     <p className="font-medium text-slate-800 text-sm sm:text-base">{order.deliveryMethod}</p>
+                    {order.isFreeDelivery && (
+                      <Badge className="bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5">
+                        Безкоштовно
+                      </Badge>
+                    )}
                   </div>
                 </div>
 

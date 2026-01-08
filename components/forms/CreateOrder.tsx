@@ -56,6 +56,7 @@ import { sendOrderEmail } from "@/lib/email/order"
 import { sendAdminOrderNotification } from "@/lib/email/admin-order"
 import Link from "next/link"
 import { Checkbox } from "../ui/checkbox"
+import FreeDeliveryProgress from "../shared/FreeDeliveryProgress"
 
 type CartProduct = {
   id: string
@@ -1260,10 +1261,10 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
                   ))}
                 </div>
                 <div className="px-4 sm:px-6 pb-4 sm:pb-6">
-                  {/* <FreeDeliveryProgress
+                  <FreeDeliveryProgress
                     currentAmount={Number.parseFloat(formattedPriceToPay)}
                     threshold={Store.freeDelivery}
-                  /> */}
+                  />
                 </div>
                 <div className="p-4 sm:p-6 bg-yellow-50">
                   <div className="flex justify-between items-center mb-2">
@@ -1286,7 +1287,13 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
 
                   <div className="flex justify-between items-center">
                     <span className="text-sm sm:text-base text-gray-700">Доставка:</span>
-                    <span className="text-sm sm:text-base font-medium text-gray-900">За тарифами перевізника</span>
+                    <span className="text-sm sm:text-base font-medium text-gray-900">
+                      {Number.parseFloat(formattedPriceToPay) >= Store.freeDelivery ? (
+                        <span className="text-green-600">Безкоштовно</span>
+                      ) : (
+                        "За тарифами перевізника"
+                      )}
+                    </span>
                   </div>
                   <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200 flex justify-between items-center">
                     <span className="text-base sm:text-lg font-medium text-gray-900">Загальна сума:</span>
@@ -1319,37 +1326,6 @@ const CreateOrder = ({ stringifiedUser, email }: { stringifiedUser: string; emai
           {authView === "success" && renderSuccessView()}
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-const FreeDeliveryProgress = ({ currentAmount, threshold }: { currentAmount: number; threshold: number }) => {
-  const progress = Math.min((currentAmount / threshold) * 100, 100)
-  const remaining = threshold - currentAmount
-
-  return (
-    <div className="bg-[#f8f8fa] rounded-xl sm:rounded-2xl p-3 sm:p-4 mb-3 sm:mb-4">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2">
-        <span className="text-xs sm:text-sm font-medium text-gray-900 mb-1 sm:mb-0">Безкоштовна доставка</span>
-        <span className="text-xs sm:text-sm text-gray-500">
-          {currentAmount.toFixed(0)} / {threshold} {Store.currency_sign}
-        </span>
-      </div>
-      <div className="h-1.5 sm:h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-      {remaining > 0 ? (
-        <p className="text-[10px] sm:text-xs text-gray-500 mt-1.5 sm:mt-2">
-          Додайте ще {remaining.toFixed(0)} {Store.currency_sign} для безкоштовної доставки
-        </p>
-      ) : (
-        <p className="text-[10px] sm:text-xs font-medium text-gray-900 mt-1.5 sm:mt-2">
-          Ви отримали безкоштовну доставку!
-        </p>
-      )}
     </div>
   )
 }

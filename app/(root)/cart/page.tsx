@@ -12,6 +12,7 @@ import type { ProductType } from "@/lib/types/types"
 import { trackFacebookEvent } from "@/helpers/pixel"
 import { Store } from "@/constants/store"
 import { useState } from "react"
+import FreeDeliveryProgress from "@/components/shared/FreeDeliveryProgress"
 
 export default function CartPage() {
   //@ts-ignore
@@ -193,6 +194,10 @@ export default function CartPage() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
               <h2 className="text-heading3-bold font-semibold mb-4">Підсумок замовлення</h2>
+
+              <div className="mb-4">
+                <FreeDeliveryProgress currentAmount={Number.parseFloat(totalPrice)} />
+              </div>
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between">

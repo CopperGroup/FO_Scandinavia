@@ -51,6 +51,7 @@ interface OrderCardProps {
   },
   warehouse: string,
   invoiceString?: string
+  isFreeDelivery?: boolean
 }
 
 const AdminOrderCard = ({
@@ -74,7 +75,8 @@ const AdminOrderCard = ({
   discount,
   invoice,
   invoiceString,
-  warehouse
+  warehouse,
+  isFreeDelivery
 }: OrderCardProps) => {
   const formatter = new Intl.NumberFormat("uk-UA", {
     style: "currency",
@@ -175,6 +177,11 @@ const AdminOrderCard = ({
                 Накладна №{invoice.number}
               </Badge>
             )}
+            {isFreeDelivery && (
+              <Badge className="bg-green-600 text-white text-xs font-medium px-2.5 py-0.5">
+                Безкоштовна доставка
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -246,7 +253,14 @@ const AdminOrderCard = ({
               <Truck className="h-4 w-4 mr-2 text-slate-500 mt-0.5" />
               <div>
                 <p className="text-small-regular text-slate-500">Доставка</p>
-                <p className="text-small-semibold text-slate-700">{deliveryMethod}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-small-semibold text-slate-700">{deliveryMethod}</p>
+                  {isFreeDelivery && (
+                    <Badge className="bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5">
+                      Безкоштовно
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 

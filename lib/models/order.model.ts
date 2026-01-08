@@ -128,6 +128,11 @@ const orderSchema = new mongoose.Schema({
 
     invoiceString: {
         type: String
+    },
+
+    isFreeDelivery: {
+        type: Boolean,
+        default: false
     }
 });
 

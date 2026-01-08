@@ -134,6 +134,9 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
           phoneNumber: params.phoneNumber,
       });
 
+      // Calculate if order qualifies for free delivery
+      const isFreeDelivery = params.value >= Store.freeDelivery;
+
       const createdOrder = await Order.create({
           id: uniqueId,
           products: params.products,
@@ -159,7 +162,8 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
           warehouse: params.warehouse,
           warehouseRef: params.warehouseRef,
           warehouseIndex: params.warehouseIndex,
-          streetRef: params.streetRef
+          streetRef: params.streetRef,
+          isFreeDelivery: isFreeDelivery
       });
 
       user.orders.push({
