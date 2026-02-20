@@ -13,9 +13,7 @@ import { Button } from "@/components/ui/button"
 import { ProductValidation } from "@/lib/validations/product"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
 import { CheckboxSmall } from "../../ui/checkbox-small"
-import { useUploadThing } from "@/lib/uploadthing"
-import { useDropzone } from "@uploadthing/react"
-import { generateClientDropzoneAccept } from "uploadthing/client"
+import { useDropzone } from "react-dropzone"
 import {
   Dialog,
   DialogContent,
@@ -48,7 +46,6 @@ const CreateProduct = () => {
   const [inputValue, setInputValue] = useState("")
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [categories, setCategories] = useState<{ name: string; categoryId: string }[]>([])
-  const [isNewCategory, setIsNewCategory] = useState<boolean>(false)
   const [creatingState, setCreatingState] = useState<"Initial" | "Creating" | "Success" | "Error">("Initial")
 
   const handleMouseEnter = (index: number) => {
@@ -67,47 +64,72 @@ const CreateProduct = () => {
     if (files.length > 0) {
       startUpload(files)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files])
 
-  const { startUpload, permittedFileInfo } = useUploadThing("imageUploader", {
-    onClientUploadComplete: (res) => {
-      setUploadingState("success");
-      // Correctly handle multiple image uploads by mapping through the response
-      // and adding all new URLs to the images array.
-      const newImageUrls = res.map((file) => file.url);
-      setImages((prevImages) => [...prevImages, ...newImageUrls]);
+  // --- MINIO CUSTOM UPLOAD IMPLEMENTATION ---
+  const startUpload = async (acceptedFiles: File[]) => {
+    setUploadingState("uploading")
+    setUploadProgress(0)
 
-      setTimeout(() => {
-        setUploadingState("initial");
-        setUploadProgress(0);
-      }, 300);
-    },
-    onUploadError: () => {
-      setUploadingState("error");
+    const newImageUrls: string[] = []
 
-      setTimeout(() => {
-        setUploadingState("initial");
-        setUploadProgress(0);
-      }, 700);
-    },
-    onUploadProgress: (progress: number) => {
-      setUploadProgress(progress);
-      if (progress === 100) {
-        setTimeout(() => {
-          setUploadingState("success");
-        }, 200);
+    try {
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i]
+        const formData = new FormData()
+        formData.append("file", file)
+
+        const url = await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open("POST", "/api/upload")
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const fileProgress = (event.loaded / event.total) * 100
+              const overallProgress = ((i * 100) + fileProgress) / acceptedFiles.length
+              setUploadProgress(Math.round(overallProgress))
+            }
+          }
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const res = JSON.parse(xhr.responseText)
+              resolve(res.url)
+            } else {
+              reject(new Error("Помилка завантаження"))
+            }
+          }
+
+          xhr.onerror = () => reject(new Error("Помилка мережі"))
+          xhr.send(formData)
+        })
+
+        newImageUrls.push(url)
       }
-    },
-    onUploadBegin: () => {
-      setUploadingState("uploading");
-    },
-  });
+
+      setUploadingState("success")
+      setImages((prevImages) => [...prevImages, ...newImageUrls])
+
+      setTimeout(() => {
+        setUploadingState("initial")
+        setUploadProgress(0)
+      }, 300)
+    } catch (error) {
+      setUploadingState("error")
+      setTimeout(() => {
+        setUploadingState("initial")
+        setUploadProgress(0)
+      }, 700)
+    }
+  }
 
   const handleChange = (event: { target: { value: string } }) => {
     setInputValue(event.target.value)
   }
 
   const handleImageAdding = () => {
+    if (!inputValue.trim()) return
     setImages([...images, inputValue])
     setInputValue("")
   }
@@ -116,11 +138,15 @@ const CreateProduct = () => {
     setImages(images.filter((_, i) => i !== index))
   }
 
-  const fileTypes = permittedFileInfo?.config ? Object.keys(permittedFileInfo?.config) : []
-
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
-    accept: fileTypes ? generateClientDropzoneAccept(fileTypes) : undefined,
+    accept: {
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'image/gif': ['.gif']
+    },
+    maxSize: 4194304, // 4MB constraint retained from UI
   })
 
   const form = useForm<z.infer<typeof ProductValidation>>({
@@ -173,13 +199,11 @@ const CreateProduct = () => {
         )
 
         const createdProduct = JSON.parse(result)
-
         createdProduct_id = createdProduct._id
       } catch (error) {
         setCreatingState("Error")
       } finally {
         setCreatingState("Success")
-
         setTimeout(() => setCreatingState("Initial"), 500)
 
         if (isChecked) {
@@ -204,7 +228,6 @@ const CreateProduct = () => {
         throw new Error(`Помилка завантаження властивостей товару: ${error.message}`)
       }
     }
-
     fetchProductCategories()
   }, [])
 
@@ -239,7 +262,10 @@ const CreateProduct = () => {
 
   return (
     <Form {...form}>
-      <form className="w-full flex gap-5 custom-scrollbar max-[900px]:flex-col" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className="w-full flex gap-5 custom-scrollbar max-[900px]:flex-col"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <div className="w-1/2 h-fit flex flex-col gap-5 max-[900px]:w-full">
           <div className="w-full h-fit pl-4 pr-5 py-4 border rounded-2xl">
             <FormField
@@ -312,6 +338,7 @@ const CreateProduct = () => {
             <p className="text-small-medium text-[14px] text-dark-1 mb-3">
               Зображення товару <span className="text-subtle-medium">(до 4MB)</span>
             </p>
+            {/* Initial State */}
             {uploadingState === "initial" && (
               <div className="w-full h-36 flex justify-center items-center flex-col bg-blue/5 border border-blue border-dashed rounded-md hover:bg-blue/10">
                 <div
@@ -319,13 +346,20 @@ const CreateProduct = () => {
                   className="w-full h-full flex flex-col justify-center items-center cursor-pointer"
                 >
                   <input {...getInputProps()} />
-                  <Image src="/assets/photo-blue.svg" width={28} height={32} alt="Завантажити зображення" />
+                  <Image
+                    src="/assets/photo-blue.svg"
+                    width={28}
+                    height={32}
+                    alt="Завантажити зображення"
+                  />
                   <p className="text-subtle-medium text-black text-center max-[490px]:text-[11px] max-[340px]:text-[10px]">
                     <span className="text-blue">Натисніть</span> або перетягніть, щоб завантажити
                   </p>
                 </div>
               </div>
             )}
+            
+            {/* Uploading State */}
             {uploadingState === "uploading" && (
               <div className="w-full h-36 flex justify-center items-center flex-col bg-orange-400/5 border border-orange-400 border-dashed rounded-md transition-all hover:bg-orange-400/10">
                 <div className="w-full h-full flex flex-col justify-center items-center cursor-pointer">
@@ -335,32 +369,50 @@ const CreateProduct = () => {
                 </div>
               </div>
             )}
+            
+            {/* Success State */}
             {uploadingState === "success" && (
               <div className="w-full h-36 flex justify-center items-center flex-col bg-green-500/5 border border-green-500 border-dashed rounded-md hover:bg-green-500/10">
                 <div className="w-full h-full flex flex-col justify-center items-center cursor-pointer">
-                  <Image src="/assets/check-circle-green.svg" width={32} height={32} alt="Завантажити зображення" />
+                  <Image
+                    src="/assets/check-circle-green.svg"
+                    width={32}
+                    height={32}
+                    alt="Завантажити зображення"
+                  />
                   <p className="text-subtle-medium text-black text-center max-[490px]:text-[11px] max-[340px]:text-[10px]">
                     Зображення <span className="text-green-500">завантажено</span>
                   </p>
                 </div>
               </div>
             )}
+            
+            {/* Error State */}
             {uploadingState === "error" && (
               <div className="w-full h-36 flex justify-center items-center flex-col bg-red-500/5 border border-red-500 border-dashed rounded-md hover:bg-red-500/10">
                 <div className="w-full h-full flex flex-col justify-center items-center cursor-pointer">
-                  <Image src="/assets/error-red.svg" width={32} height={32} alt="Завантажити зображення" />
+                  <Image
+                    src="/assets/error-red.svg"
+                    width={32}
+                    height={32}
+                    alt="Завантажити зображення"
+                  />
                   <p className="text-subtle-medium text-black text-center max-[490px]:text-[11px] max-[340px]:text-[10px]">
                     <span className="text-red-500">Помилка</span> завантаження
                   </p>
                 </div>
               </div>
             )}
+            
             {images.length > 0 && (
               <div className="w-full flex gap-2 shrink-0 mt-5 max-[425px]:hidden">
                 {images.slice(0, 4).map((image, index) => (
                   <div
                     key={index}
-                    className={`relative min-w-[10rem] size-[10rem] flex justify-center items-center rounded-2xl cursor-pointer p-2 ${index === 3 && "max-[1700px]:hidden max-[900px]:flex max-[840px]:hidden max-[767px]:flex max-[590px]:hidden"} max-[1380px]:size-[8rem] max-[1380px]:min-w-[8rem] max-[1200px]:size-[7rem] max-[1200px]:min-w-[7rem] max-[1100px]:size-[6rem] max-[1100px]:min-w-[6rem] max-[940px]:size-[5.5rem] max-[940px]:min-w-[5.5rem] max-[900px]:size-[8rem] max-[650px]:size-[7rem] max-[470px]:size-[6rem] `}
+                    className={`relative min-w-[10rem] size-[10rem] flex justify-center items-center rounded-2xl cursor-pointer p-2 ${
+                      index === 3 &&
+                      "max-[1700px]:hidden max-[900px]:flex max-[840px]:hidden max-[767px]:flex max-[590px]:hidden"
+                    } max-[1380px]:size-[8rem] max-[1380px]:min-w-[8rem] max-[1200px]:size-[7rem] max-[1200px]:min-w-[7rem] max-[1100px]:size-[6rem] max-[1100px]:min-w-[6rem] max-[940px]:size-[5.5rem] max-[940px]:min-w-[5.5rem] max-[900px]:size-[8rem] max-[650px]:size-[7rem] max-[470px]:size-[6rem] `}
                     onMouseEnter={() => handleMouseEnter(index)}
                     onMouseLeave={handleMouseLeave}
                   >
@@ -396,7 +448,9 @@ const CreateProduct = () => {
                 <DialogContent className="bg-white border-black">
                   <DialogHeader>
                     <DialogTitle>Посилання на зображення</DialogTitle>
-                    <DialogDescription>Вставте посилання на зображення, щоб додати його до товару</DialogDescription>
+                    <DialogDescription>
+                      Вставте посилання на зображення, щоб додати його до товару
+                    </DialogDescription>
                   </DialogHeader>
                   <Input value={inputValue} onChange={handleChange} placeholder="Введіть URL зображення..." />
                   <DialogFooter>
@@ -409,7 +463,7 @@ const CreateProduct = () => {
                   <Image src="/assets/eye.svg" width={16} height={16} alt="Додати зображення" />
                   <p className="text-subtle-medium max-[345px]:hidden">Переглянути</p>
                 </DialogTrigger>
-                <DialogContent className="max-w-[80vw] h-[80vh] bg-white border-black rounded-2xl  overflow-y-auto py-5">
+                <DialogContent className="max-w-[80vw] h-[80vh] bg-white border-black rounded-2xl overflow-y-auto py-5">
                   <div className="w-full h-fit grid grid-cols-7 max-[1800px]:grid-cols-6 max-[1530px]:grid-cols-5 max-[1050px]:grid-cols-4 max-[720px]:grid-cols-3 max-[520px]:grid-cols-1 max-[520px]:justify-items-center">
                     {images.map((image, index) => (
                       <div
@@ -503,7 +557,8 @@ const CreateProduct = () => {
                             "0",
                           )
                           let discount =
-                            Number.parseFloat(rawValue) - Number.parseFloat(rawValue) * (discountPercentage / 100)
+                            Number.parseFloat(rawValue) -
+                            Number.parseFloat(rawValue) * (discountPercentage / 100)
                           if (isNaN(discount)) {
                             discount = 0
                           }
@@ -612,7 +667,10 @@ const CreateProduct = () => {
                         )}
                       />
                     )}
-                    <Select defaultValue="percentage" onValueChange={(value: DiscountType) => setDiscountType(value)}>
+                    <Select
+                      defaultValue="percentage"
+                      onValueChange={(value: DiscountType) => setDiscountType(value)}
+                    >
                       <SelectTrigger className="w-64 text-small-regular text-gray-700 text-[13px] bg-neutral-100 ml-1 focus-visible:ring-black focus-visible:ring-[1px] max-[370px]:w-full">
                         <SelectValue placeholder="Знижка" />
                       </SelectTrigger>
@@ -702,7 +760,9 @@ const CreateProduct = () => {
                 name="url"
                 render={({ field }) => (
                   <FormItem className="w-full">
-                    <FormLabel className="text-small-medium text-[14px] text-dark-1">Посилання на товар</FormLabel>
+                    <FormLabel className="text-small-medium text-[14px] text-dark-1">
+                      Посилання на товар
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type="text"

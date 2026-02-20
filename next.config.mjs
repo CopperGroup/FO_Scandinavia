@@ -4,12 +4,24 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['shop.juventa.ua', 'utfs.io', 'uploadthing.com', "www.sveamoda.com.ua", "sveamoda.com.ua"], // Add the external hostname here
+    domains: [
+      'shop.juventa.ua', 
+      'utfs.io', 
+      'uploadthing.com', 
+      "www.sveamoda.com.ua", 
+      "sveamoda.com.ua",
+      "assets.nordiva.com", // <-- Your production MinIO hostname
+      "localhost"           // <-- Added just in case you test without MINIO_PUBLIC_URL
+    ], 
     remotePatterns: [
       {
         protocol: "https",
         hostname: "*.rozetka.com.ua",
       },
+      {
+        protocol: "https",
+        hostname: "assets.nordiva.com", // <-- Your production MinIO hostname
+      }
     ],
   },
   experimental: {
