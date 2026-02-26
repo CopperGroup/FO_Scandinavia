@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as Minio from "minio";
 
 const minioClient = new Minio.Client({
-  endPoint: process.env.MINIO_ENDPOINT || "localhost",
+  endPoint: process.env.MINIO_ENDPOINT || "minio",
   port: parseInt(process.env.MINIO_PORT || "9000"),
   useSSL: process.env.MINIO_USE_SSL === "true",
   accessKey: process.env.MINIO_ROOT_USER || "nordiva_admin",
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Uses the production endpoint variable to construct the final link
-    const baseUrl = process.env.MINIO_PUBLIC_URL || `http://localhost:9000`;
+    const baseUrl = process.env.MINIO_PUBLIC_URL || `https://assets.nordiva.com.ua`;
     const url = `${baseUrl}/${bucketName}/${fileName}`;
 
     return NextResponse.json({ url });

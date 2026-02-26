@@ -10,7 +10,7 @@ const nextConfig = {
       'uploadthing.com', 
       "www.sveamoda.com.ua", 
       "sveamoda.com.ua",
-      "assets.nordiva.com", // <-- Your production MinIO hostname
+      "assets.nordiva.com.ua", // <-- Your production MinIO hostname
       "localhost"           // <-- Added just in case you test without MINIO_PUBLIC_URL
     ], 
     remotePatterns: [
@@ -20,7 +20,7 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.nordiva.com", // <-- Your production MinIO hostname
+        hostname: "assets.nordiva.com.ua", // <-- Your production MinIO hostname
       }
     ],
   },

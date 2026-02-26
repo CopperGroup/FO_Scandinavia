@@ -13,9 +13,7 @@ import { Button } from "@/components/ui/button"
 import { ProductValidation } from "@/lib/validations/product"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CheckboxSmall } from "@/components/ui/checkbox-small"
-import { useUploadThing } from "@/lib/uploadthing"
-import { useDropzone } from "@uploadthing/react"
-import { generateClientDropzoneAccept } from "uploadthing/client"
+import { useDropzone } from "react-dropzone" // Changed from uploadthing
 import {
   Dialog,
   DialogContent,
@@ -33,6 +31,7 @@ import { Store } from "@/constants/store"
 import type { ProductType } from "@/lib/types/types"
 import { CategorySelect } from "./CategorySelect"
 import { RichTextEditor } from "./rich-text-editor"
+import { Check, Loader2 } from "lucide-react"
 
 type DiscountType = "percentage" | "digits"
 type UploadingState = "initial" | "uploading" | "success" | "error"
@@ -68,6 +67,7 @@ const EditProduct = ({
   const [uploadingState, setUploadingState] = useState<UploadingState>("initial")
   const [inputValue, setInputValue] = useState("")
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   const handleMouseEnter = (index: number) => {
     setHoveredIndex(index)
@@ -87,47 +87,83 @@ const EditProduct = ({
     if (files.length > 0) {
       startUpload(files)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files])
 
-  const { startUpload, permittedFileInfo } = useUploadThing("imageUploader", {
-    onClientUploadComplete: (res) => {
-      setUploadingState("success");
-      // Correctly handle multiple image uploads by mapping through the response
-      // and adding all new URLs to the images array.
-      const newImageUrls = res.map((file) => file.url);
-      setImages((prevImages) => [...prevImages, ...newImageUrls]);
+  // --- REPLACED UPLOADTHING WITH MINIO CUSTOM UPLOAD ---
+  const startUpload = async (acceptedFiles: File[]) => {
+    setUploadingState("uploading")
+    setUploadProgress(0)
 
-      setTimeout(() => {
-        setUploadingState("initial");
-        setUploadProgress(0);
-      }, 300);
-    },
-    onUploadError: () => {
-      setUploadingState("error");
+    const newImageUrls: string[] = []
 
-      setTimeout(() => {
-        setUploadingState("initial");
-        setUploadProgress(0);
-      }, 700);
-    },
-    onUploadProgress: (progress: number) => {
-      setUploadProgress(progress);
-      if (progress === 100) {
-        setTimeout(() => {
-          setUploadingState("success");
-        }, 200);
+    try {
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i]
+        const formData = new FormData()
+        formData.append("file", file)
+
+        const url = await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open("POST", "/api/upload")
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const fileProgress = (event.loaded / event.total) * 100
+              const overallProgress = (i * 100 + fileProgress) / acceptedFiles.length
+              setUploadProgress(Math.round(overallProgress))
+            }
+          }
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const res = JSON.parse(xhr.responseText)
+              resolve(res.url)
+            } else {
+              reject(new Error("Помилка завантаження"))
+            }
+          }
+
+          xhr.onerror = () => reject(new Error("Помилка мережі"))
+          xhr.send(formData)
+        })
+
+        newImageUrls.push(url)
       }
+
+      setUploadingState("success")
+      setImages((prevImages) => [...prevImages, ...newImageUrls])
+
+      setTimeout(() => {
+        setUploadingState("initial")
+        setUploadProgress(0)
+      }, 300)
+    } catch (error) {
+      setUploadingState("error")
+      setTimeout(() => {
+        setUploadingState("initial")
+        setUploadProgress(0)
+      }, 700)
+    }
+  }
+
+  const { getRootProps, getInputProps } = useDropzone({
+    onDrop,
+    accept: {
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+      "image/webp": [".webp"],
+      "image/gif": [".gif"],
     },
-    onUploadBegin: () => {
-      setUploadingState("uploading");
-    },
-  });
+    maxSize: 4194304,
+  })
 
   const handleChange = (event: { target: { value: string } }) => {
     setInputValue(event.target.value)
   }
 
   const handleImageAdding = () => {
+    if (!inputValue.trim()) return
     setImages([...images, inputValue])
     setInputValue("")
   }
@@ -135,13 +171,6 @@ const EditProduct = ({
   const handleDeleteImage = (index: number | null) => {
     setImages(images.filter((_, i) => i !== index))
   }
-
-  const fileTypes = permittedFileInfo?.config ? Object.keys(permittedFileInfo?.config) : []
-
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop,
-    accept: fileTypes ? generateClientDropzoneAccept(fileTypes) : undefined,
-  })
 
   const form = useForm<z.infer<typeof ProductValidation>>({
     resolver: zodResolver(ProductValidation),
@@ -162,35 +191,40 @@ const EditProduct = ({
   })
 
   const onSubmit = async (values: z.infer<typeof ProductValidation>) => {
-    const existingCategoryIds = values.category.filter((cat) => categories.some((c) => c.categoryId === cat))
-    const newCategoryNames = values.category.filter((cat) => !categories.some((c) => c.categoryId === cat))
+    try {
+      setIsUpdating(true)
+      const existingCategoryIds = values.category.filter((cat) => categories.some((c) => c.categoryId === cat))
+      const newCategoryNames = values.category.filter((cat) => !categories.some((c) => c.categoryId === cat))
 
-    const result = await editProduct(
-      {
-        _id: product._id,
-        id: values.id,
-        name: values.name,
-        quantity: Number.parseFloat(values.quantity),
-        images: images,
-        url: values.url ? values.url : "",
-        price: Number.parseFloat(values.price.slice(1)),
-        priceToShow: Number.parseFloat(values.priceToShow.slice(1)),
-        vendor: values.vendor || "Не вказано",
-        articleNumber: values.articleNumber,
-        category: existingCategoryIds,
-        description: values.description,
-        isAvailable: values.isAvailable as boolean,
-        customParams: values.customParams,
-        newCategories: newCategoryNames,
-      },
-      "json",
-    )
+      const result = await editProduct(
+        {
+          _id: product._id,
+          id: values.id,
+          name: values.name,
+          quantity: Number.parseFloat(values.quantity),
+          images: images,
+          url: values.url ? values.url : "",
+          price: Number.parseFloat(values.price.slice(1)),
+          priceToShow: Number.parseFloat(values.priceToShow.slice(1)),
+          vendor: values.vendor || "Не вказано",
+          articleNumber: values.articleNumber,
+          category: existingCategoryIds,
+          description: values.description,
+          isAvailable: values.isAvailable as boolean,
+          customParams: values.customParams,
+          newCategories: newCategoryNames,
+        },
+        "json",
+      )
 
-    const editedProduct = JSON.parse(result)
-
-    await updateCategories([editedProduct], "update")
-
-    router.back()
+      const editedProduct = JSON.parse(result)
+      await updateCategories([editedProduct], "update")
+      router.back()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const { fields, append, remove } = useFieldArray({
@@ -218,29 +252,9 @@ const EditProduct = ({
       defaultValue: [],
     }) ?? []
 
-  // Use `useMemo` to check if all custom parameters are filled
   const areAllParamsFilled = useMemo(() => {
     return customParams.every((param: { name: string; value: string }) => param.name.trim() && param.value.trim())
   }, [customParams])
-
-  const mapFieldName = (name: string) => {
-    switch (name) {
-      case "Ширина, см":
-        return "Width"
-      case "Висота, см":
-        return "Height"
-      case "Глибина, см":
-        return "Depth"
-      case "Вид":
-        return "Type"
-      case "Колір":
-        return "Color"
-      case "Товар":
-        return "Model"
-      default:
-        return name
-    }
-  }
 
   return (
     <Form {...form}>
@@ -553,11 +567,7 @@ const EditProduct = ({
 
                                 form.setValue("priceToShow", `${Store.currency_sign}${discountValue.toFixed(0)}`)
                                 setDiscountPrice(discountValue.toFixed(0))
-                              } else {
-                                console.error("Неправильний формат ціни.")
                               }
-                            } else {
-                              console.error("Неправильний відсоток знижки.")
                             }
 
                             setDiscountPercentage(value !== "" ? numericValue : 0)
@@ -617,7 +627,10 @@ const EditProduct = ({
                         )}
                       />
                     )}
-                    <Select defaultValue="percentage" onValueChange={(value: DiscountType) => setDiscountType(value)}>
+                    <Select
+                      defaultValue="percentage"
+                      onValueChange={(value: DiscountType) => setDiscountType(value)}
+                    >
                       <SelectTrigger className="w-64 text-small-regular text-gray-700 text-[13px] bg-neutral-100 ml-1 focus-visible:ring-black focus-visible:ring-[1px] max-[370px]:w-full">
                         <SelectValue placeholder="Знижка" />
                       </SelectTrigger>
@@ -776,8 +789,19 @@ const EditProduct = ({
           </div>
 
           <div className="w-full flex gap-1">
-            <Button type="submit" className="w-full bg-green-500 hover:bg-green-400" size="sm">
-              Зберегти зміни
+            <Button
+              type="submit"
+              className="w-full bg-green-500 hover:bg-green-400"
+              size="sm"
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  Оновлення <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                </>
+              ) : (
+                "Зберегти зміни"
+              )}
             </Button>
             <DeleteProductButton id={product.id} _id={product._id} />
           </div>
