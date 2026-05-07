@@ -52,9 +52,9 @@ const Search = ({ initialSearchText = "" }: { initialSearchText: string }) => {
             }
           }}
         />
-        <Button 
-          onClick={handleSearchClick} 
-          className="ml-2 h-11 rounded-full px-5 bg-gradient-to-r from-[#006AA7] to-[#005a8e] hover:from-[#005a8e] hover:to-[#004d7a] text-white shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95"
+        <Button
+          onClick={handleSearchClick}
+          className="ml-2 h-11 rounded-full px-5 bg-gradient-to-r from-[#006AA7] to-[#005a8e] hover:from-[#005a8e] hover:to-[#004d7a] text-white shadow-md hover:shadow-lg transition-colors duration-300"
         >
           <SearchIcon className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline font-medium">Пошук</span>
@@ -62,7 +62,7 @@ const Search = ({ initialSearchText = "" }: { initialSearchText: string }) => {
       </div>
 
       <Select value={sort} onValueChange={(element: SortParams) => setSort(element)}>
-        <SelectTrigger className="w-full sm:w-[180px] h-11 border-slate-200 focus:border-[#006AA7] focus:ring-2 focus:ring-[#006AA7]/20 rounded-full shadow-sm bg-white/80 backdrop-blur-sm transition-all duration-300 hover:shadow-md">
+        <SelectTrigger className="w-full sm:w-[240px] h-11 border-slate-200 focus:border-[#006AA7] focus:ring-2 focus:ring-[#006AA7]/20 rounded-full shadow-sm bg-white/80 backdrop-blur-sm transition-shadow duration-300 hover:shadow-md">
           <SelectValue placeholder="Сортування" />
         </SelectTrigger>
         <SelectContent className="rounded-xl shadow-xl border-slate-200">

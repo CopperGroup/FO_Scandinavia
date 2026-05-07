@@ -114,7 +114,7 @@ const Catalog = async ({searchParams }:any) => {
             {/* Search and Sort Section */}
             <div className='w-full mb-6 px-4 max-lg:px-6'>
               <div className='flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4'>
-                <div className='flex-1 w-full sm:max-w-md'>
+                <div className='flex-1 w-full sm:max-w-2xl'>
                   <Search initialSearchText={searchParams.search}/>
                 </div>
                 {totalProducts > 0 && (
