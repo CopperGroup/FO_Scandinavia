@@ -15,9 +15,12 @@ interface CategoryAdminClientProps {
 }
 
 export default function CategoryStructureClient({ stringifiedCategories }: CategoryAdminClientProps) {
-  // Parse the JSON string to get the categories
-  const initialCategories = JSON.parse(stringifiedCategories)
-  const [categories, setCategories] = useState(initialCategories)
+  // Parse the JSON string twice so the "initial" snapshot and the live state are
+  // two independent object graphs. Change-detection on save compares them, so
+  // they must never share references (otherwise edits leak into the snapshot and
+  // the diff finds no changes). Lazy initializers keep this a one-time parse.
+  const [initialCategories] = useState(() => JSON.parse(stringifiedCategories))
+  const [categories, setCategories] = useState(() => JSON.parse(stringifiedCategories))
   const [isSaving, setIsSaving] = useState(false)
 
   const handleSave = async () => {

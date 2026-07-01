@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"D:/Temp/claude/d--webdev-sveamoda-FO-Scandinavia/d42662eb-9679-4bbb-983e-9cf5a7852cd2/scratchpad/diagnose.mjs\" \"d:/webdev/sveamoda/FO_Scandinavia/_diagnose_tmp.mjs\")",
+      "Bash(node _diagnose_tmp.mjs)",
+      "Bash(echo \"---EXIT $?---\")",
+      "Bash(rm -f \"d:/webdev/sveamoda/FO_Scandinavia/_diagnose_tmp.mjs\")",
+      "Bash(cp \"D:/Temp/claude/d--webdev-sveamoda-FO-Scandinavia/d42662eb-9679-4bbb-983e-9cf5a7852cd2/scratchpad/upload.mjs\" \"d:/webdev/sveamoda/FO_Scandinavia/_upload_tmp.mjs\")",
+      "Bash(DRY_RUN=1 node _upload_tmp.mjs)",
+      "Bash(node _upload_tmp.mjs)",
+      "Bash(rm -f \"d:/webdev/sveamoda/FO_Scandinavia/_upload_tmp.mjs\")",
+      "Bash(node _verify_tmp.mjs)",
+      "Bash(rm -f \"d:/webdev/sveamoda/FO_Scandinavia/_verify_tmp.mjs\")",
+      "Bash(node _rediscsheck_tmp.mjs)",
+      "Bash(rm -f \"d:/webdev/sveamoda/FO_Scandinavia/_rediscsheck_tmp.mjs\")"
+    ]
+  }
+}

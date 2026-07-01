@@ -266,50 +266,50 @@ export default function CategoryStructureManager({ categories, setCategories }: 
     return parent.subCategories.some((subId) => isDescendantOf(potentialChildId, subId, cats))
   }, [])
 
-  // Move a category to a new parent
+  // Move a category to a new parent.
+  // IMPORTANT: this update is fully immutable. It never mutates the existing
+  // category objects or their subCategories arrays, because those objects are
+  // shared with the "initial" snapshot used for change-detection on save.
+  // Mutating them in place makes the save diff see no changes and silently drop
+  // the reorder.
   const moveCategory = useCallback(
     (categoryId: string, sourceParentId: string | null, targetParentId: string | null) => {
       setCategories((prevCategories) => {
-        const newCategories = [...prevCategories]
+        // Nothing to do if the category doesn't exist
+        if (!prevCategories.some((cat) => cat._id === categoryId)) return prevCategories
 
-        // Find the category to move
-        const categoryToMove = newCategories.find((cat) => cat._id === categoryId)
-        if (!categoryToMove) return prevCategories
-
-        // Check if the category is already in the target parent's subCategories
+        // No-op if it's already a child of the target parent
         if (targetParentId) {
-          const targetParent = newCategories.find((cat) => cat._id === targetParentId)
+          const targetParent = prevCategories.find((cat) => cat._id === targetParentId)
           if (targetParent && targetParent.subCategories.includes(categoryId)) {
-            // Category is already a child of the target parent, no need to move
             return prevCategories
           }
         }
 
-        // Remove from source parent's subCategories
-        if (sourceParentId) {
-          const sourceParent = newCategories.find((cat) => cat._id === sourceParentId)
-          if (sourceParent) {
-            sourceParent.subCategories = sourceParent.subCategories.filter((id) => id !== categoryId)
-          }
+        // Guard against self-drop and circular references (before any change)
+        if (
+          targetParentId &&
+          (categoryId === targetParentId || isDescendantOf(targetParentId, categoryId, prevCategories))
+        ) {
+          return prevCategories
         }
 
-        // Add to target parent's subCategories
-        if (targetParentId) {
-          const targetParent = newCategories.find((cat) => cat._id === targetParentId)
-          if (targetParent) {
-            // Prevent circular references and duplicates
-            if (
-              categoryId !== targetParentId &&
-              !isDescendantOf(targetParentId, categoryId, newCategories) &&
-              !targetParent.subCategories.includes(categoryId)
-            ) {
-              targetParent.subCategories.push(categoryId)
-            }
+        // Produce a brand-new array with new objects only for the parents that change.
+        return prevCategories.map((cat) => {
+          // Handle the case where source and target are the same parent first so
+          // we don't accidentally remove without re-adding (that case is already
+          // short-circuited above, but keep it defensive).
+          if (sourceParentId && cat._id === sourceParentId) {
+            return { ...cat, subCategories: cat.subCategories.filter((id) => id !== categoryId) }
           }
-        }
 
-        // console.log("Category structure after move:", JSON.stringify(newCategories, null, 2))
-        return newCategories
+          if (targetParentId && cat._id === targetParentId) {
+            if (cat.subCategories.includes(categoryId)) return cat
+            return { ...cat, subCategories: [...cat.subCategories, categoryId] }
+          }
+
+          return cat
+        })
       })
     },
     [setCategories, isDescendantOf],
