@@ -365,6 +365,10 @@ That sign-in is never written in the repository or in the code. The code works w
 database migration; the scripts under "Data maintenance" were run on production on
 2026-11-18 and report "nothing to do" since.
 
+The containers publish their ports on `127.0.0.1` only: from the internet the server answers
+on 80/443 (Caddy) and 22 (SSH), nothing else. The MinIO admin console is reached through an
+SSH tunnel: `ssh -L 9001:127.0.0.1:9001 root@<server>`, then `http://localhost:9001`.
+
 To go back to the version before a release, the previous image is kept under the tag
 `fo_scandinavia_app:previous`: `docker tag fo_scandinavia_app:previous fo_scandinavia_app:latest`,
 then `down` and `up -d` as above (tag the current image as `previous` before each build).

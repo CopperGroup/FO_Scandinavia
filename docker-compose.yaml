@@ -9,8 +9,9 @@ services:
   app:
     build: .
     logging: *logging
+    # Reachable only from the server itself: visitors come through Caddy (nordiva.com.ua), never straight to this port.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env.local
     restart: always
@@ -42,9 +43,11 @@ services:
   minio:
     image: minio/minio
     logging: *logging
+    # Only from the server itself too. Photos are served through Caddy (assets.nordiva.com.ua -> 9000).
+    # The MinIO admin console (9001) is opened through an SSH tunnel: ssh -L 9001:127.0.0.1:9001 root@<server>, then http://localhost:9001
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       # The MinIO sign-in is set in the server's .env.local (the app uploads with the same pair) and is
       # never written in this file. Compose reads it when started with: docker compose --env-file .env.local ...
