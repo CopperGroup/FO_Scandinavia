@@ -349,7 +349,9 @@ be opened by a local run of a database copy.
 
 The shop runs on its server from `docker-compose.yaml` (the app, a Redis cache, MinIO); the
 database is in MongoDB Atlas. The image is built on the server from the checkout
-(`docker compose up -d --build app`), and the build reads the server's `.env.local`. The code
+(`docker compose --env-file .env.local up -d --build`), and the build reads the server's
+`.env.local`. The same file holds the MinIO sign-in (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`):
+Compose takes it from there for the MinIO service, and it is never written in the repository. The code
 works without any database migration; the scripts under "Data maintenance" are optional
 clean-ups.
 
