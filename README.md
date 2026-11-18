@@ -345,6 +345,39 @@ Without either the page shows what is not configured and creates nothing.
 `.env.development.local` sets its own `SETTINGS_SECRET`, so a key sealed on production cannot
 be opened by a local run of a database copy.
 
+### Promo codes (`/admin/promocodes`, `lib/promo`, collection `promocodes`)
+
+One document per code. A code is **shared** (anyone who knows it, guests included) or
+**personal** (one customer, who has to be signed in). Each has a percent, optional first
+and last day (Kyiv days, both included), an optional total number of uses (shared codes
+only), uses per customer, a minimum order, an on/off switch and a note for the admin.
+
+- `lib/promo/rules.ts`: the rules, with no database: what a code allows for a given
+  customer, cart and day, the refusal texts, and how input from the admin is cleaned.
+  `checkPromo` is the only place that decides; the checkout preview and the order use it.
+- `lib/promo/server.ts`: reads and writes. A use is taken by `redeemPromo` with one
+  conditional update (active, dates, total limit, per-customer limit all in its filter),
+  so two orders cannot both get the last use. The order number is attached after the
+  order is created; a failed order gives the use back. Cancelling an order (or deleting
+  it) gives the use back; putting a cancelled order back in work counts it again.
+- `lib/promo/admin.ts` and `lib/actions/promo-admin.actions.ts`: the admin list, a code's
+  page with every order that used it, and creating, changing, switching off and deleting.
+  A code somebody has used cannot be deleted or have its text or owner changed: switch it
+  off instead. Only an administrator can call these actions.
+- Codes the shop gives by itself, for registering and for a review, are personal codes
+  made by `issueRewardCode`. Their size and how many days they last are set on the
+  «Автоматичні промокоди» view of the promo codes page (settings key `promo-rewards`); the registration
+  and checkout texts take the welcome percent from there.
+- Customers see their own codes on `/promocodes` and pick them in the checkout. The price
+  is always counted on the server from the database; whatever discount the browser sends
+  is ignored.
+
+Codes issued before this list existed are text in the customer's record
+(`users.discounts`, `DV-…`). They keep working: a customer's old codes are put into the list
+the first time they open their codes or the checkout, or apply one. Their last day is the day
+before the date written in them, as before. `tools/migrate-promo-codes.mjs` does the same for
+all customers at once, so the admin sees them all straight away (see below).
+
 ## Deploy and backups
 
 The shop runs on its server from `docker-compose.yaml` (the app, a Redis cache, MinIO for
@@ -481,6 +514,10 @@ INDEX_MONGODB_URL="<url>" node tools/create-indexes.mjs --apply
 SETTINGS_MONGODB_URL="<url>" node tools/migrate-settings-from-env.mjs --env .env.local          # report
 SETTINGS_MONGODB_URL="<url>" node tools/migrate-settings-from-env.mjs --env .env.local --apply
 
+# Promo codes issued before the admin list existed (text in users.discounts) into "promocodes"
+PROMO_MONGODB_URL="<url>" node tools/migrate-promo-codes.mjs                                    # report
+PROMO_MONGODB_URL="<url>" node tools/migrate-promo-codes.mjs --apply
+
 # Shop contacts: from the old "Contacts" record into "Налаштування" (variables)
 SETTINGS_MONGODB_URL="<url>" node tools/migrate-contacts-to-variables.mjs                        # report
 SETTINGS_MONGODB_URL="<url>" node tools/migrate-contacts-to-variables.mjs --apply
@@ -493,6 +530,10 @@ must have the same one. Values already saved in the admin are kept unless `--for
 It never prints the key, and after `--apply` it lists the variables that can be removed.
 
 Run the report first and read it. On production, take a backup before `--apply`.
+
+`migrate-promo-codes.mjs` only adds codes that are not in the list yet (running it twice adds
+nothing) and leaves `users.discounts` as it is. The site does not need it: old codes are
+adopted one customer at a time anyway.
 
 `migrate-contacts-to-variables.mjs` copies the phone, e-mail, hours, Telegram and Viber.
 The site shows the same contacts before and after it; values already saved in

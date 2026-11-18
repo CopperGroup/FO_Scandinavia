@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Store } from "@/constants/store"
 import { trackFacebookEvent } from "@/helpers/pixel"
 import { createOrder } from "@/lib/actions/order.actions"
-import { validatePromoCode } from "@/lib/actions/promocode.actions"
+import { checkPromoCode } from "@/lib/actions/promocode.actions"
 import { formatPrice, money } from "@/lib/storefront/format"
 import { useCart } from "@/lib/storefront/use-cart"
 import { cn } from "@/lib/utils"
@@ -137,14 +137,6 @@ function ChoiceCards({
   )
 }
 
-/** Extracts the percentage from a validated promo code ("DV-10…"). */
-function promoDiscount(code: string): number | null {
-  const body = code.split("-")[1]
-  if (!body) return null
-  const value = Number.parseInt(body.slice(0, body.length - (4 + 3 + 8 + 1)))
-  return Number.isNaN(value) ? null : value
-}
-
 export type CheckoutProfile = { id: string; name: string; surname: string; phoneNumber: string }
 
 /** A code of the signed-in customer that still works: offered under the promo field, one tap to apply. */
@@ -163,7 +155,6 @@ export default function Checkout({ profile, email, promoCodes = [] }: { profile:
   const [isApplyingPromo, setIsApplyingPromo] = useState(false)
   const [promoError, setPromoError] = useState("")
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null)
-  const [promoResult, setPromoResult] = useState<string | null>(null)
 
   const [authOpen, setAuthOpen] = useState(false)
   const [authView, setAuthView] = useState<"login" | "register" | "success" | "confirm">("register")
@@ -203,25 +194,22 @@ export default function Checkout({ profile, email, promoCodes = [] }: { profile:
   const subtotal = cart.total
   const promoAmount = appliedPromo ? Math.round(subtotal * (appliedPromo.discount / 100)) : 0
   const toPay = subtotal - promoAmount
-  const { freeDelivery: freeFrom } = useShopSettings()
+  const { freeDelivery: freeFrom, welcomePercent } = useShopSettings()
   const freeDelivery = freeFrom > 0 && toPay >= freeFrom
 
   async function applyPromocode(typed: string = promocode) {
-    if (!email) {
-      setAuthOpen(true)
-      return
-    }
     const code = typed.trim()
     setIsApplyingPromo(true)
     setPromoError("")
     try {
-      const result = await validatePromoCode({ promoCode: code, email })
-      setPromoResult(result)
-      const discount = result === "UNVALID" ? null : promoDiscount(result)
-      if (discount === null) {
-        setPromoError("Цей промокод не діє. Перевірте написання та термін дії.")
+      // The server answers by the same rules the order is placed by; the sum here only decides the wording.
+      const result = await checkPromoCode({ code, subtotal })
+      if (result.ok) {
+        setAppliedPromo({ code: result.code, discount: result.percent })
       } else {
-        setAppliedPromo({ code: code.toUpperCase(), discount })
+        setPromoError(result.error)
+        // A personal code of someone who has not signed in yet.
+        if (result.signIn) setAuthOpen(true)
       }
     } catch {
       setPromoError("Не вдалося перевірити промокод. Спробуйте ще раз за хвилину.")
@@ -232,7 +220,6 @@ export default function Checkout({ profile, email, promoCodes = [] }: { profile:
 
   function removePromocode() {
     setAppliedPromo(null)
-    setPromoResult(null)
     setPromocode("")
     setPromoError("")
   }
@@ -255,8 +242,6 @@ export default function Checkout({ profile, email, promoCodes = [] }: { profile:
           city: values.city,
           comment: values.comment,
           promocode: appliedPromo ? appliedPromo.code : undefined,
-          discount: appliedPromo ? appliedPromo.discount : undefined,
-          promoResult: promoResult || undefined,
           cityRef: values.cityRef,
           warehouse: values.warehouse,
           warehouseRef: values.warehouseRef,
@@ -609,11 +594,11 @@ export default function Checkout({ profile, email, promoCodes = [] }: { profile:
                       </ul>
                     </div>
                   )}
-                  {!email && (
+                  {!email && welcomePercent > 0 && (
                     <p className="mt-2 text-sm text-brand-muted">
-                      Промокоди діють після входу.{" "}
+                      Ще не маєте промокоду?{" "}
                       <button type="button" onClick={() => setAuthOpen(true)} className="font-semibold text-brand hover:text-brand-deep focus-visible:outline-none focus-visible:underline">
-                        Зареєструйтеся та отримайте −10% на перше замовлення
+                        Зареєструйтеся та отримайте −{welcomePercent}% на перше замовлення
                       </button>
                     </p>
                   )}
@@ -711,8 +696,12 @@ export default function Checkout({ profile, email, promoCodes = [] }: { profile:
               {authView === "confirm"
                 ? `Ми надіслали лист на ${registerForm.email.trim()}. З цієї адреси вже робили замовлення, тому обліковий запис відкриється після переходу за посиланням із листа. Замовлення можна оформити й зараз, без входу.`
                 : authView === "success"
-                ? "Промокод на знижку 10% надіслано на вашу електронну пошту. Введіть його в полі «Промокод»."
-                : "Зареєстрованим покупцям надсилаємо промокод на −10% для першого замовлення."}
+                ? welcomePercent > 0
+                  ? `Промокод на знижку ${welcomePercent}% надіслано на вашу електронну пошту. Він також є під полем «Промокод».`
+                  : "Тепер ваші замовлення зберігаються в обліковому записі."
+                : welcomePercent > 0
+                  ? `Зареєстрованим покупцям надсилаємо промокод на −${welcomePercent}% для першого замовлення.`
+                  : "З обліковим записом видно всі ваші замовлення."}
             </DialogDescription>
           </DialogHeader>
 

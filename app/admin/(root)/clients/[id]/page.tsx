@@ -9,6 +9,7 @@ import { CLIENT_ORDERS_PAGE_SIZE, getClientDetail } from "@/lib/admin/clients"
 import { listHref, parseChoice, parsePage } from "@/lib/admin/list"
 import { thumbnailUrl } from "@/lib/admin/thumb"
 import { ROLE_LABEL, formatAdminDate, formatAdminDateTime } from "@/lib/admin/status"
+import { formatPromoDay, promoUsesLabel } from "@/lib/promo/rules"
 import { money } from "@/lib/storefront/format"
 
 export const metadata: Metadata = { title: "Клієнт" }
@@ -28,7 +29,7 @@ const Page = async ({ params, searchParams }: { params: { id: string }; searchPa
   const fullName = [client.name, client.surname].filter(Boolean).join(" ") || client.username || client.email
   const { stats } = client
   const ordersPageCount = Math.max(1, Math.ceil(stats.orders / CLIENT_ORDERS_PAGE_SIZE))
-  const activePromos = client.promoCodes.filter((promo) => !promo.expired).length
+  const activePromos = client.promoCodes.filter((promo) => promo.state === "active" || promo.state === "scheduled").length
 
   return (
     <AdminPage
@@ -123,7 +124,15 @@ const Page = async ({ params, searchParams }: { params: { id: string }; searchPa
 
         {tab === "promo" &&
           (client.promoCodes.length === 0 ? (
-            <EmptyState title="Промокодів немає" text="Персональні знижки з’являються після реєстрації або відгуку." />
+            <EmptyState
+              title="Особистих промокодів немає"
+              text="Вони з’являються після реєстрації чи відгуку, або їх видає магазин."
+              action={
+                <Link href={`/admin/promocodes/new?owner=${client.id}`} className={adminButton.secondary}>
+                  Видати промокод
+                </Link>
+              }
+            />
           ) : (
             <Panel padded={false}>
               <ul className="divide-y divide-neutral-100">
@@ -132,11 +141,17 @@ const Page = async ({ params, searchParams }: { params: { id: string }; searchPa
                     <span className="min-w-0">
                       <span className="block break-all font-mono text-xs text-neutral-900">{promo.code}</span>
                       <span className="block text-xs text-neutral-500">
-                        {promo.validUntil ? `діє до ${formatAdminDate(promo.validUntil)}` : "без терміну"}
-                        {promo.usesLeft !== null ? `, залишилось використань: ${promo.usesLeft}` : ""}
+                        −{promo.percent}%, {promo.lastDay ? `останній день ${formatPromoDay(promo.lastDay)}` : "без терміну"}
+                        {promo.state === "active" || promo.state === "scheduled" ? `, ${promoUsesLabel(promo.usesLeft)}` : ""}
                       </span>
                     </span>
-                    {promo.expired ? <Pill tone="muted">Не діє</Pill> : <Pill tone="ok">−{promo.percent ?? "?"}%</Pill>}
+                    {promo.state === "active" ? (
+                      <Pill tone="ok">Діє</Pill>
+                    ) : promo.state === "scheduled" ? (
+                      <Pill>Ще не діє</Pill>
+                    ) : (
+                      <Pill tone="muted">{promo.state === "used" ? "Використано" : "Термін минув"}</Pill>
+                    )}
                   </li>
                 ))}
               </ul>

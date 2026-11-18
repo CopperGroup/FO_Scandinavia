@@ -10,7 +10,7 @@ import { generateLongPassword } from "../utils";
 import { Store } from "@/constants/store";
 import { DateTime } from 'luxon';
 import { escapeRegExp } from "../catalog/text";
-import { validatePromoCode } from "./promocode.actions";
+import { PromoProblem, attachPromoUse, redeemPromo, releasePromoForOrder, releasePromoUse, restorePromoForOrder, type Redeemed } from "../promo/server";
 import { invalidateCatalog } from "../catalog/server/service";
 import { sendOrderEmail } from "../email/order";
 import { sendAdminOrderNotification } from "../email/admin-order";
@@ -36,9 +36,8 @@ interface CreateOrderParams {
   adress: string;
   postalCode: string;
   comment: string | undefined;
-  discount: number | undefined,
+  /** The code the customer applied. Its discount is decided here, never taken from the browser. */
   promocode: string | undefined,
-  promoResult: string | undefined;
   cityRef: string | undefined,
   warehouse: string,
   warehouseRef: string | undefined,
@@ -113,6 +112,8 @@ async function notifyAboutOrder(orderId: string): Promise<void> {
 
 export async function createOrder(params: CreateOrderParams, type?: "json") {
   const reserved: { id: string; amount: number }[] = [];
+  /** The use of a promo code taken for this order; given back if the order does not happen. */
+  let redeemed: Redeemed | null = null;
 
   try {
       await connectToDB();
@@ -176,23 +177,17 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
       // A guest who types somebody's e-mail must not rewrite that person's profile.
       const mayUpdateProfile = Boolean(signedIn) || user.selfCreated === true;
 
-      // 3. Promo code: only a code this customer owns counts, and its value is read here.
+      // 3. Promo code: checked again here by the same rules as at "apply", and one use of it is
+      //    taken with a conditional update, so the last use cannot go to two orders.
       let discount = 0;
-      let storedPromo: string | undefined;
-      let nextPromo: string | undefined;
       if (params.promocode) {
-          const wanted = params.promocode.trim().toUpperCase();
-          storedPromo = (user.discounts ?? []).find((code: string) => String(code).toUpperCase() === wanted);
-          if (storedPromo) {
-              const validated = await validatePromoCode({ promoCode: storedPromo, email: user.email });
-              const body = validated === "UNVALID" ? "" : validated.split("-")[1] ?? "";
-              const percent = Number.parseInt(body.slice(0, body.length - (4 + 3 + 8 + 1)));
-              if (Number.isFinite(percent) && percent >= 1 && percent <= 99) {
-                  discount = percent;
-                  nextPromo = validated;
-              }
+          try {
+              redeemed = await redeemPromo({ code: params.promocode, userId: String(user._id), subtotal });
+          } catch (error) {
+              if (error instanceof PromoProblem) throw new OrderProblem(error.message);
+              throw error;
           }
-          if (discount === 0) throw new OrderProblem("Промокод більше не діє. Приберіть його і спробуйте ще раз.");
+          discount = redeemed.percent;
       }
 
       const value = Math.round(subtotal * (1 - discount / 100));
@@ -233,7 +228,7 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
           paymentStatus: "Pending",
           deliveryStatus: "Proceeding",
           discount: discount || undefined,
-          promocode: discount ? params.promocode : undefined,
+          promocode: redeemed ? redeemed.code : undefined,
           buildingNumber: params.buildingNumber,
           apartment: params.apartment,
           cityRef: params.cityRef,
@@ -246,15 +241,17 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
 
       // From here the order stands; nothing below may undo the reservation.
       reserved.length = 0;
+      if (redeemed) {
+          const used = redeemed;
+          redeemed = null;
+          await attachPromoUse(used, String(createdOrder.id), String(user._id)).catch((error) => console.error("[order] promo use:", error?.message ?? error));
+      }
 
       user.orders.push({
           order: createdOrder._id,
           createdAt: DateTime.now().setZone('Europe/Kiev'),
       });
       user.totalOrders += 1;
-      if (storedPromo && nextPromo) {
-          user.discounts = user.discounts.map((code: string) => (code === storedPromo ? nextPromo : code));
-      }
       await user.save();
 
       const orderedIds = Array.from(amounts.keys());
@@ -280,6 +277,7 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
       for (const line of reserved) {
           await Product.updateOne({ _id: line.id }, { $inc: { quantity: line.amount } }).catch(() => undefined);
       }
+      if (redeemed) await releasePromoUse(redeemed).catch(() => undefined);
       if (error instanceof OrderProblem && type === "json") {
           return JSON.stringify({ error: error.message });
       }
@@ -388,10 +386,12 @@ async function removeOrder(filter: { _id: string } | { id: string }) {
   await requireAdmin();
   await connectToDB();
 
-  const order = await Order.findOne(filter).select("_id user").lean<{ _id: mongoose.Types.ObjectId; user?: mongoose.Types.ObjectId }>();
+  const order = await Order.findOne(filter).select("_id id user deliveryStatus").lean<{ _id: mongoose.Types.ObjectId; id?: string; user?: mongoose.Types.ObjectId; deliveryStatus?: string }>();
   if (!order) return false;
 
   await Order.deleteOne({ _id: order._id });
+  // A deleted order is not a sale: its promo code can be used again (a cancelled one already gave it back).
+  if (order.id && order.deliveryStatus !== "Canceled") await releasePromoForOrder(String(order.id)).catch((error) => console.error("[order] promo release:", error?.message ?? error));
   await Promise.all([
     order.user ? User.updateOne({ _id: order.user, "orders.order": order._id }, { $pull: { orders: { order: order._id } }, $inc: { totalOrders: -1 } }) : null,
     Product.updateMany({ orderedBy: order._id }, { $pull: { orderedBy: order._id } }),
@@ -440,8 +440,14 @@ export async function changedeliveryStatus(id: string, status: string, path?: st
         if (!(DELIVERY_STATUSES as readonly string[]).includes(status)) throw new Error(`Unknown delivery status "${status}"`);
         await connectToDB();
 
-        const result = await Order.updateOne({ id: String(id) }, { $set: { deliveryStatus: status } });
-        if (result.matchedCount === 0) throw new Error("Order not found");
+        const before = await Order.findOneAndUpdate({ id: String(id) }, { $set: { deliveryStatus: status } })
+          .select("deliveryStatus promocode user")
+          .lean<{ deliveryStatus?: string; promocode?: string; user?: mongoose.Types.ObjectId }>();
+        if (!before) throw new Error("Order not found");
+        // A cancelled order gives its promo code back to the customer; un-cancelling takes it again.
+        const promoError = (error: any) => console.error("[order] promo:", error?.message ?? error);
+        if (status === "Canceled" && before.deliveryStatus !== "Canceled") await releasePromoForOrder(String(id)).catch(promoError);
+        if (status !== "Canceled" && before.deliveryStatus === "Canceled") await restorePromoForOrder(String(id), before.promocode, before.user ? String(before.user) : undefined).catch(promoError);
 
         await clearCache("updateOrder", undefined);
         return status;

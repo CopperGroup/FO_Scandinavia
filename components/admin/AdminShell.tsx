@@ -20,6 +20,7 @@ import {
   Settings,
   SlidersHorizontal,
   Tag,
+  TicketPercent,
   Truck,
   Upload,
   Users,
@@ -44,6 +45,7 @@ const NAVIGATION: NavGroup[] = [
       { label: "Платежі", href: "/admin/payments", icon: CreditCard, tip: "Оплати замовлень і їхній стан" },
       { label: "Доставка", href: "/admin/delivery", icon: Truck, tip: "Нова пошта: ключ, дані відправника" },
       { label: "Клієнти", href: "/admin/clients", icon: Users, tip: "Покупці та їхні замовлення" },
+      { label: "Промокоди", href: "/admin/promocodes", icon: TicketPercent, tip: "Знижки за кодом: створити, вимкнути, побачити, хто скористався" },
     ],
   },
   {
@@ -74,6 +76,7 @@ const SECTION_TITLES: Record<string, string> = {
   payments: "Платежі",
   delivery: "Доставка",
   clients: "Клієнти",
+  promocodes: "Промокоди",
   products: "Товари",
   createproduct: "Товар",
   categories: "Категорії",

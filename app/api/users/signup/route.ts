@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
-import { generatePromoCode } from "@/lib/actions/promocode.actions";
+import { issueRewardCode } from "@/lib/promo/server";
 import { cancelGuestClaim, createAccount, findAccountForSignup, startGuestClaim } from "@/lib/auth/accounts";
 import { sendAccountConfirmationEmail } from "@/lib/email/confirm-account";
 import { looksLikeEmail, normalizeEmail } from "@/lib/auth/email";
@@ -51,18 +51,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User already exists" }, { status: 400 });
     }
 
-    const promoCode = await generatePromoCode({
-      email,
-      validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
-      reusabilityTimes: 1,
-      discountPercentage: 10,
-    });
-
-    const savedUser = await createAccount({ username, email, password: hashedPassword, phoneNumber, promoCode });
-    await sendWelcomeEmail(email, promoCode);
-
+    const savedUser = await createAccount({ username, email, password: hashedPassword, phoneNumber });
     if (!savedUser) {
       return NextResponse.json({ error: "Saved user not found" }, { status: 500 });
+    }
+
+    // The promised promo code (unless the shop switched it off). The account is open whether or not the letter goes out.
+    try {
+      const reward = await issueRewardCode("welcome", savedUser._id);
+      if (reward) await sendWelcomeEmail(email, reward.code, reward.percent);
+    } catch (error: any) {
+      console.error("[signup] welcome code:", error?.message ?? error);
     }
 
     // Only the id and the address go back: never the password hash.

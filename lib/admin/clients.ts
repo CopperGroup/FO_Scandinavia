@@ -5,7 +5,8 @@ import Product from "@/lib/models/product.model";
 import User from "@/lib/models/user.model";
 import { connectToDB } from "@/lib/mongoose";
 import { pageWindow } from "./list";
-import { describePromoCode, type PromoInfo } from "./promo";
+import { listCustomerPromos } from "../promo/server";
+import type { CustomerPromo } from "../promo/rules";
 
 /**
  * Admin client data. Server-only, used by server components behind the admin
@@ -145,7 +146,8 @@ export type ClientDetail = {
   guest: boolean;
   joined: string;
   address: string;
-  promoCodes: PromoInfo[];
+  /** The customer's personal promo codes, the ones that work first. */
+  promoCodes: CustomerPromo[];
   likes: number;
   stats: { orders: number; paidOrders: number; paid: number; canceled: number; average: number; firstOrder: string | null; lastOrder: string | null };
   orders: ClientOrder[];
@@ -159,7 +161,7 @@ export async function getClientDetail(userId: string, ordersPage = 1): Promise<C
   const objectId = new mongoose.Types.ObjectId(userId);
 
   // Profile, recent orders and totals at once (they used to run one after another).
-  const [user, orders, totals] = await Promise.all([
+  const [user, orders, totals, promoCodes] = await Promise.all([
     User.findById(objectId)
       .select("_id name surname username email phoneNumber role selfCreated discounts region city postalCode street likes")
       .lean<any>(),
@@ -184,6 +186,7 @@ export async function getClientDetail(userId: string, ordersPage = 1): Promise<C
         },
       },
     ]),
+    listCustomerPromos(userId),
   ]);
   if (!user) return null;
 
@@ -199,7 +202,7 @@ export async function getClientDetail(userId: string, ordersPage = 1): Promise<C
     guest: Boolean(user.selfCreated),
     joined: objectId.getTimestamp().toISOString(),
     address: [user.region, user.city, user.street, user.postalCode].filter(Boolean).join(", "),
-    promoCodes: (user.discounts ?? []).map((code: string) => describePromoCode(code)),
+    promoCodes,
     likes: Array.isArray(user.likes) ? user.likes.length : 0,
     stats: {
       orders: total?.orders ?? 0,

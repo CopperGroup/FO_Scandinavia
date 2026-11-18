@@ -12,7 +12,7 @@ const Page = async () => {
   // Only what the form pre-fills; the account record itself never reaches the browser.
   const [profile, codes] = await Promise.all([getCheckoutProfile(), getMyPromoCodes()])
   // The customer's own codes that still work, so they are one tap away instead of being typed from a letter.
-  const promoCodes = (codes ?? []).filter((promo) => promo.state === "active").map((promo) => ({ code: promo.code, percent: promo.percent }))
+  const promoCodes = (codes ?? []).filter((promo) => promo.state === "active").map((promo) => ({ code: promo.code, percent: promo.percent as number | null }))
 
   return (
     <Checkout

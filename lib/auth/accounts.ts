@@ -16,7 +16,6 @@ type SignupParams = {
   /** Already hashed. */
   password: string;
   phoneNumber: string;
-  promoCode: string;
 };
 
 export type PublicAccount = { _id: string; email: string; username: string };
@@ -33,14 +32,13 @@ export async function findAccountForSignup(email: string) {
     .lean<{ _id: unknown; selfCreated?: boolean }>();
 }
 
-export async function createAccount({ username, email, password, phoneNumber, promoCode }: SignupParams): Promise<PublicAccount | null> {
+export async function createAccount({ username, email, password, phoneNumber }: SignupParams): Promise<PublicAccount | null> {
   await connectToDB();
   const user = await User.create({
     username,
     email: normalizeEmail(email),
     password,
     phoneNumber,
-    discounts: [promoCode],
     selfCreated: false,
   });
   await clearCache("createUser", undefined);
@@ -66,7 +64,7 @@ export type ClaimStart = { status: "started"; token: string } | { status: "sent-
  * and returns the token for the confirmation link. The record itself does not
  * change: the guest can still order, and nobody can sign in to it.
  */
-export async function startGuestClaim({ username, email, password, phoneNumber }: Omit<SignupParams, "promoCode">): Promise<ClaimStart> {
+export async function startGuestClaim({ username, email, password, phoneNumber }: SignupParams): Promise<ClaimStart> {
   await connectToDB();
   const guest = await User.findOne({ email: normalizeEmail(email), selfCreated: true })
     .collation(EMAIL_COLLATION)
@@ -96,23 +94,22 @@ export async function cancelGuestClaim(email: string): Promise<void> {
  * with the name and password that were requested. One use; null for an
  * unknown, used or expired token.
  */
-export async function finishGuestClaim(token: string, promoCodeFor: (email: string) => Promise<string>): Promise<(PublicAccount & { promoCode: string }) | null> {
+export async function finishGuestClaim(token: string): Promise<PublicAccount | null> {
   if (!/^[0-9a-f]{64}$/.test(token)) return null;
   await connectToDB();
   const filter = { "claim.tokenHash": hashToken(token), "claim.expires": { $gt: new Date() }, selfCreated: true };
   const pending = await User.findOne(filter).select("_id email claim").lean<{ _id: unknown; email: string; claim: { password: string; username?: string; phoneNumber?: string } }>();
   if (!pending?.claim?.password) return null;
 
-  const promoCode = await promoCodeFor(String(pending.email));
   const set: Record<string, unknown> = { password: pending.claim.password, selfCreated: false, isVerfied: true };
   if (pending.claim.username) set.username = pending.claim.username;
   if (pending.claim.phoneNumber) set.phoneNumber = pending.claim.phoneNumber;
 
   // The same filter again: two openings of the link at once must not both win.
-  const user = await User.findOneAndUpdate({ ...filter, _id: pending._id }, { $set: set, $addToSet: { discounts: promoCode }, $unset: { claim: "" } }, { new: true })
+  const user = await User.findOneAndUpdate({ ...filter, _id: pending._id }, { $set: set, $unset: { claim: "" } }, { new: true })
     .select("_id email username")
     .lean();
   if (!user) return null;
   await clearCache("createUser", undefined);
-  return { ...toPublic(user)!, promoCode };
+  return toPublic(user);
 }

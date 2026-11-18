@@ -8,6 +8,7 @@ import { signIn, useSession } from "next-auth/react"
 import { Loader2 } from "lucide-react"
 import GoogleSignIn from "@/components/authButtons/GoogleSignIn"
 import AuthShell, { Divider, FormError, TextField } from "@/components/storefront/auth/AuthShell"
+import { useShopSettings } from "@/components/storefront/ShopSettings"
 import { trackFacebookEvent } from "@/helpers/pixel"
 
 const MIN_PASSWORD_LENGTH = 8
@@ -15,6 +16,7 @@ const MIN_PASSWORD_LENGTH = 8
 export default function SignupPage() {
   const session = useSession()
   const router = useRouter()
+  const { welcomePercent } = useShopSettings()
 
   const [user, setUser] = useState({ username: "", email: "", password: "" })
   const [error, setError] = useState("")
@@ -89,7 +91,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Реєстрація"
-      description="Після реєстрації надішлемо на пошту промокод на −10% для першого замовлення."
+      description={welcomePercent > 0 ? `Після реєстрації надішлемо на пошту промокод на −${welcomePercent}% для першого замовлення.` : "З обліковим записом видно всі ваші замовлення, а дані для доставки не треба вводити щоразу."}
       footer={
         <>
           Уже маєте обліковий запис?{" "}

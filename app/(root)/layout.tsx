@@ -15,6 +15,7 @@ import MobileTabBar from "@/components/storefront/MobileTabBar";
 import SiteFooter from "@/components/storefront/SiteFooter";
 import SiteHeader from "@/components/storefront/SiteHeader";
 import { ShopSettingsProvider } from "@/components/storefront/ShopSettings";
+import { getPromoRewards } from "@/lib/promo/server";
 import PreviewBridge from "@/components/content/PreviewBridge";
 import { getFreeDelivery, previewing } from "@/lib/content/server";
 import { Store } from "@/constants/store";
@@ -39,7 +40,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [user, contacts, pixels, freeDelivery] = await Promise.all([getCurrentUser(), getStoreContacts(), getActivePixels(), getFreeDelivery()]);
+  const [user, contacts, pixels, freeDelivery, rewards] = await Promise.all([getCurrentUser(), getStoreContacts(), getActivePixels(), getFreeDelivery(), getPromoRewards()]);
   // Inside the page editor of the admin panel: no analytics, and the page talks to the editor.
   const inEditor = await previewing();
 
@@ -51,7 +52,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <PostHogProvider>
           <Provider>
             <AppWrapper>
-             <ShopSettingsProvider freeDelivery={freeDelivery}>
+             <ShopSettingsProvider freeDelivery={freeDelivery} welcomePercent={rewards.welcome.enabled ? rewards.welcome.percent : 0}>
               <a
                 href="#main"
                 className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-brand-sun focus:px-4 focus:py-2 focus:font-semibold focus:text-brand-ink"

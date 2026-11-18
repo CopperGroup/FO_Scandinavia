@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+/**
+ * Puts the personal promo codes issued before the admin had a list of them
+ * into that list (collection "promocodes"), for every customer at once.
+ *
+ *   PROMO_MONGODB_URL="mongodb://127.0.0.1:27018/nordiva_local?replicaSet=rs-local&directConnection=true" \
+ *     node tools/migrate-promo-codes.mjs            # dry run: reports, writes nothing
+ *     node tools/migrate-promo-codes.mjs --apply    # writes
+ *
+ * The site works without this script: a customer's old codes are put into the
+ * list the first time that customer opens "Мої промокоди", the checkout, or
+ * applies one (lib/promo/server.ts, adoptLegacyCodes). Running it makes all of
+ * them visible in the admin panel straight away.
+ *
+ * An old code is text in the customer's record (users.discounts):
+ *   "DV-" + percent + 4 digits + 3 letters of the e-mail + date (YYYYMMDD) + uses left
+ * It becomes a personal code of the same customer with the same text and
+ * discount. The old check refused a code on the date written in it, so its last
+ * working day is the day before. A code with no uses left becomes a used one.
+ *
+ * Only adds documents to "promocodes"; nothing is changed or deleted, and
+ * users.discounts is left as it is. A code that is already in the list is
+ * skipped, so running it twice adds nothing the second time.
+ *
+ * The database URL comes only from PROMO_MONGODB_URL. A non-local host is
+ * refused unless --allow-remote is passed as well.
+ *
+ * The reading of the old format is the same as legacyPromo() in
+ * lib/promo/rules.ts; change the two together.
+ */
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+let mongodb;
+try {
+  mongodb = createRequire(path.join(here, "local-db") + "/")("mongodb");
+} catch {
+  mongodb = createRequire(path.join(here, "..") + "/")("mongodb");
+}
+const { MongoClient } = mongodb;
+
+const APPLY = process.argv.includes("--apply");
+const ALLOW_REMOTE = process.argv.includes("--allow-remote");
+const url = process.env.PROMO_MONGODB_URL;
+if (!url) {
+  console.error("Set PROMO_MONGODB_URL to the database to work on.");
+  process.exit(1);
+}
+const local = /^mongodb:\/\/(127\.0\.0\.1|localhost)[:/]/.test(url);
+if (!local && !ALLOW_REMOTE) {
+  console.error("PROMO_MONGODB_URL is not a local database. Pass --allow-remote if that is what you mean.");
+  process.exit(1);
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const CODE_SHAPE = /^DV-[A-Z0-9._-]{5,37}$/; // LEGACY_CODE_SHAPE in lib/promo/rules.ts
+
+/** The old text as a document of the list, or null when the text is not such a code. */
+function legacyPromo(text, owner) {
+  const code = String(text ?? "").replace(/\s+/g, "").toUpperCase();
+  const body = code.split("-")[1] ?? "";
+  const tail = 4 + 3 + 8 + 1;
+  if (!code.startsWith("DV-") || body.length < tail + 1 || !CODE_SHAPE.test(code)) return null;
+  const percentText = body.slice(0, body.length - tail);
+  const rest = body.slice(percentText.length + 4 + 3);
+  const dateText = rest.slice(0, 8);
+  const percent = Number.parseInt(percentText, 10);
+  const usesLeft = Number.parseInt(rest.slice(8), 10);
+  if (!/^\d+$/.test(percentText) || !/^\d{8}$/.test(dateText) || !Number.isInteger(usesLeft) || percent < 1 || percent > 99) return null;
+  const written = Date.parse(`${dateText.slice(0, 4)}-${dateText.slice(4, 6)}-${dateText.slice(6, 8)}T00:00:00Z`);
+  if (Number.isNaN(written)) return null;
+  const spent = usesLeft <= 0;
+  return {
+    code,
+    percent,
+    owner,
+    startDay: null,
+    endDay: new Date(written - DAY_MS).toISOString().slice(0, 10),
+    maxUses: null,
+    perCustomer: spent ? 1 : usesLeft,
+    minOrder: 0,
+    active: true,
+    note: "",
+    source: "legacy",
+    uses: spent ? [{ user: owner, order: null, at: null }] : [],
+    usedCount: spent ? 1 : 0,
+    createdBy: "",
+  };
+}
+
+const client = new MongoClient(url);
+await client.connect();
+try {
+  const db = client.db();
+  const promocodes = db.collection("promocodes");
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+
+  const existing = await promocodes.find({ source: "legacy" }, { projection: { code: 1, owner: 1 } }).toArray();
+  // The last character of an old code is its uses left, and it changes when the code is used: compare without it.
+  const known = new Set(existing.map((row) => `${row.owner}|${row.code.slice(0, -1)}`));
+  const taken = new Set((await promocodes.find({}, { projection: { code: 1 } }).toArray()).map((row) => row.code));
+
+  const users = await db.collection("users").find({ "discounts.0": { $exists: true } }, { projection: { discounts: 1 } }).toArray();
+  const add = [];
+  const counts = { customers: users.length, texts: 0, alreadyThere: 0, notACode: 0, working: 0, used: 0, expired: 0 };
+  for (const user of users) {
+    for (const text of user.discounts ?? []) {
+      counts.texts += 1;
+      const doc = typeof text === "string" ? legacyPromo(text, user._id) : null;
+      if (!doc) { counts.notACode += 1; continue; }
+      const key = `${user._id}|${doc.code.slice(0, -1)}`;
+      if (known.has(key) || taken.has(doc.code)) { counts.alreadyThere += 1; continue; }
+      known.add(key);
+      taken.add(doc.code);
+      if (doc.usedCount > 0) counts.used += 1;
+      else if (doc.endDay < today) counts.expired += 1;
+      else counts.working += 1;
+      add.push({ ...doc, createdAt: new Date(), updatedAt: new Date() });
+    }
+  }
+
+  console.log(`customers with old codes: ${counts.customers}; texts read: ${counts.texts}`);
+  console.log(`already in the list: ${counts.alreadyThere}; not a promo code: ${counts.notACode}`);
+  console.log(`to add: ${add.length} (still working: ${counts.working}, used: ${counts.used}, expired: ${counts.expired})`);
+
+  if (!APPLY) {
+    console.log("Dry run: nothing was written. Add --apply to write.");
+  } else if (add.length > 0) {
+    const result = await promocodes.insertMany(add, { ordered: false });
+    console.log(`added: ${result.insertedCount}`);
+  } else {
+    console.log("Nothing to do.");
+  }
+} finally {
+  await client.close();
+}

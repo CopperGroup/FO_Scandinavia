@@ -4,7 +4,7 @@ import nodemailer from "nodemailer"
 import { getTop3ProductsBySales } from "../actions/product.actions"
 import { DateTime } from "luxon"
 
-export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
+export async function sendWelcomeEmail(toEmail: string, promoCode: string, percent: number) {
   const transporter = nodemailer.createTransport({
     host: "smtp-relay.brevo.com",
     port: 587,
@@ -27,7 +27,7 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
             <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Ваш промокод на знижку 10% | ${Store.name}</title>
+            <title>Ваш промокод на знижку ${percent}% | ${Store.name}</title>
             <style type="text/css">
                 /* Reset styles */
                 body, table, td, p, a, li, blockquote {
@@ -96,7 +96,7 @@ export async function sendWelcomeEmail(toEmail: string, promoCode: string) {
                     <tr>
                         <td align="center" style="padding: 40px 30px 20px 30px;" class="mobile-padding">
                         <h2 style="color: #0057b7; font-size: 24px; font-weight: 600; margin: 0 0 15px 0;">Дякуємо за реєстрацію!</h2>
-                        <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">Ми раді вітати вас у нашому магазині. Як обіцяли, ось ваш промокод на знижку 10% на перше замовлення:</p>
+                        <p style="color: #4b5563; font-size: 16px; margin: 0 0 20px 0;">Ми раді вітати вас у нашому магазині. Як обіцяли, ось ваш промокод на знижку ${percent}% на перше замовлення:</p>
                         </td>
                     </tr>
                     

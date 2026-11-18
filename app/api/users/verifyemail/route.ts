@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generatePromoCode } from "@/lib/actions/promocode.actions";
+import { issueRewardCode } from "@/lib/promo/server";
 import { finishGuestClaim } from "@/lib/auth/accounts";
 import { sendWelcomeEmail } from "@/lib/email/welcome";
 import User from "@/lib/models/user.model";
@@ -18,18 +18,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 400 });
     }
 
-    const account = await finishGuestClaim(token, (email) =>
-      generatePromoCode({
-        email,
-        validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
-        reusabilityTimes: 1,
-        discountPercentage: 10,
-      }),
-    );
+    const account = await finishGuestClaim(token);
     if (account) {
       // The promised promo code; the account is open whether or not this letter goes out.
       try {
-        await sendWelcomeEmail(account.email, account.promoCode);
+        const reward = await issueRewardCode("welcome", account._id);
+        if (reward) await sendWelcomeEmail(account.email, reward.code, reward.percent);
       } catch (error: any) {
         console.error("[verifyemail] welcome letter:", error?.message ?? error);
       }

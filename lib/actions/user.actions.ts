@@ -8,7 +8,7 @@ import clearCache from "./cache";
 import { UserType } from "../types/types";
 import { generateLongPassword } from "../utils";
 import { hasPermission } from "../roles";
-import { generatePromoCode } from "./promocode.actions";
+import { issueRewardCode } from "../promo/server";
 import { EMAIL_COLLATION, looksLikeEmail, normalizeEmail } from "../auth/email";
 import { AccessDenied, getSessionIdentity, getSessionUser, isStaffRole, requireAdmin, requireUser } from "../auth/guards";
 
@@ -267,20 +267,17 @@ export async function resetPassword({
 }
 
 /**
- * Gives the signed-in customer a one-time 5% code (the reward for a review).
- * Only for the caller's own account: the ids in the arguments are checked
- * against the session.
+ * Gives the signed-in customer the code for a review (its size and term are set
+ * in the admin panel, "Промокоди"). Only for the caller's own account: the ids
+ * in the arguments are checked against the session. Empty when the shop has
+ * switched that reward off.
  */
 export async function addPromo(params: { userId: string, email: string }): Promise<string> {
   try {
     const current = await getSessionUser()
     if (!current || current.id !== String(params.userId)) return ""
 
-    const promoCode = await generatePromoCode({ email: current.email, validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""), reusabilityTimes: 1, discountPercentage: 5 })
-
-    await User.updateOne({ _id: current.id }, { $push: { discounts: promoCode } })
-
-    return promoCode
+    return (await issueRewardCode("review", current.id))?.code ?? ""
   } catch (error: any) {
     throw new Error(`Error adding promo to user: ${error.message}`)
   }
