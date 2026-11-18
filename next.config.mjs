@@ -1,3 +1,12 @@
+import { readFileSync } from "node:fs";
+
+// Sizes and hosts shared with the shop's own photo route (app/img, lib/photo).
+const photo = JSON.parse(readFileSync(new URL("./lib/photo/config.json", import.meta.url), "utf8"));
+// NEXT_PUBLIC_PHOTO_ROUTE=on (in the env file the build reads) makes every next/image picture come from /img
+// instead of Next's own /_next/image. Off by default: switch it on only after the store of resized photos
+// was filled (tools/image-cache/warm.sh), or the first visitors get the photos as uploaded, unresized.
+const ownPhotoRoute = process.env.NEXT_PUBLIC_PHOTO_ROUTE === "on";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // A second output folder lets a production build be checked while `next dev` keeps running.
@@ -8,8 +17,9 @@ const nextConfig = {
   images: {
     // Fewer, well-chosen widths: shorter srcset in the HTML and fewer variants for
     // the server to resize and keep.
-    deviceSizes: [420, 640, 828, 1080, 1440, 1920],
-    imageSizes: [64, 96, 160, 256, 320],
+    deviceSizes: photo.deviceSizes,
+    imageSizes: photo.imageSizes,
+    ...(ownPhotoRoute ? { loader: "custom", loaderFile: "./lib/photo/loader.ts" } : {}),
     // Product photos never change under the same URL: keep the resized copy for a month
     // instead of re-encoding it every time the upstream cache header runs out.
     minimumCacheTTL: 60 * 60 * 24 * 30,

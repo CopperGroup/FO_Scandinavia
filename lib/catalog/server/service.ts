@@ -86,6 +86,14 @@ state.refreshFailedAt ??= 0;
 /** What a build reads. Tests put their own reader here. */
 const source: { load: () => Promise<SnapshotInput> } = { load: loadSnapshotInput };
 
+/**
+ * Tells the job that resizes photos ahead of visitors which photos are on sale now
+ * (lib/photo/filler.ts). Loaded on demand: the catalog works the same without it.
+ */
+function announcePhotos(runtime: CatalogRuntime): void {
+  void import("../../photo/filler").then((filler) => filler.catalogPhotosChanged(runtime.snapshot)).catch(() => undefined);
+}
+
 function toRuntime(generation: string, snapshot: CatalogSnapshot): CatalogRuntime {
   return { generation, snapshot, variants: buildVariantIndex(snapshot.groups) };
 }
@@ -184,6 +192,7 @@ async function build(): Promise<CatalogRuntime> {
     state.checkedAt = Date.now();
     state.refreshFailedAt = 0;
     state.lastBuildMs = Date.now() - startedAt;
+    announcePhotos(runtime);
 
     console.info(
       `[catalog] built ${snapshot.stats.listings} listings from ${snapshot.stats.products} products in ${state.lastBuildMs}ms (database ${readMs}ms)`,
@@ -255,6 +264,7 @@ async function resolve(): Promise<CatalogRuntime> {
     if (snapshot && state.runtime === held) {
       state.runtime = toRuntime(pointer.generation, snapshot);
       state.runtimeEpoch = pointerIsStale ? state.epoch - 1 : state.epoch;
+      announcePhotos(state.runtime);
     }
   }
 

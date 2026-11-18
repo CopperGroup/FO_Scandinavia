@@ -387,20 +387,46 @@ then `rm -sf app` and `up -d` as above.
   save never makes shoppers wait (`lib/catalog/server/service.ts`). The app log says how long
   each rebuild took: `docker-compose logs app | grep "\[catalog\]"`.
 - **Resized photos are kept in the Docker volume `next_images`** (`/app/.next/cache/images`),
-  so a release does not throw them away. The app resizes a photo the first time a size of it is
-  asked for; everything in the volume can be deleted, it is made again on request.
+  so a release does not throw them away. Everything in it can be deleted: it is made again.
+  `bash tools/image-cache/install-prune.sh` (once, as root) installs a weekly clean-up of
+  copies nobody used for 60 days.
 - **Resizing a photo is the heaviest thing the app does**: one resize takes a whole processor
-  core for about 0.3 s and the app may use 1.5 cores, so a page of photos nobody has asked for
-  yet slows the whole shop down for a few seconds. The volume above is what keeps that rare.
-  Do not put a limit on `/_next/image` in Caddy to protect the pages: with a limit of one,
-  every photo of every visitor waited in one line and the shop looked broken (tried and
-  removed on 2026-11-18, see `tools/server/Caddyfile`).
-- `bash tools/image-cache/warm.sh` resizes the catalog's photos at the sizes browsers ask for,
-  one at a time with a pause after each, so that visitors do not have to wait for them. It
-  takes processor time away from the shop while it runs: start it at night, after the volume
-  was emptied (a new server, a deleted volume). New products need nothing.
-- `bash tools/image-cache/install-prune.sh` (once, as root) installs a weekly clean-up that
-  removes resized copies older than 60 days, because the app never deletes them by itself.
+  core for about 0.3 s and the app may use 1.5 cores. Several at once starve the thread that
+  builds pages, and the whole shop slows down. Do not try to fix that with a limit on photo
+  requests in Caddy: with a limit of one, every photo of every visitor waited in one line and
+  the shop looked broken (tried and removed on 2026-11-18, see `tools/server/Caddyfile`).
+
+### The shop's own photo route (`app/img`, `lib/photo`)
+
+`/img?url=<photo>&w=<width>&q=75` answers a resized photo and is built around that limit:
+
+- A photo that was resized before is read from the volume and answered at once. It never
+  waits behind anything.
+- Photos that still have to be resized are made **one at a time**, so pages stay fast.
+- A visitor never waits on that line for more than about 2.5 s: past that, or when the line is
+  already long, the browser is sent to the photo as it was uploaded (a larger download, but it
+  shows), and the resized copy is finished for the next visitor.
+- **A background job resizes photos ahead of visitors** (`lib/photo/filler.ts`). It follows the
+  catalog: after every catalog rebuild it makes the missing sizes of the photos on sale (the
+  catalog cards first, then the product galleries). It is strictly second in line: a photo a
+  visitor asked for is always made first, and the job works only while no visitor is waiting,
+  one photo at a time with a rest after each. Nothing has to be started by hand, also after a
+  release or for new products. The app log tells what it did: `grep "\[photo\]"`.
+- Only the widths the pages use, quality 75, and photos from the shop's storage, the sites old
+  products were imported from, or the `public` folder are accepted (`lib/photo/config.json`).
+
+Settings, all optional, in the env file the app reads:
+
+| Variable | Meaning |
+|---|---|
+| `NEXT_PUBLIC_PHOTO_ROUTE=on` | Read **at build time**. Every `next/image` picture comes from `/img`. Without it the pages keep using Next's `/_next/image`, and `/img` is there but unused. |
+| `PHOTO_FILL=off` | Switches the background job off. |
+| `PHOTO_FILL_HOURS=1-7` | The job works only in these hours of the Kyiv day. Use it while `NEXT_PUBLIC_PHOTO_ROUTE` is off: visitors served by `/_next/image` do not pass through the queue, so the job cannot step aside for them. |
+| `PHOTO_FILL_PAUSE_MS` | Rest after each photo the job makes (400). |
+
+Switching the pages to `/img`: let the job fill the volume first (its log line says how many
+sizes it made and checked), then add `NEXT_PUBLIC_PHOTO_ROUTE=on`, remove `PHOTO_FILL_HOURS`,
+and release. Going back is removing the variable and releasing again.
 
 ### Nightly database backup (`tools/backup`)
 

@@ -1,0 +1,7 @@
+{
+  "deviceSizes": [420, 640, 828, 1080, 1440, 1920],
+  "imageSizes": [64, 96, 160, 256, 320],
+  "qualities": [75],
+  "hosts": ["assets.nordiva.com.ua", "shop.juventa.ua", "utfs.io", "uploadthing.com", "www.sveamoda.com.ua", "sveamoda.com.ua"],
+  "hostSuffixes": [".rozetka.com.ua"]
+}
