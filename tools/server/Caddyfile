@@ -1,29 +1,15 @@
 # The shop's Caddy configuration, as installed in /etc/caddy/Caddyfile on the server.
 # After changing it there:  caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 # (a reload does not drop connections).
+#
+# Do not limit how many /_next/image requests reach the app at once (max_conns_per_host on a
+# separate reverse_proxy for that path). It was tried on 2026-11-18 with a limit of one: pages
+# stayed fast, but every photo on the site waited in a single line behind the photos still being
+# resized, and with several visitors the line grew until photos took 20 s. It was removed the
+# same hour.
 
 nordiva.com.ua, www.nordiva.com.ua {
-	# Resizing photos (/_next/image) is the heaviest thing the app does. These requests get
-	# their own lane to it: one at a time, the rest wait in line here. The app may use 1.5
-	# processor cores (docker-compose.yaml); one resize takes a whole core, so with two at
-	# once the thread that builds pages is starved. Measured on 2026-11-18 while a page of
-	# 24 new photos was being resized: pages took 7-9.5 s with no lane, 2-4 s with a lane
-	# of two, and their usual 0.4 s with a lane of one.
-	# The price: a photo that is already resized waits in the same line while new ones are
-	# being made. That is why the store of resized photos is kept (the next_images volume)
-	# and filled ahead of visitors (tools/image-cache/warm.sh).
-	@photos path /_next/image
-	handle @photos {
-		reverse_proxy localhost:3000 {
-			transport http {
-				max_conns_per_host 1
-			}
-		}
-	}
-
-	handle {
-		reverse_proxy localhost:3000
-	}
+	reverse_proxy localhost:3000
 }
 
 assets.nordiva.com.ua {

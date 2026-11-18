@@ -4,10 +4,11 @@
 #   bash tools/image-cache/warm.sh                 # every catalog page, the sizes browsers ask for
 #   WIDTHS="320 420" bash tools/image-cache/warm.sh
 #
-# Run it after the store of resized photos was emptied (a new server, a deleted volume). It only
-# asks the shop for pictures, the way a browser does, through the public address: that way it
-# waits in the same one-at-a-time lane as everybody else (tools/server/Caddyfile) and cannot slow
-# the pages down. Photos that are already resized answer at once. Safe to stop and to run again.
+# Run it at night, after the store of resized photos was emptied (a new server, a deleted volume).
+# It only asks the shop for pictures, the way a browser does, one at a time and with a pause after
+# each one it had to resize. A resize takes a whole processor core, so the shop is slower for
+# visitors while this runs. Photos that are already resized answer at once. Safe to stop
+# (pkill -f "image-cache/[w]arm.sh") and to run again.
 set -euo pipefail
 
 SITE="${SITE:-https://nordiva.com.ua}"
@@ -15,6 +16,8 @@ SITE="${SITE:-https://nordiva.com.ua}"
 # related products), 420 and 640 (cards on phones), 828 (the product page on a phone).
 WIDTHS="${WIDTHS:-64 256 320 420 640 828}"
 QUALITY="${QUALITY:-75}"
+# Seconds to leave the processor to visitors after each photo that had to be resized.
+PAUSE="${PAUSE:-0.5}"
 MAX_PAGES="${MAX_PAGES:-400}"
 
 photos=0; fetched=0; made=0; failed=0
@@ -39,7 +42,7 @@ while IFS= read -r url; do
     state="$(curl -s -o /dev/null -H "Accept: image/avif,image/webp,*/*" -w '%{http_code} %header{x-nextjs-cache}' "$SITE$url&w=$width&q=$QUALITY" || echo "000 -")"
     fetched=$((fetched + 1))
     case "$state" in
-      "200 MISS") made=$((made + 1)) ;;
+      "200 MISS") made=$((made + 1)); sleep "$PAUSE" ;;
       200*) ;;
       *) failed=$((failed + 1)) ;;
     esac

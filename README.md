@@ -389,17 +389,16 @@ then `rm -sf app` and `up -d` as above.
 - **Resized photos are kept in the Docker volume `next_images`** (`/app/.next/cache/images`),
   so a release does not throw them away. The app resizes a photo the first time a size of it is
   asked for; everything in the volume can be deleted, it is made again on request.
-- **Resizing has its own lane in Caddy**: `/_next/image` requests reach the app one at a time
-  (`tools/server/Caddyfile` is a copy of the server's `/etc/caddy/Caddyfile`). Resizing one
-  photo takes a whole processor core and the app may use 1.5, so without the lane one visitor
-  (or a crawler) opening a page of new photos starved the thread that builds pages: pages took
-  7-9.5 s for everybody while that lasted, and take their usual 0.4 s with the lane. The price
-  is that an already-resized photo waits in the same line while new ones are being made, which
-  is why the volume above is kept and filled ahead of visitors.
+- **Resizing a photo is the heaviest thing the app does**: one resize takes a whole processor
+  core for about 0.3 s and the app may use 1.5 cores, so a page of photos nobody has asked for
+  yet slows the whole shop down for a few seconds. The volume above is what keeps that rare.
+  Do not put a limit on `/_next/image` in Caddy to protect the pages: with a limit of one,
+  every photo of every visitor waited in one line and the shop looked broken (tried and
+  removed on 2026-11-18, see `tools/server/Caddyfile`).
 - `bash tools/image-cache/warm.sh` resizes the catalog's photos at the sizes browsers ask for,
-  one at a time, through the same lane, so it can run while the shop is open. Run it
-  after the volume was emptied (a new server, a deleted volume); new products need nothing,
-  their photos are resized when first opened.
+  one at a time with a pause after each, so that visitors do not have to wait for them. It
+  takes processor time away from the shop while it runs: start it at night, after the volume
+  was emptied (a new server, a deleted volume). New products need nothing.
 - `bash tools/image-cache/install-prune.sh` (once, as root) installs a weekly clean-up that
   removes resized copies older than 60 days, because the app never deletes them by itself.
 
