@@ -10,11 +10,19 @@ export async function sendResetPasswordEmail({ email }: { email: string }) {
     try {
       await connectToDB();
   
-      const user = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }});
-  
-      if (!user) {
-        throw new Error("No user with that email.");
-      }
+      // The address is compared as plain text, never as a pattern, and the letter goes
+      // to the address stored on the account, never to what was typed. Typed text used
+      // as a pattern could match someone else's account and deliver their reset link
+      // to the sender.
+      const typed = String(email ?? "").trim();
+      if (!typed || typed.length > 254) return;
+
+      const user =
+        (await User.findOne({ email: typed })) ??
+        (await User.findOne({ email: typed }).collation({ locale: "en", strength: 2 }));
+
+      // Unknown address: answer exactly as for a known one, so accounts cannot be probed.
+      if (!user) return;
   
       const resetToken = crypto.randomBytes(32).toString("hex");
       const expiryDate = new Date(Date.now() + 1000 * 60 * 60); // 1 hour from now
@@ -39,8 +47,8 @@ export async function sendResetPasswordEmail({ email }: { email: string }) {
 
       await transporter.sendMail({
         from: `"${Store.name} Store" <${Store.email}>`,
-        to: email,
-        subject: "Reset your password",
+        to: user.email,
+        subject: `Відновлення пароля | ${Store.name}`,
         html: `
             <!DOCTYPE html>
             <html lang="uk">

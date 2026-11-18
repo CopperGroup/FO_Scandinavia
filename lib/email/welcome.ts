@@ -1,5 +1,4 @@
-"use server"
-
+// Server-only module (not a server action): the recipient and content come from our own code.
 import { Store } from "@/constants/store"
 import nodemailer from "nodemailer"
 import { getTop3ProductsBySales } from "../actions/product.actions"

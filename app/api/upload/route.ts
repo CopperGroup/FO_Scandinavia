@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as Minio from "minio";
+import { currentAdmin } from "@/lib/import/admin";
 
 const minioClient = new Minio.Client({
   endPoint: process.env.MINIO_ENDPOINT || "minio",
@@ -9,15 +10,44 @@ const minioClient = new Minio.Client({
   secretKey: process.env.MINIO_ROOT_PASSWORD || "nordiva_password123",
 });
 
+const MAX_BYTES = 15 * 1024 * 1024;
+const ALLOWED_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/avif": "avif",
+  "image/gif": "gif",
+};
+
+/** Keeps letters, digits, dot, dash and underscore; never lets a path or an odd extension through. */
+function safeFileName(original: string, extension: string): string {
+  const base = original
+    .replace(/\.[^.]*$/, "")
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "")
+    .slice(0, 80);
+  return `${Date.now()}-${base || "image"}.${extension}`;
+}
+
+// Product images from the admin product forms. Admin only: it writes to the public bucket.
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
+    if (!(await currentAdmin())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    const formData = await req.formData();
+    const file = formData.get("file");
+
+    if (!file || typeof file === "string") return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    const extension = ALLOWED_TYPES[file.type];
+    if (!extension) return NextResponse.json({ error: "Only JPEG, PNG, WebP, AVIF or GIF images are accepted" }, { status: 415 });
+    if (file.size === 0 || file.size > MAX_BYTES) return NextResponse.json({ error: "The image must be smaller than 15 MB" }, { status: 413 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const fileName = `${Date.now()}-${file.name.replace(/\s/g, "-")}`;
+    const fileName = safeFileName(file.name, extension);
     const bucketName = process.env.MINIO_BUCKET_NAME || "nordiva-assets";
 
     const exists = await minioClient.bucketExists(bucketName);
@@ -37,18 +67,16 @@ export async function POST(req: NextRequest) {
       await minioClient.setBucketPolicy(bucketName, JSON.stringify(policy));
     }
 
-    // Connects to local MinIO to put the object
-    await minioClient.putObject(bucketName, fileName, buffer, file.size, {
+    await minioClient.putObject(bucketName, fileName, buffer, buffer.length, {
       "Content-Type": file.type,
     });
 
-    // Uses the production endpoint variable to construct the final link
     const baseUrl = process.env.MINIO_PUBLIC_URL || `https://assets.nordiva.com.ua`;
     const url = `${baseUrl}/${bucketName}/${fileName}`;
 
     return NextResponse.json({ url });
   } catch (error) {
-    console.error("MinIO upload error:", error);
+    console.error("MinIO upload error:", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

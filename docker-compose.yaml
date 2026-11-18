@@ -8,8 +8,27 @@ services:
     restart: always
     environment:
       - TZ=Europe/Kiev
+      # Catalog cache lives in the Redis container below, reachable only inside this network.
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
     mem_limit: 3g
     cpus: 1.5
+
+  # Cache only: everything in it can be rebuilt from MongoDB, so nothing is written to disk.
+  # No "ports" on purpose: Redis must not be reachable from the internet.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: always
+    mem_limit: 192m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   minio:
     image: minio/minio

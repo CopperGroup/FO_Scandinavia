@@ -1,6 +1,8 @@
 "use server"
 
 import User from "../models/user.model";
+import { connectToDB } from "../mongoose";
+import { EMAIL_COLLATION, normalizeEmail } from "../auth/email";
 
 export async function generatePromoCode({
   email,
@@ -34,9 +36,15 @@ export async function validatePromoCode({
   email: string;
 }) {
 
-  const user = await User.findOne({ email })
+  if (typeof promoCode !== "string" || !promoCode || typeof email !== "string" || !email) return "UNVALID";
 
-  if(!user.discounts.includes(promoCode)) {
+  await connectToDB();
+  const user = await User.findOne({ email: normalizeEmail(email) })
+    .collation(EMAIL_COLLATION)
+    .select("discounts")
+    .lean<{ discounts?: string[] }>();
+
+  if (!user || !(user.discounts ?? []).includes(promoCode)) {
     return "UNVALID"
   }
 

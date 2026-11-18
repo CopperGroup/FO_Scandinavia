@@ -80,6 +80,14 @@ const productSchema = new mongoose.Schema({
 
 }, { timestamps: true })
 
+// Lookups the catalog, the importer and the admin rely on.
+productSchema.index({ id: 1 });
+productSchema.index({ articleNumber: 1 });
+productSchema.index({ category: 1 });
+productSchema.index({ isAvailable: 1, quantity: 1 });
+productSchema.index({ isFetched: 1 });
+productSchema.index({ likedBy: 1 });
+
 const Product = mongoose.models.Product || mongoose.model("Product", productSchema);
 
 export default Product;

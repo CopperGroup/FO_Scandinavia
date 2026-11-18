@@ -1,119 +1,67 @@
-"use client"
+import type { Metadata } from "next"
+import { redirect } from "next/navigation"
+import ContentEditor from "@/components/admin-components/content/ContentEditor"
+import type { EditorPage } from "@/components/admin-components/content/EditorShell"
+import { Store } from "@/constants/store"
+import { formatAdminDateTime } from "@/lib/admin/status"
+import { CONTENT_PAGES, amountLabel, contentPage, type ContentKey } from "@/lib/content/schema"
+import { editedContentKeys, getContentForEditor, getFreeDelivery, getVariablesForEditor } from "@/lib/content/server"
+import { autoLinksByTarget, targetOptions } from "@/lib/content/targets"
+import { VARIABLES_KEY, variableList } from "@/lib/content/variables"
+import { getHomeData, getNavigation } from "@/lib/storefront/navigation"
 
-import { useState, useEffect } from "react"
-import { Home, Users, LayoutGrid } from "lucide-react"
-import { Card } from "@/components/ui/card"
-import { useRouter } from "next/navigation"
+export const metadata: Metadata = { title: "Сторінки" }
+export const dynamic = "force-dynamic"
 
-export default function Page() {
-  const router = useRouter()
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+const ORDER = ["home", "product", "delivery", "returns", "footer"]
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
-      })
-    }
+/**
+ * "Сторінки": the texts of the storefront, edited next to the page itself.
+ * The fields of the chosen page (?page=…) on the left, the real page on the
+ * right, redrawn as the admin types. What can be edited is listed in
+ * lib/content/schema.ts. The values shared by all pages (the contacts of the
+ * shop, the admin's own variables) are kept in "Налаштування"; here they are
+ * only offered for putting into a text.
+ */
+export default async function PagesAdminPage({ searchParams }: { searchParams: { page?: string; field?: string } }) {
+  const requested = String(searchParams.page ?? "")
+  // Old addresses of the contacts form and of the variables: both live in "Налаштування" now.
+  if (requested === VARIABLES_KEY || requested === "contacts") redirect("/admin/settings")
+  const selected = contentPage(requested) ? requested : "home"
 
-    window.addEventListener("mousemove", handleMouseMove)
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove)
-    }
-  }, [])
+  const [edited, variables, freeDelivery] = await Promise.all([editedContentKeys(), getVariablesForEditor(), getFreeDelivery()])
+  const pages: EditorPage[] = [
+    ...ORDER.map((key) => ({ key, title: contentPage(key)!.title, group: "Сторінки магазину", edited: edited.has(key) })),
+    ...CONTENT_PAGES.filter((page) => page.group === "documents").map((page) => ({ key: page.key, title: page.title, group: "Документи", edited: edited.has(page.key) })),
+  ]
+  const list = variableList(variables.values, { store: Store.name, year: new Date().getFullYear(), amount: freeDelivery > 0 ? amountLabel(freeDelivery) : "" })
 
-  // Home icon - faster horizontal movement, slower vertical
-  const homeGradientX = Math.round(mousePosition.x * 150)
-  const homeGradientY = Math.round(mousePosition.y * 70)
-
-  // Contacts icon - slower horizontal movement, faster vertical, with offset
-  const contactsGradientX = Math.round(mousePosition.x * 70 + 30)
-  const contactsGradientY = Math.round(mousePosition.y * 130)
-
-  // Footer icon - moderate horizontal & vertical movement with slight skew
-  const footerGradientX = Math.round(mousePosition.x * 100 + 20)
-  const footerGradientY = Math.round(mousePosition.y * 100 + 10)
-
-  const homeGradientId = "home-copper-gradient"
-  const contactsGradientId = "contacts-copper-gradient"
-  const footerGradientId = "footer-copper-gradient"
-
-  const handleCardClick = (pageName: string) => {
-    router.push(`/admin/pages/${pageName}`)
-  }
+  const page = contentPage(selected)!
+  const [content, navigation, home] = await Promise.all([
+    getContentForEditor(selected as ContentKey),
+    selected === "home" ? getNavigation() : null,
+    // The product page is shown on a real product: the one customers buy most.
+    selected === "product" ? getHomeData() : null,
+  ])
+  const sample = home?.popular[0] ?? home?.newest[0]
+  const previewPath = selected === "product" ? (sample ? `/catalog/${sample.id}` : "/catalog") : page.href
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pt-16">
-      {/* SVG Gradient Definitions */}
-      <svg width="0" height="0" className="absolute">
-        <defs>
-          {/* Home */}
-          <linearGradient id={homeGradientId} x1={`${homeGradientX}%`} y1={`${homeGradientY}%`} x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#b87333" />
-            <stop offset="50%" stopColor="#d4a76a" />
-            <stop offset="100%" stopColor="#e6c19c" />
-          </linearGradient>
-
-          {/* Contacts */}
-          <linearGradient id={contactsGradientId} x1={`${contactsGradientX}%`} y1={`${contactsGradientY}%`} x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#b87333" />
-            <stop offset="50%" stopColor="#d4a76a" />
-            <stop offset="100%" stopColor="#e6c19c" />
-          </linearGradient>
-
-          {/* Footer */}
-          <linearGradient id={footerGradientId} x1={`${footerGradientX}%`} y1={`${footerGradientY}%`} x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#b87333" />
-            <stop offset="50%" stopColor="#d4a76a" />
-            <stop offset="100%" stopColor="#e6c19c" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        {/* Home */}
-        <div className="relative group">
-          <Card
-            className="h-48 flex flex-col items-center justify-center transition-all duration-300 group-hover:border-2 group-hover:border-blue-500 cursor-pointer"
-            onClick={() => handleCardClick("Home")}
-          >
-            <Home className="h-16 w-16 mb-2" style={{ stroke: `url(#${homeGradientId})`, strokeWidth: 1.5 }} />
-            <span className="text-lg font-medium">Home</span>
-          </Card>
-          <div className="absolute top-0 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center -mt-8">
-            <span className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm font-medium">Click to edit</span>
-          </div>
-        </div>
-
-        {/* Contacts */}
-        <div className="relative group">
-          <Card
-            className="h-48 flex flex-col items-center justify-center transition-all duration-300 group-hover:border-2 group-hover:border-blue-500 cursor-pointer"
-            onClick={() => handleCardClick("Contacts")}
-          >
-            <Users className="h-16 w-16 mb-2" style={{ stroke: `url(#${contactsGradientId})`, strokeWidth: 1.5 }} />
-            <span className="text-lg font-medium">Contacts</span>
-          </Card>
-          <div className="absolute top-0 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center -mt-8">
-            <span className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm font-medium">Click to edit</span>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="relative group">
-          <Card
-            className="h-48 flex flex-col items-center justify-center transition-all duration-300 group-hover:border-2 group-hover:border-blue-500 cursor-pointer"
-            onClick={() => handleCardClick("Footer")}
-          >
-            <LayoutGrid className="h-16 w-16 mb-2" style={{ stroke: `url(#${footerGradientId})`, strokeWidth: 1.5 }} />
-            <span className="text-lg font-medium">Footer</span>
-          </Card>
-          <div className="absolute top-0 left-0 w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center -mt-8">
-            <span className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm font-medium">Click to edit</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ContentEditor
+      // A fresh editor for every page: no text of one page may leak into another.
+      key={selected}
+      pageKey={selected as ContentKey}
+      pages={pages}
+      previewPath={previewPath}
+      initial={content.values}
+      edited={content.edited}
+      changed={[content.updatedBy, formatAdminDateTime(content.updatedAt)].filter(Boolean).join(", ")}
+      freeDelivery={freeDelivery}
+      targets={navigation ? targetOptions(navigation) : []}
+      linkTargets={navigation ? targetOptions(navigation, { columns: true }) : []}
+      autoLinks={navigation ? autoLinksByTarget(navigation) : {}}
+      variables={list}
+      startField={searchParams.field ? String(searchParams.field).slice(0, 80) : selected === "footer" ? "about" : undefined}
+    />
   )
 }

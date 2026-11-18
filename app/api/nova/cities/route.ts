@@ -1,30 +1,23 @@
 import { NextResponse } from "next/server"
+import { NovaPoshtaUnavailable, getCities, novaPoshtaConfigured } from "../novaposhta"
+
+// Public: the checkout city picker calls it as a guest.
+export const dynamic = "force-dynamic"
 
 export async function GET() {
+  if (!(await novaPoshtaConfigured())) {
+    return NextResponse.json({ success: false, error: "Довідник Нової пошти недоступний" }, { status: 503, headers: { "Cache-Control": "no-store" } })
+  }
+
   try {
-    const res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        apiKey: process.env.NOVA_POSHTA_API_KEY,
-        modelName: "Address",
-        calledMethod: "getCities",
-        methodProperties: {
-        },
-      }),
-      cache: "no-store", // Disable caching to avoid the 2MB cache limit error
-    })
-
-    const data = await res.json()
-
-    // Return with cache control headers
-    return NextResponse.json(data, {
-      headers: {
-        "Cache-Control": "no-store, max-age=0",
-      },
-    })
+    const data = await getCities()
+    return NextResponse.json(
+      { success: true, data },
+      { headers: { "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400" } },
+    )
   } catch (error) {
-    console.error("Error fetching cities:", error)
-    return NextResponse.json({ success: false, error: "Failed to fetch cities" }, { status: 500 })
+    console.error("[nova] cities:", error instanceof Error ? error.message : error)
+    const status = error instanceof NovaPoshtaUnavailable ? 503 : 502
+    return NextResponse.json({ success: false, error: "Не вдалося отримати список міст" }, { status, headers: { "Cache-Control": "no-store" } })
   }
 }

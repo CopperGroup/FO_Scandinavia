@@ -1,4 +1,5 @@
-"use server"
+// Server-only module, called from order creation. It is deliberately NOT a server action:
+// as an action anyone could make the shop send arbitrary mail.
 
 import nodemailer from "nodemailer"
 import Order from "../models/order.model"

@@ -24,3 +24,8 @@ out
 # Git
 .git
 .gitignore
+
+# Local development tooling and data
+tools
+.local
+.env.development.local

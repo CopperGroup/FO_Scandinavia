@@ -1,28 +1,15 @@
-// app/(root)/info/public-offer/page.tsx
-import fs from 'fs';
-import path from 'path';
-import InfoPageLayout from "@/components/layout/InfoPageLayout"; // Assuming this component exists
+import type { Metadata } from "next"
+import InfoPageLayout from "@/components/layout/InfoPageLayout"
+import { getContent } from "@/lib/content/server"
 
-// This page is a Server Component, allowing it to use Node.js modules like 'fs'
+export const metadata: Metadata = {
+  title: "Публічна оферта",
+  description: "Договір купівлі-продажу товарів дистанційним способом.",
+  alternates: { canonical: "/info/public-offer" },
+}
 
-export default function PublicOfferPage() {
-  const markdownPath = path.join(process.cwd(), 'app/(root)/info/public-offer', 'public-offer.md');
-  let markdownContent = '';
-
-  try {
-    // Read the Markdown file content synchronously
-    markdownContent = fs.readFileSync(markdownPath, 'utf-8');
-  } catch (error) {
-    console.error("Error reading public-offer.md:", error);
-    markdownContent = "# 404: Документ не знайдено";
-  }
-
-  // The InfoPageLayout component (assumed to be a Client Component)
-  // will handle the actual rendering of the markdown string to HTML.
-  return (
-    <InfoPageLayout
-      title="Публічна оферта"
-      markdownContent={markdownContent}
-    />
-  );
+/** The text is edited in the admin: Сторінки → Публічна оферта. Its default is lib/content/legal.ts. */
+export default async function PublicOfferPage() {
+  const { body } = await getContent<{ body: string }>("offer")
+  return <InfoPageLayout title="Публічна оферта" markdownContent={body} edit="offer:body" />
 }

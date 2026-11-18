@@ -1,911 +1,472 @@
 "use server";
 
-import Product from "../models/product.model"
-import { connectToDB } from "../mongoose"
-import User from "../models/user.model";
+import mongoose from "mongoose";
 import { revalidatePath } from "next/cache";
-import { CategoryType, CreateUrlParams, ProductType } from "../types/types";
-import { clearCatalogCache } from "./redis/catalog.actions";
-import Order from "../models/order.model";
-import clearCache from "./cache";
-import { createNewCategory, updateCategories } from "./categories.actions";
+import Product from "../models/product.model";
 import Category from "../models/category.model";
-import { startSession } from "mongoose";
-import { pretifyProductName } from "../utils";
+import User from "../models/user.model";
+import Order from "../models/order.model";
+import { connectToDB } from "../mongoose";
+import { CreateUrlParams, ProductType } from "../types/types";
+import clearCache from "./cache";
 import { addPromo } from "./user.actions";
+import { getSessionUser } from "@/lib/auth/guards";
+import { requireCatalogAdmin, currentUserEmail } from "@/lib/admin/catalog-auth";
+import {
+  findCategoryByName,
+  loadCategoryOptions,
+  syncCategoryMembership,
+  toObjectIds,
+} from "@/lib/admin/categories";
+import { resolveProductIds, type ProductListFilter } from "@/lib/admin/products";
+import {
+  DELETED_PRODUCT_ID,
+  adjustPrice,
+  categoryNameProblem,
+  isObjectIdLike,
+  normalizeCategoryName,
+  productsWord,
+  splitCategoryInput,
+} from "@/lib/admin/catalog-shared";
+
+type Oid = mongoose.Types.ObjectId;
+const { ObjectId } = mongoose.Types;
 
 interface CreateParams {
-    _id?: string,
-    id: string,
-    name: string,
-    quantity: number,
-    images: string[],
-    url: string,
-    price: number,
-    priceToShow: number,
-    vendor: string,
-    category: string[],
-    description: string,
-    isAvailable: boolean,
-    articleNumber?: string,
-    params?: {
-        name: string,
-        value: string
-    }[],
-    customParams?: {
-        name: string,
-        value:string,
-    }[]
-    newCategories?: string[]
+  _id?: string;
+  id: string;
+  name: string;
+  quantity: number;
+  images: string[];
+  url: string;
+  price: number;
+  priceToShow: number;
+  vendor: string;
+  category: string[];
+  description: string;
+  isAvailable: boolean;
+  articleNumber?: string;
+  params?: { name: string; value: string }[];
+  customParams?: { name: string; value: string }[];
+  /** Names of categories to find (case-insensitively) or create. */
+  newCategories?: string[];
 }
-
 
 interface InterfaceProps {
-    productId: string,
-    email: string,
-    path: string,
+  productId: string;
+  /** Ignored: the shopper is read from the session, never from the request. */
+  email?: string;
+  path: string;
 }
 
-const DELETEDPRODUCT_ID = "681a9c16b06f4e599d07371e";
+const DELETED_PRODUCT_OID = new ObjectId(DELETED_PRODUCT_ID);
 
-export async function createUrlProduct({ id, name, isAvailable, quantity, url, priceToShow, price, images, vendor, description, articleNumber, params, isFetched, category }: CreateUrlParams){
-    try {
-        connectToDB();
-        
-        const createdProduct = await Product.create({
-            id: id,
-            name: name,
-            isAvailable: isAvailable,
-            quantity: quantity,
-            url: url,
-            priceToShow: priceToShow,
-            price: price,
-            images: images,
-            vendor: vendor,
-            description: description,
-            params: params,
-            articleNumber: articleNumber,
-            isFetched: isFetched,
-            category: category ? category : ["No-category"]
-        })
+/* -------------------------------------------------------------------------- */
+/*                                  Helpers                                   */
+/* -------------------------------------------------------------------------- */
 
-        clearCache("createProduct", undefined)
-    } catch (error: any) {
-        throw new Error(`Error creating url-product, ${error.message}`)
-    }
+type CatalogEvent = "createProduct" | "updateProduct" | "updateProducts" | "deleteProduct";
+
+/**
+ * One cache call per user action, after the writes. clearCache (lib/actions/cache.ts)
+ * also invalidates the storefront catalog snapshot for these events.
+ */
+async function afterCatalogWrite(event: CatalogEvent, productId?: string) {
+  await clearCache(event, productId);
 }
 
-export async function updateUrlProductsOneByOne(products: Partial<CreateUrlParams>[]) {
-    try {
-      await connectToDB();
-  
-      const updatedProducts = [];
-  
-      for (const product of products) {
-        if (!product._id) continue; // skip if no ID
-  
-        const updated = await Product.findByIdAndUpdate(
-          product._id,
-          { $set: product },
-          { new: true }
-        );
-  
-        if (updated) {
-          updatedProducts.push(updated);
-        }
-      }
-  
-      await updateCategories(updatedProducts, "update");
-      clearCache("createProduct", undefined);
-    } catch (error: any) {
-      throw new Error(`Error updating url-products one by one, ${error.message}`);
-    }
-  }  
-
-export async function updateUrlProductsMany(products: Partial<CreateUrlParams>[]) {
-    try {
-        await connectToDB();
-
-        const bulkOperations = products.map(product => ({
-            updateOne: {
-                filter: { _id: product._id },
-                update: { $set: product },
-            },
-        }));
-
-        await Product.bulkWrite(bulkOperations);
-
-        const updatedProducts = await Product.find({ _id: { $in: products.map(product => product._id)}});
-
-        await updateCategories(updatedProducts, "update")
-        clearCache("createProduct", undefined);
-    } catch (error: any) {
-        throw new Error(`Error updating url-products in bulk, ${error.message}`);
-    }
+/** Only real ObjectIds survive; strings such as "No-category" or undefined never reach the database. */
+function cleanCategoryIds(values: unknown): Oid[] {
+  return Array.isArray(values) ? toObjectIds(values) : [];
 }
 
-export async function createProduct(params: CreateParams): Promise<ProductType>;
-export async function createProduct(params: CreateParams, type: "json"): Promise<string>;
-
-export async function createProduct({ id, name, quantity, images, url, priceToShow, price, vendor, category, articleNumber, description, isAvailable, customParams, newCategories }: CreateParams, type?: "json"): Promise<ProductType | string>{
-    try {
-        connectToDB();
-        
-        const createdProduct = await Product.create({
-            id: id,
-            name: name,
-            images: images,
-            quantity: quantity,
-            url: url,
-            price: price,
-            priceToShow: priceToShow,
-            category: category,
-            vendor: vendor,
-            description: description,
-            articleNumber: articleNumber || "",
-            isAvailable: isAvailable,
-            params: customParams || []
-        })
-        
-        const createdCategoriesIds = [];
-
-        if(newCategories) {
-            for(const newCategory of newCategories) {
-                const result = await createNewCategory({ name: newCategory, products: [createdProduct._id]})
-    
-                await createdCategoriesIds.push(result._id)
-            }
-
-            await Product.findByIdAndUpdate(
-                createdProduct._id,
-                {
-                    $addToSet: { category: createdCategoriesIds }
-                }
-            )
-        }
-
-        for(const existingCategoryId of category) {
-            await Category.findByIdAndUpdate(
-                existingCategoryId,
-                {
-                    $addToSet: { products: createdProduct._id }
-                }
-            )
-        }
-
-        await clearCatalogCache();
-
-        clearCache("createProduct", undefined);
-
-        if(type === "json") {
-            return JSON.stringify(createdProduct)
-        } else {
-            return createdProduct;
-        }
-    } catch (error: any) {
-        throw new Error(`Error creating new product, ${error.message}`)
-    }
+/**
+ * Keeps Category.products in step for a single product without a full
+ * recount (used by the per-product importer actions). Bulk actions use
+ * syncCategoryMembership instead.
+ */
+async function setProductMembership(productId: Oid, categoryIds: Oid[]) {
+  await Promise.all([
+    categoryIds.length ? Category.updateMany({ _id: { $in: categoryIds } }, { $addToSet: { products: productId } }) : null,
+    Category.updateMany({ _id: { $nin: categoryIds }, products: productId }, { $pull: { products: productId } }),
+  ]);
 }
 
-export async function updateUrlProduct({_id, id, name, isAvailable, quantity, url, priceToShow, price, images, vendor, description, params, isFetched, category }: CreateUrlParams){
-    try {
-        connectToDB();
-        
-        const product = await Product.findByIdAndUpdate(_id, {
-            id: id,
-            name: name,
-            isAvailable: isAvailable,
-            quantity: quantity,
-            url: url,
-            priceToShow: priceToShow,
-            price: price,
-            images: images,
-            vendor: vendor,
-            description: description,
-            params: params,
-            isFetched: isFetched,
-            category: category ? category : ["No-category"]
-        })
-        
-        clearCache("updateProduct", _id as string)
+/**
+ * Turns the form's category list into ids of existing categories. Unknown
+ * id-like values are dropped (they are deleted categories, never names); new
+ * names are trimmed, matched case-insensitively against existing categories
+ * and created only when nothing matches.
+ */
+async function resolveCategoryInput(values: unknown[], newNames: unknown[]): Promise<Oid[]> {
+  const existing = await loadCategoryOptions();
+  const split = splitCategoryInput(values, newNames, existing);
+  const ids = split.ids.map((id) => new ObjectId(id));
 
-        
-        //console.log(product);
-    } catch (error: any) {
-        throw new Error(`Error creating url-product, ${error.message}`)
+  for (const name of split.newNames) {
+    const found = await findCategoryByName(name);
+    if (found) {
+      ids.push(new ObjectId(found.id));
+      continue;
     }
+    const created = await Category.create({ name, products: [], totalValue: 0, subCategories: [] });
+    ids.push(created._id);
+  }
+
+  return toObjectIds(ids);
 }
 
-export async function deleteUrlProducts(){
-    try {
-        connectToDB();
-
-        const productsToDelete = await Product.find({ isFetched: true});
-
-        await deleteManyProducts(productsToDelete.map(p => p._id))
-
-        clearCache("deleteProduct", undefined)
-    } catch (error: any) {
-        throw new Error(`Error deleting fetched products, ${error.message}`)
-    }
+function cleanParams(params: unknown): { name: string; value: string }[] {
+  if (!Array.isArray(params)) return [];
+  return params
+    .map((param) => ({ name: String(param?.name ?? "").trim(), value: String(param?.value ?? "").trim() }))
+    .filter((param) => param.name && param.value);
 }
 
-export async function fetchUrlProducts(type?: "json"){
-    try {
-        connectToDB();
-        
-        const urlProducts = await Product.find({_id: {$ne: DELETEDPRODUCT_ID}, isFetched: true }).select("_id id articleNumber category");
-
-        if(type === "json"){
-            return JSON.stringify(urlProducts)
-        } else{
-            return urlProducts;
-        }
-    } catch (error: any) {
-        throw new Error(`Error finding url-added products: ${error.message}`)
-    }
+function cleanImages(images: unknown): string[] {
+  if (!Array.isArray(images)) return [];
+  return Array.from(new Set(images.map((image) => String(image ?? "").trim()).filter(Boolean)));
 }
 
-export async function fetchAllProducts() {
-    try {
-        connectToDB();
-        
-        const fetchedProducts = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID }, isAvailable: true, quantity: { $gt: 0 } })
-        .populate({
-            path: 'likedBy',
-            model: User,
-            select: "_id email"
-        })
-        
-        return JSON.parse(JSON.stringify(fetchedProducts))
-
-    } catch (error:any) {
-        throw new Error(`Error fetching all available products, ${error.message}`)
-    }
+function money(value: unknown): number {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number * 100) / 100 : 0;
 }
 
-export async function fetchExportProducts() {
+function plain<T>(value: unknown): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                         XML importer (per product)                         */
+/* -------------------------------------------------------------------------- */
+
+export async function createUrlProduct({ id, name, isAvailable, quantity, url, priceToShow, price, images, vendor, description, articleNumber, params, isFetched, category }: CreateUrlParams) {
   try {
-      connectToDB();
-      
-      const fetchedProducts = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID } })
-      
-      return JSON.stringify(fetchedProducts)
+    await requireCatalogAdmin();
+    await connectToDB();
 
-  } catch (error:any) {
-      throw new Error(`Error fetching all products for export, ${error.message}`)
+    const categoryIds = cleanCategoryIds(category);
+    const created = await Product.create({
+      id,
+      name,
+      isAvailable,
+      quantity,
+      url,
+      priceToShow,
+      price,
+      images,
+      vendor,
+      description,
+      params,
+      articleNumber,
+      isFetched,
+      category: categoryIds,
+    });
+    await setProductMembership(created._id, categoryIds);
+    // No cache work here: the importer calls this once per product and invalidates once at the end.
+  } catch (error: any) {
+    throw new Error(`Error creating url-product, ${error.message}`);
   }
 }
 
-export async function fetchProducts() {
+export async function updateUrlProduct({ _id, id, name, isAvailable, quantity, url, priceToShow, price, images, vendor, description, params, isFetched, category }: CreateUrlParams) {
   try {
-    connectToDB();
+    await requireCatalogAdmin();
+    await connectToDB();
+    if (!isObjectIdLike(_id)) throw new Error("Invalid product id");
 
-    const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID } })
-      .select("_id id vendor name isAvailable price priceToShow images category articleNumber quantity createdAt updatedAt")
+    const categoryIds = cleanCategoryIds(category);
+    await Product.updateOne(
+      { _id },
+      { $set: { id, name, isAvailable, quantity, url, priceToShow, price, images, vendor, description, params, isFetched, category: categoryIds } },
+    );
+    await setProductMembership(new ObjectId(_id), categoryIds);
+  } catch (error: any) {
+    throw new Error(`Error updating url-product, ${error.message}`);
+  }
+}
+
+/** Bulk version for the importer: one bulkWrite and one membership sync. */
+export async function updateUrlProductsMany(products: Partial<CreateUrlParams>[]) {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+
+    const valid = products.filter((product) => isObjectIdLike(product._id));
+    if (valid.length === 0) return;
+
+    const touched = new Set<string>();
+    const before = await Product.find({ _id: { $in: valid.map((product) => product._id) } }).select("category").lean<{ category?: Oid[] }[]>();
+    for (const row of before) for (const id of row.category ?? []) touched.add(String(id));
+
+    await Product.bulkWrite(
+      valid.map((product) => {
+        const { _id, ...rest } = product;
+        const update: Record<string, unknown> = { ...rest };
+        if ("category" in rest) {
+          const ids = cleanCategoryIds(rest.category);
+          ids.forEach((id) => touched.add(String(id)));
+          update.category = ids;
+        }
+        return { updateOne: { filter: { _id }, update: { $set: update } } };
+      }),
+      { ordered: false },
+    );
+
+    await syncCategoryMembership(Array.from(touched));
+    await afterCatalogWrite("updateProducts");
+  } catch (error: any) {
+    throw new Error(`Error updating url-products in bulk, ${error.message}`);
+  }
+}
+
+export async function fetchUrlProducts(type?: "json") {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+
+    const urlProducts = await Product.find({ _id: { $ne: DELETED_PRODUCT_OID }, isFetched: true })
+      .select("_id id articleNumber category")
       .lean();
 
-    // Keep only the first image for each product
-    const processedProducts = products.map(product => ({
-      ...product,
-      images: product.images?.length ? [product.images[0]] : []
-    }));
+    return type === "json" ? JSON.stringify(urlProducts) : plain(urlProducts);
+  } catch (error: any) {
+    throw new Error(`Error finding url-added products: ${error.message}`);
+  }
+}
 
-    return JSON.stringify(processedProducts);
+/* -------------------------------------------------------------------------- */
+/*                               Admin reads                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every product with one image, as JSON. Still used by the order page's
+ * "add product" dialog (orders slice); the products admin no longer loads it.
+ */
+export async function fetchProducts() {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+
+    const products = await Product.find(
+      { _id: { $ne: DELETED_PRODUCT_OID } },
+      { id: 1, vendor: 1, name: 1, isAvailable: 1, price: 1, priceToShow: 1, images: { $slice: 1 }, category: 1, articleNumber: 1, quantity: 1, createdAt: 1, updatedAt: 1 },
+    ).lean();
+
+    return JSON.stringify(products);
   } catch (error: any) {
     throw new Error(`Error fetching products, ${error.message}`);
   }
 }
 
-export async function fetchProductsByBatches(limit: number = 500, skip: number = 0) {
-  try {
-      connectToDB();
-
-      const products = await Product.find({ _id: { $ne: DELETEDPRODUCT_ID } })
-          .select("_id id vendor name isAvailable price priceToShow category articleNumber url images quantity description params")
-          .skip(skip)
-          .limit(limit)
-          .lean();
-
-      return JSON.stringify(products);
-  } catch (error: any) {
-      throw new Error(`Error fetching products, ${error.message}`);
-  }
-}
-
-
 export async function fetchProductById(_id: string): Promise<ProductType>;
 export async function fetchProductById(_id: string, type: "json"): Promise<string>;
 
-export async function fetchProductById( _id: string, type?: "json") {
-    try {
-      await connectToDB();
-        const product = await Product.findById(_id);
+export async function fetchProductById(_id: string, type?: "json") {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    if (!isObjectIdLike(_id)) throw new Error("Product not found");
 
-        if(!product) {
-            throw new Error(`Product not found`);
-        }
-        if(type === "json") {
-            return JSON.stringify(product);
-        } else {
-            return product;
-        }
-    } catch (error: any) {
-        throw new Error(`Error fetching product by _id: ${error.message}`)
-    }
+    const product = await Product.findById(_id)
+      .select("_id id name description images price priceToShow quantity isAvailable articleNumber vendor url category params isFetched createdAt updatedAt")
+      .lean();
+    if (!product) throw new Error("Product not found");
+
+    return type === "json" ? JSON.stringify(product) : plain<ProductType>(product);
+  } catch (error: any) {
+    throw new Error(`Error fetching product by _id: ${error.message}`);
+  }
 }
 
-export async function addLike({ productId, email, path }: InterfaceProps) {
-    try {
-        connectToDB();
-        
-        const product = await Product.findOne({id:productId});
-        if(email) {
-            const currentUser = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }}); 
+/* -------------------------------------------------------------------------- */
+/*                          Create / edit (admin form)                        */
+/* -------------------------------------------------------------------------- */
 
-            const isLiked = product.likedBy.includes(currentUser._id);
-
-            if(isLiked) {
-                await product.likedBy.pull(currentUser._id);
-                await currentUser.likes.pull(product._id);
-            } else {
-                await product.likedBy.push(currentUser._id);
-                await currentUser.likes.push(product._id);
-            }
-    
-    
-            await product.save();
-            await currentUser.save();
-
-            revalidatePath(path);
-            revalidatePath(`/liked/${currentUser._id}`);
-        }
-
-        clearCache("likeProduct", undefined)
-    } catch (error: any) {
-        throw new Error(`Error adding like to the product, ${error.message}`)
-    }
+function productDocument(input: CreateParams) {
+  const price = money(input.price);
+  let priceToShow = money(input.priceToShow);
+  if (!(priceToShow > 0) || priceToShow > price) priceToShow = price;
+  return {
+    name: String(input.name ?? "").trim(),
+    description: String(input.description ?? ""),
+    images: cleanImages(input.images),
+    quantity: Math.max(0, Math.floor(Number(input.quantity) || 0)),
+    url: String(input.url ?? "").trim(),
+    price,
+    priceToShow,
+    vendor: String(input.vendor ?? "").trim() || "Не вказано",
+    isAvailable: input.isAvailable === true,
+    articleNumber: String(input.articleNumber ?? "").trim(),
+    params: cleanParams(input.customParams ?? input.params),
+  };
 }
 
-export async function fetchLikedProducts(userId: string){
-    try {
-        connectToDB();
+function validateProduct(document: ReturnType<typeof productDocument>) {
+  if (document.name.length < 3) throw new Error("Назва товару має містити щонайменше 3 символи.");
+  if (!(document.price > 0)) throw new Error("Вкажіть ціну більше нуля.");
+}
 
-        const likedProducts = await Product.find({ isAvailable: true, likedBy: userId })
-            .populate({
-                path: 'likedBy',
-                model: User,
-                select: "_id email"
-            })
+export async function createProduct(params: CreateParams): Promise<ProductType>;
+export async function createProduct(params: CreateParams, type: "json"): Promise<string>;
 
-        return likedProducts;
-    } catch (error: any) {
-        throw new Error(`Error fecthing liked posts, ${error.message}`)
-    }
+export async function createProduct(input: CreateParams, type?: "json"): Promise<ProductType | string> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+
+    const document = productDocument(input);
+    validateProduct(document);
+    const id = String(input.id ?? "").trim();
+    if (!id) throw new Error("Товар потребує ID.");
+    if (await Product.exists({ id })) throw new Error(`Товар з ID ${id} уже існує.`);
+
+    const categoryIds = await resolveCategoryInput(input.category ?? [], input.newCategories ?? []);
+    const created = await Product.create({ ...document, id, category: categoryIds });
+
+    await syncCategoryMembership(categoryIds);
+    await afterCatalogWrite("createProduct");
+
+    const result = plain<ProductType>(created.toObject());
+    return type === "json" ? JSON.stringify(result) : result;
+  } catch (error: any) {
+    throw new Error(`Error creating new product, ${error.message}`);
+  }
 }
 
 export async function editProduct(params: CreateParams): Promise<ProductType>;
 export async function editProduct(params: CreateParams, type: "json"): Promise<string>;
 
-export async function editProduct({ _id, name, quantity, images, url, priceToShow, price, vendor, category, description, isAvailable, articleNumber, customParams, newCategories }: CreateParams, type?: 'json') {
-    try {
-        await connectToDB();
-
-        const createdCategoriesIds = [];
-
-        if(newCategories) {
-            for(const newCategory of newCategories) {
-                const result = await createNewCategory({ name: newCategory, products: []})
-    
-                createdCategoriesIds.push(result._id)
-            }
-        }
-
-        for(const existingCategoryId of category) {
-            await Category.findByIdAndUpdate(
-                existingCategoryId,
-                {
-                    $addToSet: { products: _id }
-                }
-            )
-        }
-
-        const update = {
-            name,
-            quantity,
-            images,
-            url,
-            priceToShow,
-            price,
-            vendor,
-            category: [...category, ...createdCategoriesIds],
-            description,
-            isAvailable,
-            articleNumber: articleNumber || "",
-            params: customParams ? customParams.map(param => ({ name: param.name, value: param.value })) : []
-        };
-
-        // console.log(createdCategoriesIds)
-        // console.log(update)
-        const updatedProduct = await Product.findOneAndUpdate({ _id }, update, { new: true });
-
-        if (!updatedProduct) {
-            throw new Error(`No product found with id ${_id}`);
-        }
-
-        await clearCatalogCache();
-        clearCache("updateProduct", _id as string);
-        if (type === "json") {
-            return JSON.stringify(updatedProduct);
-        } else {
-            return updatedProduct;
-        }
-    } catch (error: any) {
-        throw new Error(`Error updating product: ${error.message}`);
-    }
-}
-
-
-export async function productAddedToCart(id: string) {
-    try {
-        connectToDB();
-
-        const product = await Product.findById(id);
-
-        await product.addedToCart.push(Date.now())
-
-        await product.save();
-
-        //console.log(product);
-
-        clearCache("addToCart", undefined)
-    } catch (error: any) {
-        throw new Error(`Error adding prduct to cart: ${error.message}`)
-    }
-}
-
-export async function findAllProductsCategories(type?: "json") {
-    try {
-      connectToDB();
-  
-      let allCategories: { [key: string]: number } = {};
-  
-      const products = await Product.find({});
-  
-      for (const product of products) {
-        if (Array.isArray(product.category)) {
-          for (const categoryId of product.category) {
-            const categoryIdStr = categoryId.toString();
-  
-            if (!allCategories[categoryIdStr]) {
-              allCategories[categoryIdStr] = 0;
-            }
-            
-            allCategories[categoryIdStr] += 1;
-          }
-        }
-      }
-  
-      const categories = Object.entries(allCategories).map(([name, amount]) => ({
-        name,
-        amount,
-      }));
-  
-      if (type === "json") {
-        return JSON.stringify(categories);
-      } else {
-        return categories;
-      }
-    } catch (error: any) {
-      throw new Error(`${error.message}`);
-    }
-  }
-  
-  export async function deleteManyProducts(_ids: string[], cache?: "keep-catalog-cache") {
-    const session = await startSession();
-    session.startTransaction();
-  
-    try {
-      await connectToDB();
-  
-      // Find products by their IDs
-      const products = await Product.find({ _id: { $in: _ids } }).session(session);
-  
-      if (!products.length) {
-        throw new Error("No products found for deletion");
-      }
-  
-      // Loop over the products to handle likes and orders before deletion
-      for (const product of products) {
-        const deletedProductId = product._id;
-  
-        // Handle users who liked the product
-        const usersWhoLikedProduct = await User.find({ _id: { $in: product.likedBy } }).session(session);
-  
-        if (usersWhoLikedProduct) {
-          for (const user of usersWhoLikedProduct) {
-            user.likes.pull(product._id);
-            await user.save({ session });
-          }
-        }
-  
-        // Handle orders that include the product
-        const orders = await Order.find({ 'products.product': product._id }).session(session);
-  
-        for (const order of orders) {
-          for (const orderedProduct of order.products) {
-            if (orderedProduct.product.toString() === product._id.toString()) {
-              orderedProduct.product = DELETEDPRODUCT_ID;
-            }
-          }
-  
-          await order.save({ session });
-        }
-  
-        // Update categories
-        await updateCategories(products, "delete");
-  
-        // Delete the product
-        await Product.deleteOne({ _id: product._id }).session(session);
-  
-        clearCache("deleteProduct", undefined);
-      }
-  
-      // If cache is not kept, clear the catalog cache
-      if (!cache) {
-        await clearCatalogCache();
-      } else {
-        console.log("Catalog cache cleared.");
-      }
-  
-      await session.commitTransaction();
-      // console.log("Deleted products");
-  
-    } catch (error: any) {
-      await session.abortTransaction();
-      throw new Error(`Error deleting products: ${error.message}`);
-    } finally {
-      session.endSession();
-    }
-  }
-  
-
-export async function deleteProduct(id: { productId: string} | {product_id: string}, cache?: "keep-catalog-cache") {
+export async function editProduct(input: CreateParams, type?: "json") {
   try {
-    connectToDB();
+    await requireCatalogAdmin();
+    await connectToDB();
+    if (!isObjectIdLike(input._id)) throw new Error("Товар не знайдено.");
 
-    // console.log("Deleting")
-    if(id){
-        const productId = "productId" in id ? id.productId : id.product_id;
-        const searchParam = "productId" in id ? "id" : "_id";
+    const document = productDocument(input);
+    validateProduct(document);
 
-        let product;
+    const previous = await Product.findById(input._id).select("category").lean<{ category?: Oid[] } | null>();
+    if (!previous) throw new Error("Товар не знайдено: можливо, його вже видалили.");
 
-        if(searchParam === "id") {
-            product = await Product.findOne({ id: productId });
-        } else if (searchParam === "_id") {
-            product = await Product.findOne({ _id: productId });
-        }
+    const categoryIds = await resolveCategoryInput(input.category ?? [], input.newCategories ?? []);
+    const updated = await Product.findByIdAndUpdate(input._id, { $set: { ...document, category: categoryIds } }, { new: true }).lean();
 
-        // console.log("Product", product);
-    
-        if(product){
-            
-            const usersWhoLikedProduct = await User.find({ _id: { $in: product.likedBy }});
-        
-            if(!product) {
-                throw new Error("Product not found");
-            }
-        
-            //console.log("Liked by", usersWhoLikedProduct);
-        
-            if(usersWhoLikedProduct){
-                for(const user of usersWhoLikedProduct) {
-                    user.likes.pull(product._id);
-            
-                    await user.save();
-                }
-            }
+    await syncCategoryMembership([...(previous.category ?? []), ...categoryIds]);
+    await afterCatalogWrite("updateProduct", input._id);
 
-            await updateCategories([product], "delete")
-        
-            const orders = await Order.find({ 'products.product': product._id })
-
-            for(const order of orders) {
-                for(const orderedProduct of order.products) {
-                    orderedProduct.product = DELETEDPRODUCT_ID;
-
-                    //console.log("Product", orderedProduct)
-                }
-
-                
-                await order.save();
-            }
-
-            if(searchParam === "id") {
-                await Product.deleteOne({ id: productId });
-            } else if(searchParam === "_id") {
-                await Product.deleteOne({ _id: productId })
-            }
-        
-            if(!cache){
-                await clearCatalogCache();
-            } else {
-                console.log("Catalog cache cleared.");
-            }
-            
-            clearCache("deleteProduct", undefined)
-        }
-    }
+    return type === "json" ? JSON.stringify(updated) : plain<ProductType>(updated);
   } catch (error: any) {
-    throw new Error(`Error deleting product: ${id} ${error.message}`)
+    throw new Error(`Error updating product: ${error.message}`);
   }
 }
 
-type ParamDifference = {
-  [paramName: string]: Array<{ _id: string; value: string }>;
-};
+export type SaveProductResult = { ok: true; _id: string; message: string } | { ok: false; error: string };
 
-const getFirstTwoWordsCombined = (name: string): string => {
-  if (!name) return "";
-  const parts = name.split(" ");
-  if (parts.length >= 2) {
-    return parts[0] + parts[1];
-  }
-  return parts[0] || "";
-};
-
-const getProductGroupKey = (product: ProductType): string => {
-  const { articleNumber, name, params, category } = product;
-
-  // Add log to see the entire product object
-  console.log("Processing product:", product);
-
-  if (typeof articleNumber !== "string" || typeof name !== "string" || !Array.isArray(params) || !Array.isArray(category)) {
-    return '';
-  }
-
-  const articleParts = articleNumber.split("-");
-  const baseArticleNumber = articleParts.length > 0 ? articleParts[0] : '';
-
-  const firstTwoWordsOfName = getFirstTwoWordsCombined(name);
-
-  const colorParam = params.find(p => ["Колір", "колір", "Color", "color", "Colour", "color"].includes(p.name));
-  const colorValue = colorParam ? colorParam.value : "no_color";
-
-  // Add log to check the category array content
-  console.log("Category array:", category);
-
-  // Add log to see the mapped IDs before the error
-  const categoryIds = category.map(cat => {
-    // Log each individual category item
-    console.log("Mapping category item:", cat);
-    if (typeof cat === 'string') {
-      return cat;
-    }
-    // This is where the error likely occurs if 'cat' is null
-    return cat?._id;
-  });
-  console.log("Mapped category IDs:", categoryIds);
-
-  const sortedCategories = [...categoryIds].sort().join(',');
-
-  return `${baseArticleNumber}::${firstTwoWordsOfName}::${colorValue}::${sortedCategories}`;
-};
-
-export async function fetchProductAndRelevantParams(
-  currentProductId: string,
-  key?: keyof ProductType,
-  splitChar?: string,
-  index?: number,
-): Promise<{ product: ProductType; selectParams: ParamDifference }> {
+/** The product form's save: creates when there is no _id, edits otherwise. Never throws. */
+export async function saveProduct(input: CreateParams): Promise<SaveProductResult> {
   try {
-    connectToDB();
-
-    const currentProduct: any = await Product.findById(currentProductId).populate({
-      path: "category",
-      model: Category,
-      select: "_id name"
-    });
-
-
-
-    if (!currentProduct) {
-      throw new Error("Current product not found");
+    if (input._id) {
+      const saved = JSON.parse(await editProduct(input, "json"));
+      return { ok: true, _id: String(saved._id), message: "Зміни збережено." };
     }
-
-    const currentProductCombinedName: string = getFirstTwoWordsCombined(currentProduct.name);
-
-    const similarProducts: ProductType[] = await Product.find({
-        _id: { $ne: currentProductId },
-        isAvailable: true,
-        $expr: {
-            $eq: [
-                {
-                    $concat: [
-                        { $arrayElemAt: [{ $split: ["$name", " "] }, 0] },
-                        { $ifNull: [{ $arrayElemAt: [{ $split: ["$name", " "] }, 1] }, ""] }
-                    ]
-                },
-                currentProductCombinedName
-            ]
-        }
-    });
-
-    const currentProductGroupKey: string = getProductGroupKey(currentProduct);
-
-    const allCandidateProducts: ProductType[] = [currentProduct, ...similarProducts];
-
-    const productsInCurrentGroup: ProductType[] = allCandidateProducts.filter((p: ProductType) => {
-        return p.isAvailable && getProductGroupKey(p) === currentProductGroupKey;
-    });
-
-    const paramCounts: Record<string, Set<string>> = {};
-
-    for (const product of productsInCurrentGroup) {
-      if (product.params && Array.isArray(product.params)) {
-        for (const param of product.params) {
-          if (!paramCounts[param.name]) {
-            paramCounts[param.name] = new Set<string>();
-          }
-          paramCounts[param.name].add(param.value);
-        }
-      }
-    }
-    
-    const paramDifferences: ParamDifference = {};
-    
-    const allowedParams: string[] = ["Розмір", "розмір", "Size", "size"];
-
-    for (const [paramName, values] of Object.entries(paramCounts)) {
-      if (values.size > 1 && allowedParams.includes(paramName)) {
-          paramDifferences[paramName] = Array.from(values).map((value: string) => ({
-              _id: productsInCurrentGroup.find((p: ProductType) =>
-                  p.params?.some((param: { name: string, value: string}) => param.name === paramName && param.value === value)
-              )?._id.toString() || currentProduct._id.toString(),
-              value,
-          }));
-      }
-    }
-  
-    return {
-      product: currentProduct,
-      selectParams: paramDifferences,
-    };
-  } catch (error: any) {
-    throw new Error(`Error fetching product and its select params: ${error.message}`);
+    const saved = JSON.parse(await createProduct(input, "json"));
+    return { ok: true, _id: String(saved._id), message: "Товар створено." };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    return { ok: false, error: message.replace(/^Error (creating new product|updating product)[,:]\s*/, "") || "Не вдалося зберегти товар." };
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               Bulk actions                                 */
+/* -------------------------------------------------------------------------- */
 
-export async function fetchPreviewProduct({ param }: { param: string }): Promise<ProductType>;
-export async function fetchPreviewProduct({ param }: { param: string }, type: 'json'): Promise<string>;
+export type BulkTarget = { ids?: string[]; filter?: ProductListFilter };
 
-export async function fetchPreviewProduct({ param }: { param: string }, type?: 'json') {
-   try {
-    connectToDB();
+async function resolveTarget(target: BulkTarget): Promise<Oid[]> {
+  if (target.filter) return (await resolveProductIds(target.filter)).filter((id) => !id.equals(DELETED_PRODUCT_OID));
+  return toObjectIds(target.ids ?? []).filter((id) => !id.equals(DELETED_PRODUCT_OID));
+}
 
-    // TODO: Update
-    const [categories, paramName] = param.split("&");
+/** Adds the products to a category, or makes it their only category. One updateMany. */
+async function setCategoryForProducts(
+  target: BulkTarget,
+  options: { categoryId?: string; newCategoryName?: string; mode: "add" | "replace" },
+): Promise<{ matched: number; modified: number; categoryId: string; categoryName: string }> {
+  await requireCatalogAdmin();
+  await connectToDB();
 
-    const products = await Product.find({
-      category: { $in: categories },
-      params: {
-        $elemMatch: { name: paramName }
-      }
-    });
+  const ids = await resolveTarget(target);
+  if (ids.length === 0) throw new Error("Не вибрано жодного товару.");
 
-    if(type === 'json'){
-      return JSON.stringify(products[0])
+  let categoryId = isObjectIdLike(options.categoryId) ? options.categoryId.toLowerCase() : "";
+  let categoryName = "";
+  if (categoryId) {
+    const category = await Category.findById(categoryId).select("_id name").lean<{ _id: Oid; name?: string } | null>();
+    if (!category) throw new Error("Цієї категорії вже не існує. Оновіть сторінку.");
+    categoryName = category.name ?? "";
+  } else {
+    const name = normalizeCategoryName(options.newCategoryName);
+    const problem = categoryNameProblem(name);
+    if (problem) throw new Error(problem);
+    const found = await findCategoryByName(name);
+    if (found) {
+      categoryId = found.id;
+      categoryName = found.name;
     } else {
-      return products[0]
+      const created = await Category.create({ name, products: [], totalValue: 0, subCategories: [] });
+      categoryId = String(created._id);
+      categoryName = name;
     }
-   } catch (error: any) {
-     throw new Error(`Error finding preview product: ${error.message}`)
-   }
-}
-
-// export async function findProductCategories({ productId }: { productId: string }): Promise<CategoryType[]>;
-// export async function findProductCategories({ productId }: { productId: string }, type: 'json'): Promise<string>;
-
-// export async function findProductCategories({ productId }: { productId: string }, type?: 'json') {
-//    try {
-      
-//     if(type === 'json'){
-//       return JSON.stringify(params)
-//     } else {
-//       return params
-//     }
-//    } catch (error: any) {
-//      throw new Error(`${error.message}`)
-//    }
-// }
-
-export async function fetchPurchaseNotificationsInfo(): Promise<{ id: string, name: string, image: string }[]> {
-  try {
-    await connectToDB();
-
-    const products = await Product.find({_id: {$ne: DELETEDPRODUCT_ID}, isAvailable: true, quantity: { $gt: 0 }})
-
-    return products.map(p => ({ id: p._id.toString(), name: pretifyProductName(p.name, [], p.articleNumber || "", 0), image: p.images[0] }))
-  } catch (error: any) {
-    throw new Error(`Error finding purchase notifications info: ${error.message}`)
   }
+
+  const target_ = new ObjectId(categoryId);
+  const before = options.mode === "replace" ? await Product.distinct("category", { _id: { $in: ids } }) : [];
+  const result =
+    options.mode === "replace"
+      ? await Product.updateMany({ _id: { $in: ids } }, { $set: { category: [target_] } })
+      : await Product.updateMany({ _id: { $in: ids } }, { $addToSet: { category: target_ } });
+
+  await syncCategoryMembership([...before, target_]);
+  await afterCatalogWrite("updateProducts");
+  return { matched: result.matchedCount, modified: result.modifiedCount, categoryId, categoryName };
 }
 
-export async function getProductPageUrlByFirstImageUrl(image: string): Promise<string> {
-  try {
-    const product = await Product.findOne({images: image});
+/** Changes regular and sale price by a percentage in one updateMany. */
+async function adjustPricesForProducts(
+  target: BulkTarget,
+  options: { percent: number; direction: "decrease" | "increase" },
+): Promise<{ matched: number; modified: number }> {
+  await requireCatalogAdmin();
+  await connectToDB();
 
-    const id = product._id
+  const percent = Number(options.percent);
+  if (!Number.isFinite(percent) || percent <= 0 || percent > 1000) throw new Error("Вкажіть відсоток більше нуля.");
+  if (options.direction === "decrease" && percent >= 100) throw new Error("Зменшити ціну можна менше ніж на 100%.");
+  const direction = options.direction === "increase" ? "increase" : "decrease";
+  const factor = direction === "decrease" ? 1 - percent / 100 : 1 + percent / 100;
 
-    return id.toString()
-  } catch (error: any) {
-    throw new Error(`Error getting product page url by url: ${error.message}`)
-  }
-}
+  const ids = await resolveTarget(target);
+  if (ids.length === 0) throw new Error("Не вибрано жодного товару.");
 
-export async function getTop3ProductsBySales(): Promise<ProductType[]>;
-export async function getTop3ProductsBySales(type: 'json'): Promise<string>;
-
-export async function getTop3ProductsBySales(type?: 'json') {
-   try {
-    await connectToDB();
-
-    const topProducts = await Product.aggregate([
-      {
-        $addFields: {
-          salesCount: { $size: { $ifNull: ["$orderedBy", []] } }
-        }
+  const result = await Product.updateMany({ _id: { $in: ids } }, [
+    {
+      $set: {
+        price: { $max: [0, { $round: [{ $multiply: [{ $ifNull: ["$price", 0] }, factor] }, 0] }] },
+        priceToShow: { $max: [0, { $round: [{ $multiply: [{ $ifNull: ["$priceToShow", { $ifNull: ["$price", 0] }] }, factor] }, 0] }] },
       },
-      { $sort: { salesCount: -1 } },
-      { $limit: 3 }
-    ]);
+    },
+  ]);
 
-    if(type === 'json'){
-      return JSON.stringify(topProducts)
-    } else {
-      return topProducts
-    }
-   } catch (error: any) {
-     throw new Error(`Error getting top 3 products: ${error.message}`)
-   }
-}
-export async function leaveReview(params: { productId: string, userId: string | undefined, name: string, email: string, text: string, rating: number, attachmentsUrls: string[] }) {
-  try {
-
-    await connectToDB();
-
-    const date = new Date()
-
-    const formattedDate = new Intl.DateTimeFormat("uk-UA", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(date)
-
-    const product = await Product.findByIdAndUpdate(
-      params.productId,
-      {
-        $push: { reviews: { user: params.name, rating: params.rating, text: params.text, attachmentsUrls: params.attachmentsUrls, time: formattedDate }}
-      }
-    )
-
-    let promo = ""
-
-    if(params.userId) {
-      promo = await addPromo({ userId: params.userId, email: params.email })
-    }
-
-    await clearCatalogCache();
-
-    await clearCache("updateProduct", params.productId)
-    return promo
-  } catch (error: any) {
-    throw new Error(`Error adding review to the product: ${error.message}`)
-  }
+  // Category totals hold the sum of sale prices.
+  await syncCategoryMembership(await Product.distinct("category", { _id: { $in: ids } }));
+  await afterCatalogWrite("updateProducts");
+  return { matched: result.matchedCount, modified: result.modifiedCount };
 }
 
+/** Kept for compatibility: one product's prices by a percentage. Now rounds and invalidates the catalog. */
 export const applyDiscountToProduct = async ({
   productId,
   percentage,
@@ -915,48 +476,306 @@ export const applyDiscountToProduct = async ({
   percentage: number;
   direction: "Зменшити" | "Збільшити";
 }): Promise<void> => {
-  if (!productId || typeof percentage !== 'number' || percentage < 0) {
-    throw new Error('Invalid input: productId and a non-negative percentage are required.');
+  await requireCatalogAdmin();
+  if (!isObjectIdLike(productId) || typeof percentage !== "number" || percentage < 0) {
+    throw new Error("Invalid input: productId and a non-negative percentage are required.");
   }
-  if (direction !== "Зменшити" && direction !== "Збільшити") {
-    throw new Error('Invalid direction: Must be "Зменшити" or "Збільшити".');
-  }
-
   await connectToDB();
-
-  let factor: number;
-  if (direction === "Зменшити") {
-    factor = 1 - percentage / 100;
-  } else {
-    factor = 1 + percentage / 100;
-  }
-
-  if (factor < 0) {
-    factor = 0;
-  }
-
-  await Product.findByIdAndUpdate(
-    productId,
-    [
-      {
-        $set: {
-          price: { $round: [{ $multiply: ['$price', factor] }, 0] },
-          priceToShow: { $round: [{ $multiply: ['$priceToShow', factor] }, 0] }
-        }
-      }
-    ],
+  const product = await Product.findById(productId).select("price priceToShow category").lean<{ price?: number; priceToShow?: number; category?: Oid[] } | null>();
+  if (!product) throw new Error("Product not found");
+  const dir = direction === "Збільшити" ? "increase" : "decrease";
+  await Product.updateOne(
+    { _id: productId },
+    { $set: { price: adjustPrice(product.price ?? 0, percentage, dir), priceToShow: adjustPrice(product.priceToShow ?? product.price ?? 0, percentage, dir) } },
   );
+  await syncCategoryMembership(product.category ?? []);
+  await afterCatalogWrite("updateProduct", productId);
 };
 
-export async function fetchProductsLength() {
+/**
+ * Deletes products and everything that points at them, with a fixed number of
+ * queries whatever the count: order lines that held one of them get the
+ * "deleted product" placeholder (only those lines), likes are pulled from
+ * users, categories are recounted.
+ */
+async function deleteProductsByIds(ids: Oid[]): Promise<number> {
+  const victims = ids.filter((id) => !id.equals(DELETED_PRODUCT_OID));
+  if (victims.length === 0) return 0;
+
+  const categories = await Product.distinct("category", { _id: { $in: victims } });
+
+  await Promise.all([
+    Order.updateMany(
+      { "products.product": { $in: victims } },
+      { $set: { "products.$[line].product": DELETED_PRODUCT_OID } },
+      { arrayFilters: [{ "line.product": { $in: victims } }] },
+    ),
+    User.updateMany({ likes: { $in: victims } }, { $pull: { likes: { $in: victims } } }),
+  ]);
+
+  const result = await Product.deleteMany({ _id: { $in: victims } });
+  await syncCategoryMembership(categories);
+  return result.deletedCount ?? 0;
+}
+
+export async function deleteManyProducts(_ids: string[], cache?: "keep-catalog-cache") {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+
+    const deleted = await deleteProductsByIds(toObjectIds(_ids));
+    if (deleted === 0) throw new Error("No products found for deletion");
+    if (!cache) await afterCatalogWrite("deleteProduct");
+    return deleted;
+  } catch (error: any) {
+    throw new Error(`Error deleting products: ${error.message}`);
+  }
+}
+
+/** Deletes the selected products, or every product matching the list filter. */
+async function deleteProductsForTarget(target: BulkTarget): Promise<{ deleted: number }> {
+  await requireCatalogAdmin();
+  await connectToDB();
+  const ids = await resolveTarget(target);
+  if (ids.length === 0) throw new Error("Не вибрано жодного товару.");
+  const deleted = await deleteProductsByIds(ids);
+  await afterCatalogWrite("deleteProduct");
+  return { deleted };
+}
+
+/**
+ * Bulk actions answer with a result instead of throwing: in production Next.js
+ * hides thrown messages from the browser, and the admin needs to read why.
+ */
+export type BulkResult = { ok: true; message: string; count: number } | { ok: false; error: string };
+
+async function attempt(work: () => Promise<{ message: string; count: number }>): Promise<BulkResult> {
+  try {
+    return { ok: true, ...(await work()) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Не вдалося виконати дію. Спробуйте ще раз." };
+  }
+}
+
+const productWord = productsWord;
+
+export async function bulkSetProductCategory(
+  target: BulkTarget,
+  options: { categoryId?: string; newCategoryName?: string; mode: "add" | "replace" },
+): Promise<BulkResult> {
+  return attempt(async () => {
+    const result = await setCategoryForProducts(target, options);
+    const verb = options.mode === "add" ? "Додано до" : "Перенесено в";
+    return { count: result.matched, message: `${verb} «${result.categoryName}»: ${result.matched} ${productWord(result.matched)}.` };
+  });
+}
+
+export async function bulkAdjustProductPrices(target: BulkTarget, options: { percent: number; direction: "decrease" | "increase" }): Promise<BulkResult> {
+  return attempt(async () => {
+    const result = await adjustPricesForProducts(target, options);
+    const verb = options.direction === "increase" ? "збільшено" : "зменшено";
+    return { count: result.matched, message: `Ціни ${verb} на ${options.percent}% для ${result.matched} ${productWord(result.matched)}.` };
+  });
+}
+
+export async function bulkDeleteProducts(target: BulkTarget): Promise<BulkResult> {
+  return attempt(async () => {
+    const result = await deleteProductsForTarget(target);
+    return { count: result.deleted, message: `Видалено ${result.deleted} ${productWord(result.deleted)}.` };
+  });
+}
+
+export async function deleteProduct(id: { productId: string } | { product_id: string }, cache?: "keep-catalog-cache") {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    if (!id) return;
+
+    const filter =
+      "productId" in id
+        ? { id: id.productId }
+        : isObjectIdLike(id.product_id)
+          ? { _id: new ObjectId(id.product_id) }
+          : null;
+    if (!filter) return;
+
+    const product = await Product.findOne(filter).select("_id").lean<{ _id: Oid } | null>();
+    if (!product) return;
+
+    await deleteProductsByIds([product._id]);
+    if (!cache) await afterCatalogWrite("deleteProduct");
+  } catch (error: any) {
+    throw new Error(`Error deleting product: ${error.message}`);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                         Storefront (public) actions                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Toggles a like for the signed-in shopper. Two small updates, no cache purge:
+ * a like changes nothing shoppers see in the catalog.
+ */
+export async function addLike({ productId, path }: InterfaceProps) {
+  try {
+    const email = await currentUserEmail();
+    if (!email) return;
+    await connectToDB();
+
+    const or: Record<string, unknown>[] = [{ id: productId }];
+    if (isObjectIdLike(productId)) or.push({ _id: new ObjectId(productId) });
+    const [product, user] = await Promise.all([
+      Product.findOne({ $or: or }).select("_id").lean<{ _id: Oid } | null>(),
+      User.findOne({ email }).select("_id likes").lean<{ _id: Oid; likes?: Oid[] } | null>(),
+    ]);
+    if (!product || !user) return;
+
+    const isLiked = (user.likes ?? []).some((id) => String(id) === String(product._id));
+    if (isLiked) {
+      await Promise.all([
+        Product.updateOne({ _id: product._id }, { $pull: { likedBy: user._id } }),
+        User.updateOne({ _id: user._id }, { $pull: { likes: product._id } }),
+      ]);
+    } else {
+      await Promise.all([
+        Product.updateOne({ _id: product._id }, { $addToSet: { likedBy: user._id } }),
+        User.updateOne({ _id: user._id }, { $addToSet: { likes: product._id } }),
+      ]);
+    }
+
+    if (path) revalidatePath(path);
+    revalidatePath(`/liked/${user._id}`);
+  } catch (error: any) {
+    throw new Error(`Error adding like to the product, ${error.message}`);
+  }
+}
+
+/** Ids of the products a signed-in shopper has liked. Empty for guests. */
+export async function fetchLikedProductIds(email: string | null | undefined): Promise<string[]> {
+  if (!email) return [];
+
   try {
     await connectToDB();
 
-    const products = await Product.find().select("_id")
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const user = await User.findOne({ email: { $regex: `^${escapedEmail}$`, $options: "i" } })
+      .select("likes")
+      .lean<{ likes?: unknown[] }>();
 
-
-    return products.length
+    return (user?.likes ?? []).map(String);
   } catch (error: any) {
-    throw new Error(`${error.message}`)
+    throw new Error(`Error fetching liked product ids, ${error.message}`);
+  }
+}
+
+export async function fetchLikedProducts(userId: string) {
+  try {
+    await connectToDB();
+    if (!isObjectIdLike(userId)) return [];
+
+    const likedProducts = await Product.find({ isAvailable: true, likedBy: userId })
+      .populate({ path: "likedBy", model: User, select: "_id email" })
+      .lean();
+
+    return plain<any[]>(likedProducts);
+  } catch (error: any) {
+    throw new Error(`Error fecthing liked posts, ${error.message}`);
+  }
+}
+
+const ADDED_TO_CART_KEEP = 500;
+
+/** Counts an add-to-cart. Public; one update, keeps the newest 500 timestamps, purges no cache. */
+export async function productAddedToCart(id: string) {
+  try {
+    if (!isObjectIdLike(id)) return;
+    await connectToDB();
+    await Product.updateOne({ _id: id }, { $push: { addedToCart: { $each: [new Date()], $slice: -ADDED_TO_CART_KEEP } } });
+  } catch (error: any) {
+    throw new Error(`Error adding prduct to cart: ${error.message}`);
+  }
+}
+
+const PRODUCT_PAGE_FIELDS =
+  "_id id name description category images price priceToShow params articleNumber reviews isAvailable quantity url vendor";
+
+/**
+ * The product as the storefront product page needs it: display fields only,
+ * with category names resolved. Size/colour choices come from the catalog
+ * service (see lib/catalog), not from this query.
+ */
+export async function fetchProductForPage(productId: string) {
+  // An address that cannot be a product id is simply not a product.
+  if (!/^[0-9a-f]{24}$/i.test(productId)) return null;
+  try {
+    await connectToDB();
+
+    const product = await Product.findById(productId)
+      .select(PRODUCT_PAGE_FIELDS)
+      .populate({ path: "category", model: Category, select: "_id name" })
+      .lean();
+
+    return product ? JSON.parse(JSON.stringify(product)) : null;
+  } catch (error: any) {
+    throw new Error(`Error fetching product page data: ${error.message}`);
+  }
+}
+
+export async function getTop3ProductsBySales(): Promise<ProductType[]>;
+export async function getTop3ProductsBySales(type: "json"): Promise<string>;
+
+/** The three best sellers for e-mails. Projects the few fields the e-mails use before sorting. */
+export async function getTop3ProductsBySales(type?: "json") {
+  try {
+    await connectToDB();
+
+    const topProducts = await Product.aggregate([
+      { $match: { _id: { $ne: DELETED_PRODUCT_OID } } },
+      { $project: { _id: 1, name: 1, priceToShow: 1, price: 1, images: { $slice: [{ $ifNull: ["$images", []] }, 1] }, salesCount: { $size: { $ifNull: ["$orderedBy", []] } } } },
+      { $sort: { salesCount: -1, _id: 1 } },
+      { $limit: 3 },
+    ]);
+
+    return type === "json" ? JSON.stringify(topProducts) : topProducts;
+  } catch (error: any) {
+    throw new Error(`Error getting top 3 products: ${error.message}`);
+  }
+}
+
+export async function leaveReview(params: { productId: string; userId: string | undefined; name: string; email: string; text: string; rating: number; attachmentsUrls: string[] }) {
+  try {
+    // A public endpoint: everything from the browser is checked before it is stored and shown to other customers.
+    if (!mongoose.isValidObjectId(params?.productId)) throw new Error("unknown product");
+    const name = String(params.name ?? "").trim().slice(0, 60);
+    const text = String(params.text ?? "").trim().slice(0, 2000);
+    const rating = Math.min(5, Math.max(1, Math.round(Number(params.rating)) || 5));
+    const attachmentsUrls = (Array.isArray(params.attachmentsUrls) ? params.attachmentsUrls : [])
+      .filter((url): url is string => typeof url === "string" && /^https:\/\/[^\s"'<>]+$/.test(url))
+      .slice(0, 5);
+    if (!name || !text) throw new Error("a review needs a name and a text");
+
+    await connectToDB();
+
+    const formattedDate = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(new Date());
+
+    const result = await Product.updateOne(
+      { _id: params.productId },
+      { $push: { reviews: { user: name, rating, text, attachmentsUrls, time: formattedDate } } },
+    );
+    if (result.matchedCount === 0) throw new Error("unknown product");
+
+    // The reward: one promo code per product, and only for the signed-in customer's own account.
+    let promo = "";
+    const current = await getSessionUser();
+    if (current) {
+      const first = await User.updateOne({ _id: current.id, reviewedProducts: { $ne: params.productId } }, { $addToSet: { reviewedProducts: params.productId } });
+      if (first.modifiedCount === 1) promo = await addPromo({ userId: current.id, email: current.email });
+    }
+
+    await clearCache("updateProduct", params.productId);
+    return promo;
+  } catch (error: any) {
+    throw new Error(`Error adding review to the product: ${error.message}`);
   }
 }

@@ -1,19 +1,6 @@
-import EditCategoryPage from "@/components/admin-components/Categories/EditCategoryPage";
-import { fetchCategory } from "@/lib/actions/categories.actions";
+import { redirect } from "next/navigation"
 
-const Page = async ({ params }: { params: { id: string } }) => {
-
-    if (!params.id) {
-        return null;
-    }
-
-    const categoryInfo = await fetchCategory({ categoryId: params.id });
-
-    return (
-        <section className="w-full px-10 pt-10 pb-20 ml-2 max-[1040px]:px-8 max-[400px]:px-6 max-[360px]:px-4">
-            <EditCategoryPage {...categoryInfo}/>
-        </section>
-    );
+/** Old edit address of a category: the "Загальне" tab of the categories view. */
+export default function OldEditCategoryPage({ params }: { params: { id: string } }) {
+  redirect(`/admin/categories?id=${encodeURIComponent(params.id)}`)
 }
-
-export default Page;

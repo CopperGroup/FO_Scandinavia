@@ -1,39 +1,54 @@
 import type React from "react"
-import { Inter } from "next/font/google"
+import { redirect } from "next/navigation"
 import { Toaster } from "react-hot-toast"
-import { Separator } from "@/components/ui/separator"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import Provider from "../../Provider"
-import "../../globals.css"
-import { AdminSidebar } from "@/components/shared/AdminSidebar"
+import AdminShell from "@/components/admin/AdminShell"
 import { PostHogProvider } from "@/components/PostHogProvider"
+import { fetchUserByEmail } from "@/lib/actions/user.actions"
+import { getVariables } from "@/lib/content/server"
+import { CONTACT_VARIABLES } from "@/lib/content/variables"
+import { getSession } from "@/lib/getServerSession"
+import Order from "@/lib/models/order.model"
+import { connectToDB } from "@/lib/mongoose"
+import Provider from "../../Provider"
 
-export const metadata = {
-  title: "Admin Dashboard",
-  description: "Admin dashboard for your application",
+export const dynamic = "force-dynamic"
+
+/** Orders the team still has to act on: not shipped, not canceled. */
+async function countOpenOrders(): Promise<number> {
+  try {
+    await connectToDB()
+    return await Order.countDocuments({ deliveryStatus: "Proceeding" })
+  } catch {
+    // A badge is not worth failing the whole panel for.
+    return 0
+  }
 }
 
-const inter = Inter({ subsets: ["latin"] })
+/** True while the phone or the e-mail of the shop is not filled in ("Налаштування"). */
+async function settingsNeedAttention(): Promise<boolean> {
+  try {
+    const { contacts } = await getVariables()
+    return CONTACT_VARIABLES.some((variable) => variable.required && !contacts[variable.key])
+  } catch {
+    return false
+  }
+}
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function AdminRootLayout({ children }: { children: React.ReactNode }) {
+  const email = await getSession()
+  if (!email) redirect("/login")
+
+  const [user, openOrders, settingsAttention] = await Promise.all([fetchUserByEmail({ email }) as Promise<any>, countOpenOrders(), settingsNeedAttention()])
+  // The middleware already keeps other roles out; this covers a role removed mid-session.
+  if (!user || (user.role !== "Admin" && user.role !== "Owner")) redirect("/")
+
   return (
     <PostHogProvider>
       <Provider>
-        <SidebarProvider>
-          <AdminSidebar />
-          <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center border-b px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mx-2 h-4" />
-            </header>
-            <main className="flex-1">{children}</main>
-          </SidebarInset>
-          <Toaster />
-        </SidebarProvider>
+        <AdminShell user={{ name: String(user.name || user.username || ""), email: String(user.email), role: String(user.role) }} openOrders={openOrders} settingsAttention={settingsAttention}>
+          {children}
+        </AdminShell>
+        <Toaster />
       </Provider>
     </PostHogProvider>
   )

@@ -2,6 +2,8 @@
 
 import nodemailer from 'nodemailer';
 import Order from '../models/order.model';
+import { getServerSession } from 'next-auth';
+import { options } from '@/app/api/auth/[...nextauth]/options';
 import { Store } from '@/constants/store';
 
 const transporter = nodemailer.createTransport({
@@ -14,6 +16,11 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendAskForReviewEmail(orderId: string) {
+  // A server action is a public endpoint: only the shop's staff may make it send mail.
+  const session = await getServerSession(options);
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  if (role !== "Admin" && role !== "Owner") throw new Error("Not allowed.");
+
   const order = await Order.findById(orderId).populate('products.product');
 
   if (!order) throw new Error('Order not found.');

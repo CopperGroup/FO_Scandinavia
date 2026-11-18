@@ -1,22 +1,20 @@
-"use client"
+import type { Metadata } from "next"
+import { AdminPage } from "@/components/admin/ui"
+import ImportWizard from "@/components/admin-components/parseXML/ImportWizard"
+import { currentAdmin } from "@/lib/import/admin"
+import { activeJobFor, sampleLeftovers } from "@/lib/import/server"
 
-import XMLParser from "@/components/admin-components/parseXML/XMLParser";
-import { XmlParserProvider } from "../context";
+export const metadata: Metadata = { title: "Імпорт товарів" }
+export const dynamic = "force-dynamic"
 
-const Page = async () => {
-
+export default async function FetchUrlPage() {
+  const admin = await currentAdmin()
+  const unfinished = admin ? activeJobFor(admin.id) : null
+  const sample = admin ? await sampleLeftovers() : { products: 0, categories: 0 }
 
   return (
-    <section className="w-full px-10 max-[400px]:px-4"> 
-      {/* <h2 className="text-heading1-bold pr-2 drop-shadow-text-blue mb-8">Додайте товар посиланням</h2> */}
-      <div className="w-full pb-10">
-        <XmlParserProvider>
-          <XMLParser />
-        </XmlParserProvider>
-        {/* <FetchUrl /> */}
-      </div>
-    </section>
+    <AdminPage title="Імпорт товарів" description="Додайте або оновіть товари з файлу, який дає постачальник. Перед записом ви побачите, що саме зміниться.">
+      <ImportWizard unfinished={unfinished} sample={sample} />
+    </AdminPage>
   )
 }
-
-export default Page;

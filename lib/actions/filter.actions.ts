@@ -1,121 +1,97 @@
 "use server";
 
-import { revalidateTag } from "next/cache";
+import mongoose from "mongoose";
 import Filter from "../models/filter.model";
+import Category from "../models/category.model";
+import Product from "../models/product.model";
 import { connectToDB } from "../mongoose";
-import { CategoryType, CreateFilterProps, FilterSettingsData, FilterSettingsParamsType, FilterType } from "../types/types";
-import { clearCatalogCache } from "./redis/catalog.actions";
+import { FilterType } from "../types/types";
+import { invalidateCatalog } from "@/lib/catalog/server/service";
+import { requireCatalogAdmin } from "@/lib/admin/catalog-auth";
+import { DELETED_PRODUCT_ID, filterParamType, isObjectIdLike, pluralUk } from "@/lib/admin/catalog-shared";
 
-export async function fetchFilter(): Promise<FilterType>;
-export async function fetchFilter(type: 'json'): Promise<string>;
+const { ObjectId } = mongoose.Types;
 
-export async function fetchFilter(type?: 'json') {
-   try {
-    connectToDB()
+export type FilterActionResult = { ok: true; message: string } | { ok: false; error: string };
 
-    const filter = await Filter.findOne();
-      
-    if(type === 'json'){
-      return JSON.stringify(filter)
-    } else {
-      return filter
-    }
-   } catch (error: any) {
-     throw new Error(`${error.message}`)
-   }
+async function afterFilterWrite() {
+  // Filter settings have no cache event: invalidate the storefront snapshot once.
+  await invalidateCatalog();
 }
 
-export async function createFilter(categoriesObject: CreateFilterProps, delay: number): Promise<FilterType>;
-export async function createFilter(categoriesObject: CreateFilterProps, delay: number, type: 'json'): Promise<string>;
+export async function fetchFilter(): Promise<FilterType>;
+export async function fetchFilter(type: "json"): Promise<string>;
 
-export async function createFilter(categoriesObject: CreateFilterProps, delay: number, type?: 'json') {
+export async function fetchFilter(type?: "json") {
   try {
+    await requireCatalogAdmin();
     await connectToDB();
-
-    const constructFilterCategories = (data: CreateFilterProps) => {
-      return Object.entries(data).map(([categoryId, categoryData]) => ({
-        categoryId,
-        params: Object.values(categoryData.params).map(param => ({
-          name: param.name,
-          totalProducts: param.totalProducts,
-          type: param.type,
-        })),
-      }));
-    };
-
-    const categories = constructFilterCategories(categoriesObject);
-
-    // Ensure only one filter exists
-    let filter = await Filter.findOne(); // Check if a filter document exists
-
-    if (filter) {
-      // Update the existing filter
-      filter.categories = categories;
-      filter.delay = delay;
-      await filter.save();
-    } else {
-      // Create a new filter if none exists
-      filter = await Filter.create({ categories, delay });
-    }
-
-    revalidateTag("catalog-data");
-    clearCatalogCache();
-    return type === 'json' ? JSON.stringify(filter) : filter;
+    const filter = await Filter.findOne().lean();
+    return type === "json" ? JSON.stringify(filter) : (JSON.parse(JSON.stringify(filter)) as FilterType);
   } catch (error: any) {
     throw new Error(`${error.message}`);
   }
 }
 
+/** How long the storefront waits after a filter click before it updates the list. */
+export async function saveFilterDelay(delay: number): Promise<FilterActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const value = Math.round(Number(delay));
+    if (!Number.isFinite(value) || value < 0 || value > 2000) return { ok: false, error: "Оберіть затримку зі списку." };
 
+    await Filter.updateOne({}, { $set: { delay: value } }, { upsert: true });
+    await afterFilterWrite();
+    return { ok: true, message: "Затримку збережено." };
+  } catch (error: any) {
+    return { ok: false, error: error?.message ?? "Не вдалося зберегти." };
+  }
+}
 
+/**
+ * Replaces the filter params of one category. Product counts are taken from
+ * the database, not from the browser.
+ */
+export async function saveFilterCategory(
+  categoryId: string,
+  params: { name: string; kind: "select" | "unit"; unit?: string }[],
+): Promise<FilterActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    if (!isObjectIdLike(categoryId)) return { ok: false, error: "Категорію не знайдено." };
+    const id = new ObjectId(categoryId);
+    if (!(await Category.exists({ _id: id }))) return { ok: false, error: "Категорію не знайдено." };
 
-type PopulatedFilter = Omit<FilterType, "categories"> & {
-  categories: {
-    categoryId: CategoryType;
-    params: FilterType["categories"][number]["params"];
-  }[];
-};
-
-export async function getFilterSettingsAndDelay(): Promise<{ filterSettings: FilterSettingsData, delay: number}>;
-export async function getFilterSettingsAndDelay(type: 'json'): Promise<string>;
-
-export async function getFilterSettingsAndDelay(type?: 'json') {
-   try {
-
-    const filter: PopulatedFilter | null = await Filter.findOne().populate("categories.categoryId").exec();
-
-    const result: FilterSettingsData = {};
-
-    if(filter) {
-        // Iterate through each category in the filter
-        for (const category of filter.categories) {
-            if (!category.categoryId) continue; // Ensure category exists after population
-
-            const categoryId = category.categoryId._id; // Get category name
-            const totalProducts = category.categoryId.products.length; // Get category's total products count
-            const subCategories = category.categoryId.subCategories
-            // Build params object
-            const params: { [paramName: string]: FilterSettingsParamsType } = {};
-            category.params.forEach(param => {
-                params[param.name] = {
-                    totalProducts: param.totalProducts,
-                    type: param.type
-                };
-            });
-
-            // Store in result
-            result[categoryId] = { params, totalProducts, subCategories};
-        }
+    const cleaned: { name: string; type: string }[] = [];
+    for (const param of params) {
+      const name = String(param?.name ?? "").trim();
+      if (!name || cleaned.some((entry) => entry.name === name)) continue;
+      const type = filterParamType(param.kind, param.unit);
+      if (!type) return { ok: false, error: `Для «${name}» вкажіть одиницю виміру (без дефісу).` };
+      cleaned.push({ name, type });
     }
 
-    const response = { filterSettings: result, delay: filter?.delay || 250 };
+    const counts = cleaned.length
+      ? await Product.aggregate<{ _id: string; products: number }>([
+          { $match: { _id: { $ne: new ObjectId(DELETED_PRODUCT_ID) }, category: id, "params.name": { $in: cleaned.map((param) => param.name) } } },
+          { $project: { names: { $setUnion: ["$params.name", []] } } },
+          { $unwind: "$names" },
+          { $match: { names: { $in: cleaned.map((param) => param.name) } } },
+          { $group: { _id: "$names", products: { $sum: 1 } } },
+        ])
+      : [];
+    const byName = new Map(counts.map((row) => [row._id, row.products]));
+    const entry = { categoryId: id, params: cleaned.map((param) => ({ ...param, totalProducts: byName.get(param.name) ?? 0 })) };
 
-    if(type === 'json'){
-      return JSON.stringify(response)
-    } else {
-      return response
-    }
-   } catch (error: any) {
-     throw new Error(`Error getting filer setting and delay: ${error.message}`)
-   }
+    // Remove the old entry for this category, then add the new one (when it has params).
+    await Filter.updateOne({}, { $pull: { categories: { categoryId: id } } }, { upsert: true });
+    if (entry.params.length) await Filter.updateOne({}, { $push: { categories: entry } });
+
+    await afterFilterWrite();
+    return { ok: true, message: entry.params.length ? `Збережено. У фільтрі ${entry.params.length} ${pluralUk(entry.params.length, "характеристика", "характеристики", "характеристик")}.` : "Збережено. Фільтр для цієї категорії вимкнено." };
+  } catch (error: any) {
+    return { ok: false, error: error?.message ?? "Не вдалося зберегти." };
+  }
 }

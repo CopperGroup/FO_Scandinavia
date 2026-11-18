@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Демонстраційний фід Nordiva. Усі товари вигадані; id починаються з sample-, щоб їх легко було знайти й видалити. -->
+<yml_catalog date="2026-11-16 12:00">
+  <shop>
+    <name>Nordiva — демонстраційний фід</name>
+    <company>Nordiva</company>
+    <url>https://nordiva.com.ua</url>
+    <currencies>
+      <currency id="UAH" rate="1"/>
+    </currencies>
+    <categories>
+      <category id="sample-women">Жінкам (демо)</category>
+      <category id="sample-women-dresses" parentId="sample-women">Сукні</category>
+      <category id="sample-women-knit" parentId="sample-women">Светри та кардигани</category>
+      <category id="sample-men">Чоловікам (демо)</category>
+      <category id="sample-men-outerwear" parentId="sample-men">Куртки та кофти</category>
+      <category id="sample-kids">Дітям (демо)</category>
+      <category id="sample-kids-boots" parentId="sample-kids">Гумові чоботи</category>
+      <category id="sample-shoes">Взуття (демо)</category>
+      <category id="sample-shoes-sneakers" parentId="sample-shoes">Кросівки</category>
+      <category id="sample-home">Домашній текстиль (демо)</category>
+      <category id="sample-home-bedding" parentId="sample-home">Постільна білизна та рушники</category>
+      <category id="sample-food">Скандинавські продукти (демо)</category>
+      <category id="sample-food-sweets" parentId="sample-food">Солодощі</category>
+      <category id="sample-food-coffee" parentId="sample-food">Кава (демо)</category>
+    </categories>
+    <offers>
+      <offer id="sample-10101-xs" available="true">
+        <name>Сукня-сорочка Linnea XS Пісочний</name>
+        <price>2190</price>
+        <oldprice>2790</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-dresses</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <picture>/assets/ellegance-downsclaed.jpg</picture>
+        <vendor>Fjällmode</vendor>
+        <vendorCode>SAMPLE-10101-XS</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Легка сукня-сорочка з льону прямого крою. Ґудзики по всій довжині, пояс у комплекті, бічні кишені.</p>]]></description>
+        <param name="Розмір">XS</param>
+        <param name="Колір">Пісочний</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10101-s" available="true">
+        <name>Сукня-сорочка Linnea S Пісочний</name>
+        <price>2190</price>
+        <oldprice>2790</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-dresses</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <picture>/assets/ellegance-downsclaed.jpg</picture>
+        <vendor>Fjällmode</vendor>
+        <vendorCode>SAMPLE-10101-S</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Легка сукня-сорочка з льону прямого крою. Ґудзики по всій довжині, пояс у комплекті, бічні кишені.</p>]]></description>
+        <param name="Розмір">S</param>
+        <param name="Колір">Пісочний</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10101-m" available="true">
+        <name>Сукня-сорочка Linnea M Пісочний</name>
+        <price>2190</price>
+        <oldprice>2790</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-dresses</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <picture>/assets/ellegance-downsclaed.jpg</picture>
+        <vendor>Fjällmode</vendor>
+        <vendorCode>SAMPLE-10101-M</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Легка сукня-сорочка з льону прямого крою. Ґудзики по всій довжині, пояс у комплекті, бічні кишені.</p>]]></description>
+        <param name="Розмір">M</param>
+        <param name="Колір">Пісочний</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10101-l" available="true">
+        <name>Сукня-сорочка Linnea L Пісочний</name>
+        <price>2190</price>
+        <oldprice>2790</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-dresses</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <picture>/assets/ellegance-downsclaed.jpg</picture>
+        <vendor>Fjällmode</vendor>
+        <vendorCode>SAMPLE-10101-L</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Легка сукня-сорочка з льону прямого крою. Ґудзики по всій довжині, пояс у комплекті, бічні кишені.</p>]]></description>
+        <param name="Розмір">L</param>
+        <param name="Колір">Пісочний</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10303-s" available="true">
+        <name>Сукня-міді Astrid S Оливковий</name>
+        <price>2490</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-dresses</categoryId>
+        <picture>/assets/ellegance-downsclaed.jpg</picture>
+        <vendor>Fjällmode</vendor>
+        <vendorCode>SAMPLE-10303-S</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Сукня довжини міді з V-подібним вирізом і рукавом три чверті. Тканина не мнеться в дорозі.</p>]]></description>
+        <param name="Розмір">S</param>
+        <param name="Колір">Оливковий</param>
+        <param name="Матеріал">70% віскоза, 30% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10303-m" available="true">
+        <name>Сукня-міді Astrid M Оливковий</name>
+        <price>2490</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-dresses</categoryId>
+        <picture>/assets/ellegance-downsclaed.jpg</picture>
+        <vendor>Fjällmode</vendor>
+        <vendorCode>SAMPLE-10303-M</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Сукня довжини міді з V-подібним вирізом і рукавом три чверті. Тканина не мнеться в дорозі.</p>]]></description>
+        <param name="Розмір">M</param>
+        <param name="Колір">Оливковий</param>
+        <param name="Матеріал">70% віскоза, 30% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10303-l" available="true">
+        <name>Сукня-міді Astrid L Оливковий</name>
+        <price>2490</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-dresses</categoryId>
+        <picture>/assets/ellegance-downsclaed.jpg</picture>
+        <vendor>Fjällmode</vendor>
+        <vendorCode>SAMPLE-10303-L</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Сукня довжини міді з V-подібним вирізом і рукавом три чверті. Тканина не мнеться в дорозі.</p>]]></description>
+        <param name="Розмір">L</param>
+        <param name="Колір">Оливковий</param>
+        <param name="Матеріал">70% віскоза, 30% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10202-s" available="true">
+        <name>Светр з мериносу Saga S Молочний</name>
+        <price>2650</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-knit</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <vendor>Norrull</vendor>
+        <vendorCode>SAMPLE-10202-S</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Тонкий теплий светр з вовни мериноса. Не колеться, підходить для щоденного носіння.</p>]]></description>
+        <param name="Розмір">S</param>
+        <param name="Колір">Молочний</param>
+        <param name="Матеріал">100% вовна мериноса</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10202-m" available="true">
+        <name>Светр з мериносу Saga M Молочний</name>
+        <price>2650</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-knit</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <vendor>Norrull</vendor>
+        <vendorCode>SAMPLE-10202-M</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Тонкий теплий светр з вовни мериноса. Не колеться, підходить для щоденного носіння.</p>]]></description>
+        <param name="Розмір">M</param>
+        <param name="Колір">Молочний</param>
+        <param name="Матеріал">100% вовна мериноса</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-10202-l" available="false">
+        <name>Светр з мериносу Saga L Молочний</name>
+        <price>2650</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-knit</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <vendor>Norrull</vendor>
+        <vendorCode>SAMPLE-10202-L</vendorCode>
+        <stock_quantity>0</stock_quantity>
+        <description><![CDATA[<p>Тонкий теплий светр з вовни мериноса. Не колеться, підходить для щоденного носіння.</p>]]></description>
+        <param name="Розмір">L</param>
+        <param name="Колір">Молочний</param>
+        <param name="Матеріал">100% вовна мериноса</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-20101-m" available="true">
+        <name>Куртка-дощовик Fjord M Темно-синій</name>
+        <price>3490</price>
+        <oldprice>4190</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-men-outerwear</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Havsvind</vendor>
+        <vendorCode>SAMPLE-20101-M</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Непромокальна куртка з проклеєними швами та капюшоном, що регулюється. Водостійкість 10 000 мм.</p>]]></description>
+        <param name="Розмір">M</param>
+        <param name="Колір">Темно-синій</param>
+        <param name="Матеріал">100% поліестер з мембраною</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-20101-l" available="true">
+        <name>Куртка-дощовик Fjord L Темно-синій</name>
+        <price>3490</price>
+        <oldprice>4190</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-men-outerwear</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Havsvind</vendor>
+        <vendorCode>SAMPLE-20101-L</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Непромокальна куртка з проклеєними швами та капюшоном, що регулюється. Водостійкість 10 000 мм.</p>]]></description>
+        <param name="Розмір">L</param>
+        <param name="Колір">Темно-синій</param>
+        <param name="Матеріал">100% поліестер з мембраною</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-20101-xl" available="true">
+        <name>Куртка-дощовик Fjord XL Темно-синій</name>
+        <price>3490</price>
+        <oldprice>4190</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-men-outerwear</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Havsvind</vendor>
+        <vendorCode>SAMPLE-20101-XL</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Непромокальна куртка з проклеєними швами та капюшоном, що регулюється. Водостійкість 10 000 мм.</p>]]></description>
+        <param name="Розмір">XL</param>
+        <param name="Колір">Темно-синій</param>
+        <param name="Матеріал">100% поліестер з мембраною</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-20101-xxl" available="true">
+        <name>Куртка-дощовик Fjord XXL Темно-синій</name>
+        <price>3490</price>
+        <oldprice>4190</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-men-outerwear</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Havsvind</vendor>
+        <vendorCode>SAMPLE-20101-XXL</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Непромокальна куртка з проклеєними швами та капюшоном, що регулюється. Водостійкість 10 000 мм.</p>]]></description>
+        <param name="Розмір">XXL</param>
+        <param name="Колір">Темно-синій</param>
+        <param name="Матеріал">100% поліестер з мембраною</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-20202-m" available="true">
+        <name>Флісова кофта Berg M Сірий меланж</name>
+        <price>1590</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-men-outerwear</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Havsvind</vendor>
+        <vendorCode>SAMPLE-20202-M</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Тепла флісова кофта на блискавці з високим коміром. Добре працює як середній шар під курткою.</p>]]></description>
+        <param name="Розмір">M</param>
+        <param name="Колір">Сірий меланж</param>
+        <param name="Матеріал">100% поліестер (фліс)</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-20202-l" available="true">
+        <name>Флісова кофта Berg L Сірий меланж</name>
+        <price>1590</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-men-outerwear</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Havsvind</vendor>
+        <vendorCode>SAMPLE-20202-L</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Тепла флісова кофта на блискавці з високим коміром. Добре працює як середній шар під курткою.</p>]]></description>
+        <param name="Розмір">L</param>
+        <param name="Колір">Сірий меланж</param>
+        <param name="Матеріал">100% поліестер (фліс)</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-20202-xl" available="true">
+        <name>Флісова кофта Berg XL Сірий меланж</name>
+        <price>1590</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-men-outerwear</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Havsvind</vendor>
+        <vendorCode>SAMPLE-20202-XL</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Тепла флісова кофта на блискавці з високим коміром. Добре працює як середній шар під курткою.</p>]]></description>
+        <param name="Розмір">XL</param>
+        <param name="Колір">Сірий меланж</param>
+        <param name="Матеріал">100% поліестер (фліс)</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-30101-24" available="true">
+        <name>Дитячі гумові чоботи Pippa 24 Жовтий</name>
+        <price>890</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-kids-boots</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Småfolk</vendor>
+        <vendorCode>SAMPLE-30101-24</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Легкі гумові чоботи з вологовідвідною устілкою та світловідбивними вставками.</p>]]></description>
+        <param name="Розмір">24</param>
+        <param name="Колір">Жовтий</param>
+        <param name="Матеріал">Натуральний каучук</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-30101-26" available="true">
+        <name>Дитячі гумові чоботи Pippa 26 Жовтий</name>
+        <price>890</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-kids-boots</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Småfolk</vendor>
+        <vendorCode>SAMPLE-30101-26</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Легкі гумові чоботи з вологовідвідною устілкою та світловідбивними вставками.</p>]]></description>
+        <param name="Розмір">26</param>
+        <param name="Колір">Жовтий</param>
+        <param name="Матеріал">Натуральний каучук</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-30101-28" available="true">
+        <name>Дитячі гумові чоботи Pippa 28 Жовтий</name>
+        <price>890</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-kids-boots</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Småfolk</vendor>
+        <vendorCode>SAMPLE-30101-28</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Легкі гумові чоботи з вологовідвідною устілкою та світловідбивними вставками.</p>]]></description>
+        <param name="Розмір">28</param>
+        <param name="Колір">Жовтий</param>
+        <param name="Матеріал">Натуральний каучук</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-30101-30" available="true">
+        <name>Дитячі гумові чоботи Pippa 30 Жовтий</name>
+        <price>890</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-kids-boots</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Småfolk</vendor>
+        <vendorCode>SAMPLE-30101-30</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Легкі гумові чоботи з вологовідвідною устілкою та світловідбивними вставками.</p>]]></description>
+        <param name="Розмір">30</param>
+        <param name="Колір">Жовтий</param>
+        <param name="Матеріал">Натуральний каучук</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-30101-32" available="true">
+        <name>Дитячі гумові чоботи Pippa 32 Жовтий</name>
+        <price>890</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-kids-boots</categoryId>
+        <picture>/placeholder.jpg</picture>
+        <vendor>Småfolk</vendor>
+        <vendorCode>SAMPLE-30101-32</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Легкі гумові чоботи з вологовідвідною устілкою та світловідбивними вставками.</p>]]></description>
+        <param name="Розмір">32</param>
+        <param name="Колір">Жовтий</param>
+        <param name="Матеріал">Натуральний каучук</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-40101-37" available="true">
+        <name>Кросівки Runa 37 Чорний</name>
+        <price>2890</price>
+        <oldprice>3290</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-shoes-sneakers</categoryId>
+        <picture>/assets/2.jpg</picture>
+        <vendor>Stegvis</vendor>
+        <vendorCode>SAMPLE-40101-37</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Бігові кросівки з амортизувальною підошвою і дихаючим верхом із сітки.</p>]]></description>
+        <param name="Розмір">37</param>
+        <param name="Колір">Чорний</param>
+        <param name="Матеріал">Текстиль, синтетична шкіра</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-40101-38" available="true">
+        <name>Кросівки Runa 38 Чорний</name>
+        <price>2890</price>
+        <oldprice>3290</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-shoes-sneakers</categoryId>
+        <picture>/assets/2.jpg</picture>
+        <vendor>Stegvis</vendor>
+        <vendorCode>SAMPLE-40101-38</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Бігові кросівки з амортизувальною підошвою і дихаючим верхом із сітки.</p>]]></description>
+        <param name="Розмір">38</param>
+        <param name="Колір">Чорний</param>
+        <param name="Матеріал">Текстиль, синтетична шкіра</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-40101-39" available="true">
+        <name>Кросівки Runa 39 Чорний</name>
+        <price>2890</price>
+        <oldprice>3290</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-shoes-sneakers</categoryId>
+        <picture>/assets/2.jpg</picture>
+        <vendor>Stegvis</vendor>
+        <vendorCode>SAMPLE-40101-39</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Бігові кросівки з амортизувальною підошвою і дихаючим верхом із сітки.</p>]]></description>
+        <param name="Розмір">39</param>
+        <param name="Колір">Чорний</param>
+        <param name="Матеріал">Текстиль, синтетична шкіра</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-40101-40" available="true">
+        <name>Кросівки Runa 40 Чорний</name>
+        <price>2890</price>
+        <oldprice>3290</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-shoes-sneakers</categoryId>
+        <picture>/assets/2.jpg</picture>
+        <vendor>Stegvis</vendor>
+        <vendorCode>SAMPLE-40101-40</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Бігові кросівки з амортизувальною підошвою і дихаючим верхом із сітки.</p>]]></description>
+        <param name="Розмір">40</param>
+        <param name="Колір">Чорний</param>
+        <param name="Матеріал">Текстиль, синтетична шкіра</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-40101-41" available="false">
+        <name>Кросівки Runa 41 Чорний</name>
+        <price>2890</price>
+        <oldprice>3290</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-shoes-sneakers</categoryId>
+        <picture>/assets/2.jpg</picture>
+        <vendor>Stegvis</vendor>
+        <vendorCode>SAMPLE-40101-41</vendorCode>
+        <stock_quantity>0</stock_quantity>
+        <description><![CDATA[<p>Бігові кросівки з амортизувальною підошвою і дихаючим верхом із сітки.</p>]]></description>
+        <param name="Розмір">41</param>
+        <param name="Колір">Чорний</param>
+        <param name="Матеріал">Текстиль, синтетична шкіра</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-50101-150x200" available="true">
+        <name>Комплект постільної білизни Lin 150×200 Сірий</name>
+        <price>2450</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-home-bedding</categoryId>
+        <picture>/assets/4.jpg</picture>
+        <vendor>Hemlinne</vendor>
+        <vendorCode>SAMPLE-50101-150X200</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Комплект з підковдри, простирадла та двох наволочок 50×70. Пральний льон, м’який з першого використання.</p>]]></description>
+        <param name="Розмір">150×200</param>
+        <param name="Колір">Сірий</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-50101-200x220" available="true">
+        <name>Комплект постільної білизни Lin 200×220 Сірий</name>
+        <price>2450</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-home-bedding</categoryId>
+        <picture>/assets/4.jpg</picture>
+        <vendor>Hemlinne</vendor>
+        <vendorCode>SAMPLE-50101-200X220</vendorCode>
+        <stock_quantity>9</stock_quantity>
+        <description><![CDATA[<p>Комплект з підковдри, простирадла та двох наволочок 50×70. Пральний льон, м’який з першого використання.</p>]]></description>
+        <param name="Розмір">200×220</param>
+        <param name="Колір">Сірий</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-50303-50x70" available="true">
+        <name>Рушник лляний Strand 50×70 Білий</name>
+        <price>390</price>
+        <oldprice>460</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-home-bedding</categoryId>
+        <picture>/assets/4.jpg</picture>
+        <vendor>Hemlinne</vendor>
+        <vendorCode>SAMPLE-50303-50X70</vendorCode>
+        <stock_quantity>3</stock_quantity>
+        <description><![CDATA[<p>Лляний рушник, що швидко сохне. Підходить для кухні, ванної та сауни.</p>]]></description>
+        <param name="Розмір">50×70</param>
+        <param name="Колір">Білий</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-50303-70x140" available="true">
+        <name>Рушник лляний Strand 70×140 Білий</name>
+        <price>390</price>
+        <oldprice>460</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-home-bedding</categoryId>
+        <picture>/assets/4.jpg</picture>
+        <vendor>Hemlinne</vendor>
+        <vendorCode>SAMPLE-50303-70X140</vendorCode>
+        <stock_quantity>6</stock_quantity>
+        <description><![CDATA[<p>Лляний рушник, що швидко сохне. Підходить для кухні, ванної та сауни.</p>]]></description>
+        <param name="Розмір">70×140</param>
+        <param name="Колір">Білий</param>
+        <param name="Матеріал">100% льон</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-50202" available="true">
+        <name>Плед Vinter, 130×170 см</name>
+        <price>1390</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-home-bedding</categoryId>
+        <picture>/assets/4.jpg</picture>
+        <vendor>Hemlinne</vendor>
+        <vendorCode>SAMPLE-50202</vendorCode>
+        <description><![CDATA[<p>Щільний плед з вовни й бавовни з бахромою по краях.</p>]]></description>
+        <param name="Колір">Графітовий</param>
+        <param name="Матеріал">50% вовна, 50% бавовна</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-60101" available="true">
+        <name>Шоколад молочний з лісовим горіхом Nötig, 200 г</name>
+        <price>189</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-food-sweets</categoryId>
+        <picture>/assets/3.jpg</picture>
+        <vendor>Sötsak</vendor>
+        <vendorCode>SAMPLE-60101</vendorCode>
+        <description><![CDATA[<p>Молочний шоколад із цілими лісовими горіхами.</p>]]></description>
+        <param name="Вага">200 г</param>
+        <param name="Тип шоколаду">молочний</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-60202" available="true">
+        <name>Імбирне печиво Pepparkaka, 300 г</name>
+        <price>159</price>
+        <oldprice>199</oldprice>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-food-sweets</categoryId>
+        <picture>/assets/3.jpg</picture>
+        <vendor>Bakstuga</vendor>
+        <vendorCode>SAMPLE-60202</vendorCode>
+        <description><![CDATA[<p>Тонке хрустке печиво з імбиром, корицею та гвоздикою за традиційним рецептом.</p>]]></description>
+        <param name="Вага">300 г</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-60303" available="false">
+        <name>Лакричні цукерки Salmiak, 150 г</name>
+        <price>129</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-food-sweets</categoryId>
+        <picture>/assets/d1.jpg</picture>
+        <vendor>Sötsak</vendor>
+        <vendorCode>SAMPLE-60303</vendorCode>
+        <description><![CDATA[<p>Солона лакриця з нашатирним присмаком — класика північних країн.</p>]]></description>
+        <param name="Вага">150 г</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-60404" available="true">
+        <name>Кава мелена Mörk rost, 450 г</name>
+        <price>399</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-food-coffee</categoryId>
+        <picture>/assets/d1.jpg</picture>
+        <vendor>Kaffebryggare</vendor>
+        <vendorCode>SAMPLE-60404</vendorCode>
+        <description><![CDATA[<p>Арабіка темного обсмаження для фільтра та френч-преса.</p>]]></description>
+        <param name="Вага">450 г</param>
+        <param name="Обсмаження">темне</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-60505" available="true">
+        <name>Кава в зернах Ljus rost, 1 кг</name>
+        <price>749</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-food-coffee</categoryId>
+        <picture>/assets/d1.jpg</picture>
+        <vendor>Kaffebryggare</vendor>
+        <vendorCode>SAMPLE-60505</vendorCode>
+        <description><![CDATA[<p>Світле скандинавське обсмаження з нотами ягід і горіха.</p>]]></description>
+        <param name="Вага">1 кг</param>
+        <param name="Обсмаження">світле</param>
+        <param name="Країна-виробник">Швеція</param>
+      </offer>
+      <offer id="sample-90001" available="true">
+        <name>Шарф вовняний Dimma</name>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-women-knit</categoryId>
+        <picture>/assets/history-image.jpg</picture>
+        <vendor>Norrull</vendor>
+        <vendorCode>SAMPLE-90001</vendorCode>
+        <stock_quantity>5</stock_quantity>
+        <description><![CDATA[<p>Зламаний запис для перевірки: немає ціни.</p>]]></description>
+        <param name="Колір">Сірий</param>
+      </offer>
+      <offer id="sample-90002" available="true">
+        <name></name>
+        <price>990</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-home-bedding</categoryId>
+        <picture>/assets/4.jpg</picture>
+        <vendor>Hemlinne</vendor>
+        <vendorCode>SAMPLE-90002</vendorCode>
+        <stock_quantity>5</stock_quantity>
+        <description><![CDATA[<p>Зламаний запис для перевірки: немає назви.</p>]]></description>
+      </offer>
+      <offer id="sample-60101" available="true">
+        <name>Шоколад молочний з лісовим горіхом Nötig, 200 г (дубль)</name>
+        <price>179</price>
+        <currencyId>UAH</currencyId>
+        <categoryId>sample-food-sweets</categoryId>
+        <picture>/assets/3.jpg</picture>
+        <vendor>Sötsak</vendor>
+        <vendorCode>SAMPLE-60101</vendorCode>
+        <description><![CDATA[<p>Зламаний запис для перевірки: той самий id, що й в іншого товару.</p>]]></description>
+        <param name="Вага">200 г</param>
+      </offer>
+    </offers>
+  </shop>
+</yml_catalog>

@@ -1,8 +1,13 @@
 import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
 import { CategoriesParams, FilterType, ProductType, TypeScriptPrimitiveTypes } from "./types/types";
-import { PageType } from "./models/page.model";
+import { parseArticle } from "./catalog/article";
+import { stripArticle } from "./catalog/title";
 
+
+// The admin control heights (tailwind.config.ts: spacing.control) are sizes like any
+// other, so `cn(adminButton.icon, "h-8 w-8")` drops `h-control` as it would drop `h-9`.
+const twMerge = extendTailwindMerge({ extend: { theme: { spacing: ["control", "control-sm"] } } })
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -145,143 +150,6 @@ export function getKeyValuePairs<T, K extends keyof T, V extends keyof T>(list: 
     acc[key] = value;
     return acc;
   }, {} as Record<string, string>);
-}
-
-
-export function getFiltredProducts(products: ProductType[], searchParams: { [key: string]: string }) {
-  const { 
-    search, maxPrice, minPrice, 
-    categories, vendor, selectParams,
-    unitParams
-  } = searchParams;
-
-  const selectParamsValues = searchParams.selectParams ? selectParams.split(",") : []
-  const unitParamsValues = searchParams.unitParams ? unitParams.split(",") : []
-
-  const paramNamesSet = new Set<string>();
-  const unitParamNamesSet = new Set<string>();
-
-  // Step 1: Loop through selectParamsValues and extract param names
-  selectParamsValues.forEach((entry) => {
-    const [paramName] = entry.split("--");
-    if (paramName) {
-      paramNamesSet.add(paramName); // Add param name to the set
-    }
-  });
-
-  unitParamsValues.forEach((entry) => {
-    const [paramName] = entry.split("--");
-    if (paramName) {
-      unitParamNamesSet.add(paramName); // Add param name to the set
-    }
-  });
-
-
-  // console.log(paramNamesSet, unitParamNamesSet)
-  // console.log(selectParamsValues, unitParamsValues) 
-
-  
-  return products.filter(product => {
-
-    // --- MODIFIED LINE ---
-    // Now searches if the 'search' term is present in either product.name OR product.articleNumber
-    const matchesSearch = search 
-      ? (product.name.toLowerCase().includes(search.toLowerCase()) || 
-         (product.articleNumber && product.articleNumber.toLowerCase().includes(search.toLowerCase()))) 
-      : true;
-    // --- END MODIFIED LINE ---
-
-    const matchesPrice = (minPrice || maxPrice) ? product.priceToShow >= parseFloat(minPrice || '0') && product.priceToShow <= parseFloat(maxPrice || 'Infinity') : true;
-    const matchesVendor = vendor ? vendor.includes(product.vendor) : true;
-
-    let matchesSelectParams = selectParamsValues.length === 0; // If no filters are applied, everything matches.
-
-    if (!matchesSelectParams) {
-      matchesSelectParams = true;
-      for (const paramEntry of selectParamsValues) {
-        
-        const [paramName, valuesString] = paramEntry.split("--");
-        if (!valuesString) {
-          matchesSelectParams = false;
-          break;
-        }
-    
-        const valuesSet = new Set(valuesString.split("__"));
-        const productParam = product.params.find((param) => param.name === paramName);
-    
-        if (!productParam || !valuesSet.has(productParam.value)) {
-          matchesSelectParams = false;
-          break; // Stop checking further if one condition fails
-        }
-      }
-    }
-    
-    let matchesUnitParams = unitParamsValues.length === 0; // If no filters are applied, everything matches.
-
-    if (!matchesUnitParams) {
-      matchesUnitParams = true;
-      for (const paramEntry of unitParamsValues) {
-        
-        const [paramName, valuesString] = paramEntry.split("--");
-        if (!valuesString) {
-          matchesUnitParams = false;
-          break;
-        }
-    
-        const [min, max] = new Set(valuesString.split("m"));
-        // console.log(min, max);
-        
-        const productParam = product.params.find((param) => param.name === paramName);
-    
-        if (!productParam || isNaN(parseFloat(extractNumber(productParam.value) || ""))) {
-          matchesUnitParams = false;
-          break; // Stop checking further if one condition fails
-        }
-
-        if(parseFloat(extractNumber(productParam.value) || '0') < parseFloat(min) || parseFloat(extractNumber(productParam.value) || '0') > parseFloat(max)) {
-          matchesUnitParams = false;
-          break; // Stop checking further if one condition fails
-        }
-      }
-    }
-
-    return (
-      matchesSearch &&
-      matchesPrice &&
-      matchesVendor &&
-      matchesSelectParams &&
-      matchesUnitParams
-    );
-  });
-}
-
-function countByKey<T>(
-  list: T[],
-  keyExtractor: (item: T) => (string | string[] | undefined),
-  initialKey: string = ""
-): { [key: string]: number } {
-  return list.reduce((acc, item) => {
-    const keyOrKeys = keyExtractor(item);
-
-    if (Array.isArray(keyOrKeys)) {
-      keyOrKeys.forEach(key => {
-        if (key) {
-          acc[key] = (acc[key] || 0) + 1;
-        }
-      });
-    } else if (typeof keyOrKeys === 'string') {
-      acc[keyOrKeys] = (acc[keyOrKeys] || 0) + 1;
-    }
-
-    return acc;
-  }, { [initialKey]: list.length });
-}
-
-export function getCounts(filtredProducts: ProductType[]) {
-  return {
-      categoriesCount: countByKey(filtredProducts, product => product.category),
-      vendorsCount: countByKey(filtredProducts, product => product.vendor),
-  };
 }
 
 
@@ -451,241 +319,23 @@ export function extractNumber(input: string): string | null {
   );
 }
 
-export function processProductParams(
-  products: { params: { name: string; value: string }[] }[],
-  unitParams: Record<string, { totalProducts: number; type: string; min: number; max: number }>,
-  selectParams: Record<string, { totalProducts: number; type: string; values: { value: string; valueTotalProducts: number }[] }>
-) {
-  const unitValues: Record<string, number[]> = {}; // Collects all values for unit params
-  const valueCounts: Record<string, Record<string, number>> = {}; // Tracks occurrences of each value for selectParams
-
-  products.forEach((product) => {
-    product.params.forEach(({ name, value }) => {
-      if (unitParams[name]) {
-        // Extract the numeric value
-        const num = parseFloat(extractNumber(value)?.replace(",", ".") || "NaN");
-        if (!isNaN(num)) {
-          if (!unitValues[name]) {
-            unitValues[name] = [];
-          }
-          unitValues[name].push(num);
-        }
-      }
-
-      if (selectParams[name]) {
-        // Initialize valueCounts for this param if not present
-        if (!valueCounts[name]) {
-          valueCounts[name] = {};
-        }
-
-        // Increment count of this value
-        valueCounts[name][value] = (valueCounts[name][value] || 0) + 1;
-      }
-    });
-  });
-
-  // Update min/max for unit parameters
-  Object.keys(unitValues).forEach((name) => {
-    unitParams[name].min = Math.min(...unitValues[name]);
-    unitParams[name].max = Math.max(...unitValues[name]);
-  });
-
-  // Convert value counts to the required format and update selectParams
-  Object.keys(valueCounts).forEach((name) => {
-    selectParams[name].values = Object.entries(valueCounts[name]).map(([value, count]) => ({
-      value,
-      valueTotalProducts: count,
-    }));
-  });
-}
-
-
 export function generateUniqueId() {
   const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
   const timestampPart = Date.now().toString().slice(-4); 
   return randomPart + timestampPart;
 }
 
-export function filterProductsByKey<T extends keyof ProductType>(
-  products: ProductType[],
-  key: T,
-  splitChar?: string,
-  index?: number,
-  minLength: number = 0,
-  mode: "cut" | "take" = "cut"
-): ProductType[] {
-  const seenValues = new Set<string>();
-
-  return products.filter((product) => {
-    const keyValue = product[key];
-
-    if (typeof keyValue !== "string") {
-      return true; // Skip filtering if the key value is not a string
-    }
-
-    let valueToCompare: string = keyValue;
-
-    if (splitChar && index !== undefined) {
-      const splitParts = keyValue.split(splitChar);
-      const selectedPart = splitParts[index === -1 ? splitParts.length - 1 : index] ?? keyValue;
-
-      if (mode === "cut") {
-        const cutValue = splitParts.slice(0, -1).join(splitChar); // Remove the last part
-        valueToCompare = cutValue.length >= minLength ? cutValue : selectedPart;
-      } 
-      
-      if (mode === "take") {
-        if (selectedPart.length >= minLength) {
-          valueToCompare = selectedPart;
-        } else {
-          const remainingParts = splitParts.slice(0, -1).join(splitChar);
-          valueToCompare = remainingParts.length >= minLength ? remainingParts : keyValue;
-        }
-      }
-
-      if (valueToCompare.length < minLength) {
-        for (const part of splitParts) {
-          if (part.length >= minLength) {
-            valueToCompare = part;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!seenValues.has(valueToCompare)) {
-      seenValues.add(valueToCompare);
-      return true;
-    }
-
-    return false;
-  });
-}
-
-
-export function groupProducts(
-  products: ProductType[]
-): ProductType[] {
-  const seenValues = new Set<string>();
-  const TARGET_PRODUCT_NAME = "Чоботи Tretorn гумові 44 Синій 1518326-04-44";
-  let productThatGroupedTarget: ProductType | null = null;
-
-  // --- START: Added hardcoded list of article numbers that should never be grouped ---
-
-  products.forEach(p => {
-    if (p.articleNumber === "gevalia_crema_900") {
-      for (let i = 0; i < 5; i++) {
-        console.log(p.name);
-      }
-    }
-  });
-  
-  const NEVER_GROUP_ARTICLE_NUMBERS = new Set([
-    "X-t3",
-    "gevalia_crema_900"
-  ]);
-  // --- END ---
-
-  // We need to sort consistently to ensure the same product is always the "first" for a group
-  return products.sort((a, b) => {
-    const articleA = a.articleNumber || '';
-    const articleB = b.articleNumber || '';
-
-    // Primary sort: shorter article numbers first
-    if (articleA.length !== articleB.length) {
-      return articleA.length - articleB.length;
-    }
-    return articleA.localeCompare(articleB);
-  }).filter((product) => {
-    const { articleNumber, name, category } = product;
-    const isTargetProduct = name === TARGET_PRODUCT_NAME;
-
-    // --- START: Logic to prevent grouping for hardcoded article numbers ---
-    if (articleNumber && NEVER_GROUP_ARTICLE_NUMBERS.has(articleNumber)) {
-      return true; // Always keep products with these specific article numbers
-    }
-    // --- END ---
-
-    if (typeof articleNumber !== "string" || typeof name !== "string" || !Array.isArray(category) || category.length === 0) {
-      // If the target product has malformed data, log it. Otherwise, no log for others.
-      return true; // Keep if data is malformed (or change to false if you want to filter these out)
-    }
-
-    // Extract relevant parts for comparison (model-color-category key)
-    const articleParts = articleNumber.split("-");
-    const baseArticleNumber = articleParts.length > 0 ? articleParts[0] : '';
-
-    const nameParts = name.split(" ");
-    const firstTwoWordsOfName = nameParts.length >= 2 ? nameParts[0] + nameParts[1] : nameParts[0] || '';
-
-    const colorParam = product.params.find(p => ["Колір", "колір", "Color", "color", "Colour", "color"].includes(p.name));
-    const colorValue = colorParam ? colorParam.value : "no_color";
-
-    // Sort categories for consistent key generation, and join them
-    const sortedCategories = [...category].sort().join(',');
-
-    // --- CRITICAL CHANGE: Added sortedCategories to the grouping key ---
-    const valueToCompare = `${baseArticleNumber}::${firstTwoWordsOfName}::${colorValue}::${sortedCategories}`;
-
-    if (!seenValues.has(valueToCompare)) {
-      seenValues.add(valueToCompare);
-      return true; // Retain this product
-    } else {
-      // This product is being filtered out because its group key was already seen.
-      // If this product is our target product, we want to log the one that grouped it.
-      if (isTargetProduct && productThatGroupedTarget === null) {
-        const originalProductsUpToHere = products.slice(0, products.indexOf(product));
-        productThatGroupedTarget = originalProductsUpToHere.find(p => {
-          // Re-generate the key for 'p' to find the match
-          const pArticleParts = (p.articleNumber || '').split("-");
-          const pBaseArticleNumber = pArticleParts.length > 0 ? pArticleParts[0] : '';
-
-          const pNameParts = (p.name || '').split(" ");
-          const pFirstTwoWordsOfName = pNameParts.length >= 2 ? pNameParts[0] + pNameParts[1] : pNameParts[0] || '';
-
-          const pColorParam = p.params.find(param => ["Колір", "колір", "Color", "color", "Colour", "color"].includes(param.name));
-          const pColorValue = pColorParam ? pColorParam.value : "no_color";
-
-          const pSortedCategories = Array.isArray(p.category) ? [...p.category].sort().join(',') : '';
-
-          return `${pBaseArticleNumber}::${pFirstTwoWordsOfName}::${pColorValue}::${pSortedCategories}` === valueToCompare;
-        }) || null;
-
-      }
-      return false;
-    }
-  });
-}
-
-
-export function pretifyProductName(productName: string, params: { name: string, value: string }[], articleNumber: string, index: number): string {
-  let cleanedName = productName;
-
-  // Split the product name into words and exclude the first two words
-  const words = cleanedName.split(' ');
-  const wordsToCheck = words.slice(2).join(' '); // Skip the first two words
-
-  // Remove article number from the product name (ignoring the first two words)
-
-  // Handle the index for articleNumber split
-  const articleParts = articleNumber.split('-');
-  const partToMatch = articleParts[index === -1 ? articleParts.length - 1 : index] || articleNumber;
-
-  // Remove the article part from the product name
-  const partRegex = new RegExp(partToMatch, 'i');
-  cleanedName = cleanedName.replace(partRegex, '').trim();
-
-
-  // Iterate over the params and remove matching parts from the name (ignoring the first two words)
-  params.forEach((param) => {
-    const paramValueRegex = new RegExp(param.value, 'i'); // Create a case-insensitive regex for each param value
-    // Only remove if the param value is found in the part of the name excluding the first two words
-    if (wordsToCheck.match(paramValueRegex)) {
-      cleanedName = cleanedName.replace(paramValueRegex, '').trim(); // Remove param value from the name
-    }
-  });
-
-  return cleanedName;
+/**
+ * Product name for display: the article number is removed, everything else is
+ * kept. The extra arguments are accepted for backwards compatibility.
+ */
+export function pretifyProductName(
+  productName: string,
+  _params: { name: string, value: string }[] = [],
+  articleNumber: string = "",
+  _index: number = 0,
+): string {
+  return stripArticle(productName ?? "", parseArticle(articleNumber));
 }
 
 

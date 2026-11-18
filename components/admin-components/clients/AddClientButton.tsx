@@ -1,172 +1,103 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Plus } from "lucide-react";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { createuserByMyself, fetchUserByEmail } from "@/lib/actions/user.actions";
-import { useEffect, useState } from "react";
-import OwnerContent from "../OwnerContent";
-import { userSchema } from "@/lib/validations/user";
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { Plus } from "lucide-react"
+import { Field, adminButton, adminInput } from "@/components/admin/ui"
+import { AdminDialog } from "@/components/admin-components/AdminDialog"
+import { createuserByMyself } from "@/lib/actions/user.actions"
+import { ClientFields, validateClient, type ClientErrors, type ClientValues } from "./ClientFields"
 
-type FormData = z.infer<typeof userSchema>;
+const EMPTY: ClientValues = { name: "", surname: "", email: "", phoneNumber: "", role: "User" }
 
-export function AddClientButton({ stringifiedUser }: { stringifiedUser: string }) {
-  const user = JSON.parse(stringifiedUser);
+/** "Add client": a customer record without a password (they can claim it by signing up with the same e-mail). */
+export function AddClientButton({ canGrantAdmin }: { canGrantAdmin: boolean }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [values, setValues] = useState<ClientValues>(EMPTY)
+  const [errors, setErrors] = useState<ClientErrors>({})
+  const [confirmation, setConfirmation] = useState("")
+  const [pending, startTransition] = useTransition()
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminConfirmation, setAdminConfirmation] = useState("");
+  const close = () => {
+    setOpen(false)
+    setValues(EMPTY)
+    setErrors({})
+    setConfirmation("")
+  }
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(userSchema),
-    defaultValues: {
-      name: "",
-      surname: "",
-      email: "",
-      phoneNumber: "",
-    },
-  });
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault()
+    const found = validateClient(values)
+    if (values.role === "Admin" && confirmation.trim().toLowerCase() !== "так") found.role = "Щоб надати права адміністратора, введіть «так»."
+    setErrors(found)
+    if (Object.keys(found).length > 0) return
 
-  const handleSubmit = async (values: FormData) => {
-    if (isAdmin && adminConfirmation !== 'Yes') {
-      return;
-    }
-
-    try {
-      const result = await fetchUserByEmail({ email: values.email }, "json");
-      const existingUser = JSON.parse(result);
-
-      if (existingUser) {
-        form.setError("email", { message: "Email already in use" });
-        return;
+    startTransition(async () => {
+      try {
+        const result = await createuserByMyself({ ...values, role: canGrantAdmin ? values.role : "User" })
+        if (!result.ok) {
+          setErrors({ [result.field ?? "form"]: result.error })
+          return
+        }
+        close()
+        router.push(`/admin/clients/${result.user._id}`)
+      } catch {
+        setErrors({ form: "Не вдалося додати клієнта. Спробуйте ще раз." })
       }
-
-      await createuserByMyself(
-        {
-          name: values.name,
-          email: values.email,
-          surname: values.surname,
-          phoneNumber: values.phoneNumber,
-          role: adminConfirmation === 'Yes' ? isAdmin ? 'Admin' : 'User' : 'User',
-          currentUserEmail: user.email
-        },
-        "json"
-      );
-
-      form.reset();
-      setIsAdmin(false);
-      setAdminConfirmation("");
-      setIsOpen(false);
-    } catch (error) {
-      console.error("Error adding client:", error);
-      form.setError("email", { message: "Something went wrong. Please try again." });
-    }
-  };
+    })
+  }
 
   return (
-    <div className="w-full flex justify-end">
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button variant="default" className="text-base-semibold text-white">
-            <Plus className="size-5 mr-1" />
-            Add User
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="bg-white sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="text-heading3-bold">Add New User</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter client name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={adminButton.primary}>
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        Додати клієнта
+      </button>
+
+      <AdminDialog
+        open={open}
+        onClose={close}
+        title="Новий клієнт"
+        description="Запис без пароля. Клієнт зможе створити акаунт із цією адресою і побачить свої замовлення."
+        size="lg"
+        footer={
+          <>
+            <button type="button" onClick={close} className={adminButton.secondary}>
+              Скасувати
+            </button>
+            <button type="submit" form="add-client-form" disabled={pending} className={adminButton.primary}>
+              {pending ? "Додаємо…" : "Додати клієнта"}
+            </button>
+          </>
+        }
+      >
+        <form id="add-client-form" onSubmit={submit} noValidate className="space-y-4">
+          <ClientFields idPrefix="add-client" values={values} errors={errors} onChange={setValues} disabled={pending} />
+          {canGrantAdmin && (
+            <label className="flex items-start gap-3 rounded-md border border-neutral-200 p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={values.role === "Admin"}
+                onChange={(event) => setValues({ ...values, role: event.target.checked ? "Admin" : "User" })}
+                disabled={pending}
+                className="check mt-0.5"
               />
-              <FormField
-                control={form.control}
-                name="surname"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Surname</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter client surname (optional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="Enter client email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <Input type="tel" placeholder="Enter client phone number (optional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex items-center space-x-2">
-                <OwnerContent role={user.role}>
-                  <Checkbox id="admin" checked={isAdmin} onCheckedChange={(checked) => setIsAdmin(checked === true)} />
-                  <Label htmlFor="admin" className="text-base-semibold">
-                    Admin
-                  </Label>
-                </OwnerContent>
-              </div>
-              {isAdmin && (
-                <div className="space-y-2">
-                  <Label htmlFor="admin-confirmation" className="text-base-medium">
-                    Type <span className="text-red-500">Yes</span> to confirm *
-                  </Label>
-                  <Input
-                    id="admin-confirmation"
-                    value={adminConfirmation}
-                    onChange={(e) => setAdminConfirmation(e.target.value)}
-                    placeholder="Type your name exactly"
-                    className="text-base-regular placeholder:text-subtle-medium"
-                    required
-                  />
-                </div>
-              )}
-              <Button type="submit" className="w-full text-base-semibold text-white">
-                Add User
-              </Button>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+              <span>
+                <span className="font-medium">Зробити адміністратором</span>
+                <span className="block text-neutral-500">Отримає доступ до панелі керування: замовлення, товари, клієнти.</span>
+              </span>
+            </label>
+          )}
+          {values.role === "Admin" && (
+            <Field label="Підтвердження" htmlFor="add-client-confirm" hint="Введіть «так», щоб надати права адміністратора." error={errors.role}>
+              <input id="add-client-confirm" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={pending} autoComplete="off" className={adminInput} />
+            </Field>
+          )}
+          {errors.role && values.role !== "Admin" && <p role="alert" className="text-sm text-red-700">{errors.role}</p>}
+          {errors.form && <p role="alert" className="text-sm text-red-700">{errors.form}</p>}
+        </form>
+      </AdminDialog>
+    </>
+  )
 }

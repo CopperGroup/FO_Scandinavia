@@ -5,13 +5,19 @@ import Product from "../models/product.model";
 import { connectToDB } from "../mongoose";
 import User from "../models/user.model";
 import mongoose from 'mongoose';
-import { revalidatePath } from "next/cache";
-import moment from "moment";
 import clearCache from "./cache";
-import { generateLongPassword, latinToKyrylic } from "../utils";
-import axios from "axios";
+import { generateLongPassword } from "../utils";
 import { Store } from "@/constants/store";
 import { DateTime } from 'luxon';
+import { escapeRegExp } from "../catalog/text";
+import { validatePromoCode } from "./promocode.actions";
+import { invalidateCatalog } from "../catalog/server/service";
+import { sendOrderEmail } from "../email/order";
+import { sendAdminOrderNotification } from "../email/admin-order";
+import { AccessDenied, getSessionIdentity, getSessionUser, isStaffRole, requireAdmin, requireUser } from "../auth/guards";
+import { EMAIL_COLLATION, normalizeEmail } from "../auth/email";
+import { getFreeDelivery } from "../content/server";
+import { DeliveryNotReady, createWaybill, loadSettings as loadDeliverySettings, refreshStatuses, senderBranch, trackOne, type InvoiceSummary } from "../admin/novaposhta";
 
 interface CreateOrderParams {
   products: {
@@ -42,106 +48,178 @@ interface CreateOrderParams {
   apartment: string | undefined
 }
 
-interface Product {
-    id: string;
-    productId: string; 
-    category: string;
-    priceToShow:number; 
-    price:number; 
-    name:string;
-    imageUrl:string;
-    description:string;
-    url:string;
-    likedBy: {
-        _id: string;
-        email: string;
-    }[];
-}
-
-interface Order {
-  _id: string;
-  id: string,
-  products: {
-      product: string,
-      amount: number
-  } [];
-  user: string;
-  value: number;
-  name: string;
-  surname: string;
-  phoneNumber: string;
-  email: string;
-  paymentType: string;
-  deliveryMethod: string;
-  city: string;
-  adress: string;
-  postalCode: string;
-  comment: string | undefined;
-  paymentStatus: string;
-  deliveryStatus: string;
-  data: Date;
-}
-
-interface TimePeriod {
-    dateName: string;
-    orders: Order[];
-    totalValue: number;
-    totalOrders: number;
-}
-
 function generateUniqueId() {
     const randomPart = Math.floor(1000 + Math.random() * 9000).toString(); // Generates a random 4-digit number
     const timestampPart = Date.now().toString().slice(-4); // Gets the last 4 digits of the current timestamp
     return randomPart + timestampPart; // Concatenate both parts to form an 8-digit ID
 }
 
-export async function createOrder(params: CreateOrderParams, type?: "json") {
+/**
+ * Creates the order under a free 8-digit number. The number is random, so it
+ * is checked first (this works before the unique index exists) and a clash
+ * reported by the unique index on `id` is retried as well.
+ */
+async function createWithFreshId(fields: Record<string, unknown>) {
+    for (let attempt = 0; attempt < 6; attempt++) {
+        const id = generateUniqueId();
+        if (await Order.exists({ id })) continue;
+        try {
+            return await Order.create({ ...fields, id });
+        } catch (error: any) {
+            if (error?.code === 11000 && error?.keyPattern?.id) continue;
+            throw error;
+        }
+    }
+    throw new Error("Could not allocate an order number");
+}
+
+/** A problem the shopper can fix (sold-out item, empty cart); shown to them as is. */
+class OrderProblem extends Error {}
+
+const MAX_LINE_QUANTITY = 99;
+
+/**
+ * Creates an order.
+ *
+ * Nothing about money or stock is taken from the browser: prices are read
+ * from the database, the promo code is re-validated here, and stock is
+ * reserved with a conditional update so two shoppers cannot buy the last item.
+ *
+ * With `type === "json"` an expected problem is returned as
+ * `{"error": "..."}` instead of thrown, because production builds hide the
+ * message of a thrown error from the client.
+ */
+const ORDER_MAIL_WAIT_MS = 6000;
+
+/** Loads the order the way the e-mail templates read it and sends both messages. */
+async function notifyAboutOrder(orderId: string): Promise<void> {
   try {
-      connectToDB();
+      const order = await Order.findOne({ id: orderId })
+          .populate({
+              path: "products",
+              populate: { path: "product", model: "Product", select: "_id id name images priceToShow params articleNumber" },
+          })
+          .lean();
+      if (!order) return;
+      const plain = JSON.parse(JSON.stringify(order));
+      const results = await Promise.allSettled([sendOrderEmail(plain), sendAdminOrderNotification(plain)]);
+      for (const result of results) {
+          if (result.status === "rejected") console.error("[order] notification was not sent:", result.reason?.message ?? result.reason);
+      }
+  } catch (error: any) {
+      console.error("[order] notifications failed:", error?.message ?? error);
+  }
+}
 
-      const uniqueId = generateUniqueId();
+export async function createOrder(params: CreateOrderParams, type?: "json") {
+  const reserved: { id: string; amount: number }[] = [];
 
+  try {
+      await connectToDB();
+
+      // 1. Cart lines: merge duplicates, reject nonsense.
+      const amounts = new Map<string, number>();
+      for (const line of params.products ?? []) {
+          const id = String(line?.product ?? "");
+          const amount = Math.floor(Number(line?.amount));
+          if (!mongoose.isValidObjectId(id) || !Number.isFinite(amount) || amount < 1) {
+              throw new OrderProblem("У кошику є позиція, яку не вдалося розпізнати. Оновіть сторінку і спробуйте ще раз.");
+          }
+          amounts.set(id, Math.min(MAX_LINE_QUANTITY, (amounts.get(id) ?? 0) + amount));
+      }
+      if (amounts.size === 0) throw new OrderProblem("Кошик порожній.");
+
+      const dbProducts = await Product.find({ _id: { $in: Array.from(amounts.keys()) } })
+          .select("_id name priceToShow isAvailable quantity")
+          .lean<{ _id: mongoose.Types.ObjectId; name: string; priceToShow: number; isAvailable: boolean; quantity: number }[]>();
+      const byId = new Map(dbProducts.map((product) => [String(product._id), product]));
+
+      let subtotal = 0;
+      for (const [id, amount] of Array.from(amounts.entries())) {
+          const product = byId.get(id);
+          if (!product || !product.isAvailable || (product.quantity ?? 0) < 1) {
+              throw new OrderProblem(`«${product?.name ?? "Один із товарів"}» щойно закінчився. Приберіть його з кошика, щоб продовжити.`);
+          }
+          if (product.quantity < amount) {
+              throw new OrderProblem(`«${product.name}»: у наявності лише ${product.quantity} шт. Зменште кількість у кошику.`);
+          }
+          subtotal += product.priceToShow * amount;
+      }
+
+      // 2. Customer. Who is ordering is decided here, never by an id sent from the browser:
+      //    a signed-in customer orders for their own account, a guest is matched by e-mail.
       let user = null;
+      const signedIn = await getSessionUser();
+      const orderEmail = normalizeEmail(params.email);
 
-      if (!params.userId) {
-          user = await User.findOne({email: { $regex: `^${params.email}$`, $options: 'i' }});
+      if (signedIn) {
+          user = await User.findById(signedIn.id);
+          if (!user) throw new OrderProblem("Ваш обліковий запис не знайдено. Увійдіть ще раз і повторіть замовлення.");
+      } else {
+          if (!orderEmail) throw new OrderProblem("Вкажіть e-mail, щоб ми могли надіслати підтвердження замовлення.");
+          user = await User.findOne({ email: orderEmail }).collation(EMAIL_COLLATION);
 
           if (!user) {
               user = await User.create({
                   name: params.name,
                   surname: params.surname,
                   phoneNumber: params.phoneNumber,
-                  email: params.email,
+                  email: orderEmail,
                   totalOrders: 0,
                   orders: [],
                   password: generateLongPassword(),
-                  selfCreated: true   
+                  selfCreated: true
               });
           }
+      }
+      params.userId = String(user._id);
+      // A guest who types somebody's e-mail must not rewrite that person's profile.
+      const mayUpdateProfile = Boolean(signedIn) || user.selfCreated === true;
 
-          params.userId = user._id;
-      } else {
-          user = await User.findById(params.userId);
-
-          if (!user) {
-              throw new Error("User not found");
+      // 3. Promo code: only a code this customer owns counts, and its value is read here.
+      let discount = 0;
+      let storedPromo: string | undefined;
+      let nextPromo: string | undefined;
+      if (params.promocode) {
+          const wanted = params.promocode.trim().toUpperCase();
+          storedPromo = (user.discounts ?? []).find((code: string) => String(code).toUpperCase() === wanted);
+          if (storedPromo) {
+              const validated = await validatePromoCode({ promoCode: storedPromo, email: user.email });
+              const body = validated === "UNVALID" ? "" : validated.split("-")[1] ?? "";
+              const percent = Number.parseInt(body.slice(0, body.length - (4 + 3 + 8 + 1)));
+              if (Number.isFinite(percent) && percent >= 1 && percent <= 99) {
+                  discount = percent;
+                  nextPromo = validated;
+              }
           }
+          if (discount === 0) throw new OrderProblem("Промокод більше не діє. Приберіть його і спробуйте ще раз.");
       }
 
-      await user.updateOne({
-          name: params.name,
-          surname: params.surname,
-          phoneNumber: params.phoneNumber,
-      });
+      const value = Math.round(subtotal * (1 - discount / 100));
+      const freeFrom = await getFreeDelivery();
 
-      // Calculate if order qualifies for free delivery
-      const isFreeDelivery = params.value >= Store.freeDelivery;
+      // 4. Reserve stock: each update succeeds only while enough is left.
+      for (const [id, amount] of Array.from(amounts.entries())) {
+          const result = await Product.updateOne({ _id: id, isAvailable: true, quantity: { $gte: amount } }, { $inc: { quantity: -amount } });
+          if (result.modifiedCount !== 1) {
+              throw new OrderProblem(`«${byId.get(id)?.name}» щойно розкупили. Оновіть кошик, щоб продовжити.`);
+          }
+          reserved.push({ id, amount });
+      }
 
-      const createdOrder = await Order.create({
-          id: uniqueId,
-          products: params.products,
+      // 5. The order itself.
+      if (mayUpdateProfile) {
+          await user.updateOne({
+              name: params.name,
+              surname: params.surname,
+              phoneNumber: params.phoneNumber,
+          });
+      }
+
+      const createdOrder = await createWithFreshId({
+          products: Array.from(amounts.entries()).map(([product, amount]) => ({ product, amount })),
           user: params.userId,
-          value: params.value,
+          value,
           name: params.name,
           surname: params.surname,
           phoneNumber: params.phoneNumber,
@@ -154,8 +232,8 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
           comment: params.comment || "",
           paymentStatus: "Pending",
           deliveryStatus: "Proceeding",
-          discount: params.discount,
-          promocode: params.promocode,
+          discount: discount || undefined,
+          promocode: discount ? params.promocode : undefined,
           buildingNumber: params.buildingNumber,
           apartment: params.apartment,
           cityRef: params.cityRef,
@@ -163,3141 +241,313 @@ export async function createOrder(params: CreateOrderParams, type?: "json") {
           warehouseRef: params.warehouseRef,
           warehouseIndex: params.warehouseIndex,
           streetRef: params.streetRef,
-          isFreeDelivery: isFreeDelivery
+          isFreeDelivery: freeFrom > 0 && value >= freeFrom
       });
+
+      // From here the order stands; nothing below may undo the reservation.
+      reserved.length = 0;
 
       user.orders.push({
           order: createdOrder._id,
           createdAt: DateTime.now().setZone('Europe/Kiev'),
       });
-
       user.totalOrders += 1;
-
-      user.discounts = user.discounts.map((code: string) =>
-        code === params.promocode ? params.promoResult : code
-      );
-    
+      if (storedPromo && nextPromo) {
+          user.discounts = user.discounts.map((code: string) => (code === storedPromo ? nextPromo : code));
+      }
       await user.save();
 
-      for (const product of params.products) {
-          const orderedProduct = await Product.findById(product.product);
-
-          if (!orderedProduct) {
-              throw new Error(`Product not found: ${product.product}`);
-          }
-
-          orderedProduct.quantity -= product.amount;
-          orderedProduct.orderedBy.push(createdOrder._id);
-          await orderedProduct.save();
-      }
+      const orderedIds = Array.from(amounts.keys());
+      await Product.updateMany({ _id: { $in: orderedIds } }, { $push: { orderedBy: createdOrder._id } });
 
       await clearCache("createOrder", undefined);
+      // The catalog only changes when something sold out: a size that is gone must
+      // leave the shop. An order that leaves stock behind does not need a rebuild.
+      const soldOut = await Product.exists({ _id: { $in: orderedIds }, quantity: { $lte: 0 } });
+      if (soldOut) await invalidateCatalog();
 
-            
+      // Confirmation to the customer and a notice to the shop. Sent from the server,
+      // so they do not depend on the customer keeping the page open; a mail problem
+      // never fails an order that already exists.
+      await Promise.race([
+          notifyAboutOrder(String(createdOrder.id)),
+          new Promise((resolve) => setTimeout(resolve, ORDER_MAIL_WAIT_MS)),
+      ]);
+
       return type === "json" ? JSON.stringify(createdOrder) : createdOrder;
   } catch (error: any) {
+      // Give back whatever was reserved for an order that did not happen.
+      for (const line of reserved) {
+          await Product.updateOne({ _id: line.id }, { $inc: { quantity: line.amount } }).catch(() => undefined);
+      }
+      if (error instanceof OrderProblem && type === "json") {
+          return JSON.stringify({ error: error.message });
+      }
       throw new Error(`Error creating order: ${error.message}`);
   }
 }
 
-export async function fetchOrders() {
-    try {
-        connectToDB();
+/* ------------------------------------------------------------------------ */
+/* Everything below is a public endpoint too: each function checks access.  */
+/* ------------------------------------------------------------------------ */
 
-        const orders = await Order.find()
-            .sort({ data: "desc" })
-            .populate({
-                path: 'products',
-                populate: {
-                    path: 'product',
-                    model: 'Product',
-                    select: 'id images name priceToShow price'
-                }
-            })
-            .populate({
-                path: 'user',
-                model: 'User',
-                select: "_id email"
-            })
+const PRODUCT_FIELDS = "_id id name images priceToShow params articleNumber";
+const ORDER_USER_FIELDS = "_id email name surname username phoneNumber";
 
-        return orders;
-    } catch (error: any) {
-        throw new Error(`Error fetching ordeds: ${error.message}`)
-    }
+const PAYMENT_STATUSES = ["Pending", "Success", "Declined"] as const;
+const DELIVERY_STATUSES = ["Proceeding", "Indelivery", "Fulfilled", "Canceled"] as const;
+
+function maskPhoneForPublic(phone: unknown): string {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  return digits.length < 4 ? "" : `••••••${digits.slice(-4)}`;
 }
 
-
-export async function fetchOrdersPayments() {
-  try {
-      connectToDB();
-
-      const orders = await Order.find()
-          .sort({ data: "desc" })      
-      
-      let payments = [];
-
-      for(const payment of orders) {
-        payments.push({
-          id: payment.id,
-          value: payment.value,
-          name: payment.name + " " + payment.surname,
-          phoneNumber: payment.phoneNumber,
-          email: payment.email,
-          paymentStatus: payment.paymentStatus,
-          deliveryStatus: payment.deliveryStatus,
-          date: payment.data 
-        })
-      }
-
-      return payments;
-  } catch (error: any) {
-      throw new Error(`Error fetching ordeds: ${error.message}`)
-  }
+function maskEmailForPublic(email: unknown): string {
+  const [name, domain] = String(email ?? "").split("@");
+  return name && domain ? `${name.slice(0, 1)}•••@${domain}` : "";
 }
 
-type Params = {
-   name: string
-}
-
-type ReturnType = {
-   name: string
-}
-
+/**
+ * One order by its number.
+ *
+ * Staff and the customer get the whole order. Anyone else (the link in the
+ * confirmation e-mail works without signing in) gets the status and the
+ * items: the surname is cut to its initial, the phone and e-mail are masked,
+ * and the address, comment, invoice and promo code are left out.
+ */
 export async function fetchOrder({ orderId }: { orderId: string }): Promise<OrderType>;
 export async function fetchOrder({ orderId }: { orderId: string }, type: 'json'): Promise<string>;
 
 export async function fetchOrder({ orderId }: { orderId: string }, type?: 'json') {
    try {
-    connectToDB();
+    await connectToDB();
 
-    const order = await Order.findOne({ id: orderId })
-        .populate({
-            path: 'products',
-            populate: {
-                path: 'product',
-                model: 'Product',
-                select: '_id id name images priceToShow params articleNumber'
-            }
-        })
-        .populate({
-            path: 'user',
-            model: 'User',
-        });
-        
-    if(type === 'json'){
-      return JSON.stringify(order)
-    } else {
-      return order
+    const order: any = typeof orderId === "string" && /^\d{1,12}$/.test(orderId)
+      ? await Order.findOne({ id: orderId })
+          .populate({ path: "products.product", model: Product, select: PRODUCT_FIELDS })
+          .populate({ path: "user", model: User, select: ORDER_USER_FIELDS })
+          .lean()
+      : null;
+
+    let result: any = order;
+    if (order) {
+      const identity = await getSessionIdentity();
+      const ownerId = String(order.user?._id ?? order.user ?? "");
+      const isOwner = Boolean(identity && ((identity.id && identity.id === ownerId) || (identity.email && identity.email === String(order.email ?? "").toLowerCase())));
+      const full = isOwner || isStaffRole((await getSessionUser())?.role);
+
+      if (!full) {
+        result = {
+          _id: order._id,
+          id: order.id,
+          products: order.products,
+          value: order.value,
+          name: order.name,
+          surname: String(order.surname ?? "").slice(0, 1),
+          phoneNumber: maskPhoneForPublic(order.phoneNumber),
+          email: maskEmailForPublic(order.email),
+          paymentType: order.paymentType,
+          deliveryMethod: order.deliveryMethod,
+          city: order.city,
+          paymentStatus: order.paymentStatus,
+          deliveryStatus: order.deliveryStatus,
+          discount: order.discount,
+          isFreeDelivery: order.isFreeDelivery,
+          data: order.data,
+        };
+      }
     }
+
+    return type === 'json' ? JSON.stringify(result) : result;
    } catch (error: any) {
      throw new Error(`Error fetching order: ${error.message}`)
    }
 }
 
+/** A customer's orders, newest first: for the customer and for staff. */
 export async function fetchUsersOrders({ userId }: { userId: string }){
     try {
+        const current = await requireUser();
+        if (current.id !== String(userId) && !isStaffRole(current.role)) throw new AccessDenied();
+        if (!mongoose.isValidObjectId(userId)) return [];
 
-        const orders = await Order.find({ user: userId })
-        .sort({ data: "desc" })
-        .populate({
-            path: 'products',
-            populate: {
-                path: 'product',
-                model: 'Product',
-                select: 'id name images priceToShow params'
-            }
-        })
-        .populate({
-            path: 'user',
-            model: 'User',
-        });
-
-
-        // console.log("Orders", orders)
-        return orders
+        await connectToDB();
+        return await Order.find({ user: userId })
+          .sort({ data: -1 })
+          .limit(200)
+          .select("id products value paymentStatus deliveryStatus data user")
+          .populate({ path: "products.product", model: Product, select: "id name images priceToShow params" })
+          .lean();
     } catch (error:any) {
         throw new Error(`Error fetching user's orders: ${error.message}`)
     }
 }
 
-export async function delOrder(id:string){
-    try {
-        const objectId = new mongoose.Types.ObjectId(id);
-        await Order.findByIdAndDelete(objectId);
-    } catch (error:any) {
-        throw new Error(`Error deleting order: ${error.message}`)
-    }
+/** Removes an order and its links from the customer and the products. Stock is not returned. */
+async function removeOrder(filter: { _id: string } | { id: string }) {
+  await requireAdmin();
+  await connectToDB();
+
+  const order = await Order.findOne(filter).select("_id user").lean<{ _id: mongoose.Types.ObjectId; user?: mongoose.Types.ObjectId }>();
+  if (!order) return false;
+
+  await Order.deleteOne({ _id: order._id });
+  await Promise.all([
+    order.user ? User.updateOne({ _id: order.user, "orders.order": order._id }, { $pull: { orders: { order: order._id } }, $inc: { totalOrders: -1 } }) : null,
+    Product.updateMany({ orderedBy: order._id }, { $pull: { orderedBy: order._id } }),
+  ]);
+  await clearCache("updateOrder", undefined);
+  return true;
 }
 
-
-export async function deleteOrder(id: string, path: string) {
+export async function delOrder(id: string) {
     try {
-        connectToDB();
-
-        const order = await Order.findOne({ id: id });
-
-        const user = await User.findOne({ _id: order.user });
-        const deletedOrder = await Order.deleteOne({ id: id });
-
-        
+        if (!mongoose.isValidObjectId(id)) throw new Error("Invalid order id");
+        return await removeOrder({ _id: id });
     } catch (error: any) {
         throw new Error(`Error deleting order: ${error.message}`)
     }
 }
 
-export async function changePaymentStatus(id: string, status: string, path: string) {
+/** Deletes an order by its number. `path` is unused, kept for older callers. */
+export async function deleteOrder(id: string, path?: string) {
     try {
-        connectToDB();
+        return await removeOrder({ id: String(id) });
+    } catch (error: any) {
+        throw new Error(`Error deleting order: ${error.message}`)
+    }
+}
 
-        const order = await Order.findOne({ id: id });
+export async function changePaymentStatus(id: string, status: string, path?: string) {
+    try {
+        await requireAdmin();
+        if (!(PAYMENT_STATUSES as readonly string[]).includes(status)) throw new Error(`Unknown payment status "${status}"`);
+        await connectToDB();
 
-        order.paymentStatus = status;
+        const result = await Order.updateOne({ id: String(id) }, { $set: { paymentStatus: status } });
+        if (result.matchedCount === 0) throw new Error("Order not found");
 
-        order.save();
-
-        clearCache("updateOrder", undefined)
+        await clearCache("updateOrder", undefined);
+        return status;
     } catch (error: any) {
         throw new Error(`Error changing order's payment status: ${error.message}`)
     }
 }
 
-export async function changedeliveryStatus(id: string, status: string, path: string) {
+export async function changedeliveryStatus(id: string, status: string, path?: string) {
     try {
-        connectToDB();
+        await requireAdmin();
+        if (!(DELIVERY_STATUSES as readonly string[]).includes(status)) throw new Error(`Unknown delivery status "${status}"`);
+        await connectToDB();
 
-        const order = await Order.findOne({ id: id });
+        const result = await Order.updateOne({ id: String(id) }, { $set: { deliveryStatus: status } });
+        if (result.matchedCount === 0) throw new Error("Order not found");
 
-        order.deliveryStatus = status;
-
-        order.save();
-
-        clearCache("updateOrder", undefined)
+        await clearCache("updateOrder", undefined);
+        return status;
     } catch (error: any) {
         throw new Error(`Error changing order's delivery status: ${error.message}`)
     }
 }
 
-export async function fetchUsersOrdersById(userId: string) {
+/* ------------------------------------------------------------------------ */
+/* Nova Poshta (the API calls live in lib/admin/novaposhta.ts)               */
+/* ------------------------------------------------------------------------ */
+
+type InvoiceResult = { ok: true; invoice: InvoiceSummary } | { ok: false; error: string; notReady?: boolean };
+
+function invoiceError(error: any): { ok: false; error: string; notReady?: boolean } {
+  // Returned, not thrown: production builds hide thrown messages, and the text is what the manager needs.
+  console.error("[waybill]", error?.message ?? error);
+  return { ok: false, error: String(error?.message ?? "Не вдалося створити накладну."), notReady: error instanceof DeliveryNotReady };
+}
+
+/** Creates the waybill for one order from a sender branch (the default one unless `branchId` is given). */
+export async function createOrderInvoice({ orderId, branchId }: { orderId: string; branchId?: string | null }): Promise<InvoiceResult> {
+  await requireAdmin();
+  if (!mongoose.isValidObjectId(orderId)) return { ok: false, error: "Замовлення не знайдено." };
   try {
-    connectToDB();
-
-    const usersOrders = await Order.find({ user: userId })
-      .sort({ data: "desc" })
-      .populate({
-        path: 'products',
-        populate: {
-          path: 'product',
-          model: 'Product',
-          select: 'id name images priceToShow params'
-        }
-      })
-      .populate({
-        path: 'user',
-        model: 'User',
-      });
-
-    return usersOrders;
+    const settings = await loadDeliverySettings();
+    const invoice = await createWaybill(orderId, senderBranch(settings, branchId), settings);
+    await clearCache("updateOrder", undefined);
+    return { ok: true, invoice };
   } catch (error: any) {
-    throw new Error(`Error fetching user's orders by id: ${error.message}`)
+    return invoiceError(error);
   }
 }
 
-export async function getDashboardData() {
+/**
+ * Waybills for several orders, one after another (each takes four API calls).
+ * At most 20 per run; every order gets its own result.
+ */
+export async function createInvoicesForOrders({ orderIds, branchId }: { orderIds: string[]; branchId?: string | null }) {
+  await requireAdmin();
+  const ids = Array.from(new Set((orderIds ?? []).map(String).filter((id) => mongoose.isValidObjectId(id)))).slice(0, 20);
+  const results: { orderId: string; ok: boolean; number?: string; error?: string }[] = [];
+  let settings;
+  let branch;
+  try {
+    settings = await loadDeliverySettings();
+    branch = senderBranch(settings, branchId);
+  } catch (error: any) {
+    return { ok: false as const, error: invoiceError(error).error, results };
+  }
+  for (const orderId of ids) {
     try {
-        connectToDB();
-
-        const orders = await Order.find({ paymentStatus: "Success", deliveryStatus: "Fulfilled" })
-        
-        const oneYearAgo = moment().subtract(1, "years").toDate();
-        const filteredOrders = orders.filter(order => order.data >= oneYearAgo);
-
-        const today = moment();
-        const currentMonthStart = moment().startOf('month');
-        const currentMonthEnd = moment().endOf('month');
-        const yesterday = moment().subtract(1, "days");
-        const lastWeek = moment().subtract(1, "weeks").startOf('isoWeek');
-        const lastMonth = moment().subtract(1, "months").startOf('month');
-        const previousMonthStart = moment().subtract(1, "months").startOf('month');
-        const previousMonthEnd = moment().subtract(1, "months").endOf('month');
-        const lastThreeMonthsStart = moment().subtract(3, "months").startOf('month');
-        const lastSixMonthsStart = moment().subtract(6, "months").startOf('month');
-        const lastYear = moment().subtract(1, "years").startOf('year');
-
-        let dayTotalValue = 0;
-        let weekTotalValue = 0;
-        let monthTotalValue = 0;
-        let threeMonthsTotalValue = 0;
-        let sixMonthsTotalValue = 0;
-        let yearTotalValue = 0;
-        let totalValue = 0;
-
-        let dayTotalOrders = 0;
-        let weekTotalOrders = 0;
-        let monthTotalOrders = 0;
-        let threeMonthsTotalOrders = 0;
-        let sixMonthsTotalOrders = 0;
-        let yearTotalOrders = 0;
-        let totalOrders = 0;
-
-        let dayTotalProductsSold = 0;
-        let weekTotalProductsSold = 0;
-        let monthTotalProductsSold = 0;
-        let threeMonthsTotalProductsSold = 0;
-        let sixMonthsTotalProductsSold = 0;
-        let yearTotalProductsSold = 0;
-        let totalProductsSold = 0;
-
-        let dayPopularProducts: { [productId: string]: number } = {};
-        let weekPopularProducts: { [productId: string]: number } = {};
-        let monthPopularProducts: { [productId: string]: number } = {};
-        let threeMonthsPopularProducts: { [productId: string]: number } = {};
-        let sixMonthsPopularProducts: { [productId: string]: number } = {};
-        let yearPopularProducts: { [productId: string]: number } = {};
-        let PopularProducts: { [productId: string]: number } = {};
-
-        let previousDayTotalValue = 0;
-        let previousWeekTotalValue = 0;
-        let previousMonthTotalValue = 0;
-        let previousThreeMonthsTotalValue = 0;
-        let previousSixMonthsTotalValue = 0;
-        let previousYearTotalValue = 0;
-
-        let previousDayTotalOrders = 0;
-        let previousWeekTotalOrders = 0;
-        let previousMonthTotalOrders = 0;
-        let previousThreeMonthsTotalOrders = 0;
-        let previousSixMonthsTotalOrders = 0;
-        let previousYearTotalOrders = 0;
-
-        let previousDayTotalProductsSold = 0;
-        let previousWeekTotalProductsSold = 0;
-        let previousMonthTotalProductsSold = 0;
-        let previousThreeMonthsTotalProductsSold = 0;
-        let previousSixMonthsTotalProductsSold = 0;
-        let previousYearTotalProductsSold = 0;
-
-        let previousDayPopularProducts: { [productId: string]: number } = {};
-        let previousWeekPopularProducts: { [productId: string]: number } = {};
-        let previousMonthPopularProducts: { [productId: string]: number } = {};
-        let previousThreeMonthsPopularProducts: { [productId: string]: number } = {};
-        let previousSixMonthsPopularProducts: { [productId: string]: number } = {};
-        let previousYearPopularProducts: { [productId: string]: number } = {};
-
-        const day: TimePeriod[] = Array.from({ length: 24 }, (_, hour) => ({
-            dateName: moment().hour(hour).format('HH:00'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-          }));
-
-          const previousDay: TimePeriod[] = Array.from({ length: 24 }, (_, hour) => ({
-            dateName: moment().subtract(1, "days").hour(hour).format('HH:00'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-        }));
-      
-          const startOfWeek = moment().startOf('isoWeek');
-          const week: TimePeriod[] = Array.from({ length: 7 }, (_, day) => ({
-            dateName: startOfWeek.clone().add(day, 'days').format('dddd D'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-          }));
-      
-          const startOfPreviousWeek = moment().subtract(1, "weeks").startOf('isoWeek');
-            const previousWeek: TimePeriod[] = Array.from({ length: 7 }, (_, day) => ({
-                dateName: startOfPreviousWeek.clone().add(day, 'days').format('dddd D'),
-                orders: [] as Order[],
-                totalValue: 0,
-                totalOrders: 0
-            }));
-
-
-          const month: TimePeriod[] = Array.from({ length: moment().daysInMonth() }, (_, date) => ({
-            dateName: moment().date(date + 1).format('D MMM'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-          }));
-
-          const previousMonth: TimePeriod[] = Array.from({ length: lastMonth.daysInMonth() }, (_, date) => ({
-            dateName: moment().subtract(1, "months").date(date + 1).format('D MMM'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-            }));
-      
-          const threeMonths: TimePeriod[] = Array.from({ length: 13 }, (_, week) => {
-            const startOfWeek = moment().subtract(12 - week, 'weeks').startOf('isoWeek');
-            const endOfWeek = moment().subtract(12 - week, 'weeks').endOf('isoWeek');
-            return { dateName: `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM')}`, orders: [] as Order[], totalValue: 0, totalOrders: 0};
-          });
-
-          const previousThreeMonths: TimePeriod[] = Array.from({ length: 13 }, (_, week) => {
-            const startOfWeek = moment().subtract(25 - week, 'weeks').startOf('isoWeek');
-            const endOfWeek = moment().subtract(25 - week, 'weeks').endOf('isoWeek');
-            return { dateName: `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM')}`, orders: [] as Order[], totalValue: 0, totalOrders: 0 };
-        });
-      
-          const sixMonths: TimePeriod[] = Array.from({ length: 6 }, (_, month) => ({
-            dateName: moment().subtract(5 - month, 'months').format('MMMM'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-          }));
-      
-          const previousSixMonths: TimePeriod[] = Array.from({ length: 6 }, (_, month) => ({
-            dateName: moment().subtract(11 - month, 'months').format('MMMM'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-        }));
-
-          const year: TimePeriod[] = Array.from({ length: 12 }, (_, month) => ({
-            dateName: moment().month(month).format('MMMM'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-          }));
-
-          const previousYear: TimePeriod[] = Array.from({ length: 12 }, (_, month) => ({
-            dateName: moment().subtract(1, 'years').month(month).format('MMMM'),
-            orders: [] as Order[],
-            totalValue: 0,
-            totalOrders: 0
-        }));
-      
-          const allTime: TimePeriod[] = [{ dateName: 'All Time', orders: filteredOrders, totalValue: 0, totalOrders: 0}];
-      
-          orders.forEach(order => {
-            const orderDate = moment(order.data);
-
-            const orderValue = order.value || 0;
-
-            // Hour of the day
-            if(orderDate.isSame(today, "day")) {
-                day[orderDate.hour()].orders.push(order);
-                day[orderDate.hour()].totalValue += orderValue;
-                day[orderDate.hour()].totalOrders += 1;
-                dayTotalValue += orderValue;
-                dayTotalOrders += 1;
-                order.products.forEach((product: { product: string, amount: number; }) => {
-                    dayTotalProductsSold += product.amount,
-                    dayPopularProducts[product.product] = (dayPopularProducts[product.product] || 0) + product.amount
-                })
-            }
-
-            if(orderDate.isSame(yesterday, "day")) {
-                previousDay[orderDate.hour()].orders.push(order);
-                previousDay[orderDate.hour()].totalValue += orderValue;
-                previousDay[orderDate.hour()].totalOrders += 1;
-                previousDayTotalValue += orderValue;
-                previousDayTotalOrders += 1;
-                order.products.forEach((product: { product: string, amount: number; }) => {
-                    previousDayTotalProductsSold += product.amount,
-                    previousDayPopularProducts[product.product] = (previousDayPopularProducts[product.product] || 0) + product.amount
-                })
-            }
-      
-            // Day of the week
-            if (orderDate.isSame(today, 'isoWeek')) {
-                const weekDayIndex = orderDate.isoWeekday() - 1; // Monday is 0, Sunday is 6
-                week[weekDayIndex].orders.push(order);
-                week[weekDayIndex].totalValue += orderValue;
-                week[weekDayIndex].totalOrders += 1;
-                weekTotalValue += orderValue;
-                weekTotalOrders += 1;
-                order.products.forEach((product: { product: string, amount: number; }) => {
-                    weekTotalProductsSold += product.amount,
-                    weekPopularProducts[product.product] = (weekPopularProducts[product.product] || 0) + product.amount
-                })
-            }
-            if (orderDate.isSame(lastWeek, 'isoWeek')) {
-                const previousWeekDayIndex = orderDate.isoWeekday() - 1; // Monday is 0, Sunday is 6
-                previousWeek[previousWeekDayIndex].orders.push(order);
-                previousWeek[previousWeekDayIndex].totalValue += orderValue;
-                previousWeek[previousWeekDayIndex].totalOrders += 1;
-                previousWeekTotalValue += orderValue;
-                previousWeekTotalOrders += 1;
-                order.products.forEach((product: { product: string, amount: number; }) => {
-                    previousWeekTotalProductsSold += product.amount;
-                    previousWeekPopularProducts[product.product] = (previousWeekPopularProducts[product.product] || 0) + product.amount;
-                });
-            }
-
-            // Day of the month
-            const dayIndex = orderDate.date() - 1;
-            if (dayIndex >= 0 && dayIndex < month.length && orderDate.isBetween(currentMonthStart, currentMonthEnd, 'day', '[]')) {
-              month[dayIndex].orders.push(order);
-              month[dayIndex].totalValue += orderValue;
-              month[dayIndex].totalOrders += 1;
-              monthTotalValue += orderValue;
-              monthTotalOrders += 1;
-              order.products.forEach((product: { product: string, amount: number; }) => {
-                monthTotalProductsSold += product.amount,
-                monthPopularProducts[product.product] = (monthPopularProducts[product.product] || 0) + product.amount
-              });
-            }
-            
-
-            const prevDayIndex = orderDate.date() - 1;
-            if (prevDayIndex >= 0 && prevDayIndex < previousMonth.length && orderDate.isBetween(previousMonthStart, previousMonthEnd, 'day', '[]')) {
-              previousMonth[prevDayIndex].orders.push(order);
-              previousMonth[prevDayIndex].totalValue += orderValue;
-              previousMonth[prevDayIndex].totalOrders += 1;
-              previousMonthTotalValue += orderValue;
-              previousMonthTotalOrders += 1;
-              order.products.forEach((product: { product: string, amount: number; }) => {
-                previousMonthTotalProductsSold += product.amount,
-                previousMonthPopularProducts[product.product] = (previousMonthPopularProducts[product.product] || 0) + product.amount
-              });
-            }
-
-              threeMonths.forEach((period, index) => {
-                const [start, end] = period.dateName.split(' - ').map(dateStr => moment(dateStr, 'D MMM'));
-                if (orderDate.isSameOrAfter(start) && orderDate.isBefore(end.clone().add(1, 'day'))) {
-                  threeMonths[index].orders.push(order);
-                  threeMonths[index].totalValue += orderValue;
-                  threeMonths[index].totalOrders += 1;
-                  threeMonthsTotalValue += orderValue;
-                  threeMonthsTotalOrders += 1;
-                  order.products.forEach((product: { product: string, amount: number; }) => {
-                    threeMonthsTotalProductsSold += product.amount,
-                    threeMonthsPopularProducts[product.product] = (threeMonthsPopularProducts[product.product] || 0) + product.amount
-                  })
-                }
-              });
-        
-              previousThreeMonths.forEach((period, index) => {
-                const [start, end] = period.dateName.split(' - ').map(dateStr => moment(dateStr, 'D MMM'));
-                if (orderDate.isSameOrAfter(start) && orderDate.isBefore(end.clone().add(1, 'day'))) {
-                    previousThreeMonths[index].orders.push(order);
-                    previousThreeMonths[index].totalValue += orderValue;
-                    previousThreeMonths[index].totalOrders += 1;
-                    previousThreeMonthsTotalValue += orderValue;
-                    previousThreeMonthsTotalOrders += 1;
-                    order.products.forEach((product: { product: string, amount: number; }) => {
-                        previousThreeMonthsTotalProductsSold += product.amount;
-                        previousThreeMonthsPopularProducts[product.product] = (previousThreeMonthsPopularProducts[product.product] || 0) + product.amount;
-                    });
-                }
-                });
-              // Month of the six-month period
-              const sixMonthsPeriods = sixMonths.map(period => {
-                const start = moment(period.dateName, 'MMMM YYYY').startOf('month');
-                const end = moment(period.dateName, 'MMMM YYYY').endOf('month');
-                return { start, end };
-              });
-        
-              sixMonthsPeriods.forEach((period, index) => {
-                if (orderDate.isBetween(period.start, period.end, null, '[)')) {
-                  sixMonths[index].orders.push(order);
-                  sixMonths[index].totalValue += orderValue;
-                  sixMonths[index].totalOrders += 1;
-                  sixMonthsTotalValue += orderValue;
-                  sixMonthsTotalOrders += 1;
-                  order.products.forEach((product: { product: string, amount: number; }) => {
-                    sixMonthsTotalProductsSold += product.amount,
-                    sixMonthsPopularProducts[product.product] = (sixMonthsPopularProducts[product.product] || 0) + product.amount
-                  })
-                }
-              });
-
-              previousSixMonths.forEach((period, index) => {
-                const start = moment().subtract(6 + 5 - index, 'months').startOf('month');
-                const end = start.clone().endOf('month');
-                if (orderDate.isSameOrAfter(start) && orderDate.isBefore(end.clone().add(1, 'day'))) {
-                    previousSixMonths[index].orders.push(order);
-                    previousSixMonths[index].totalValue += orderValue;
-                    previousSixMonths[index].totalOrders += 1;
-                    previousSixMonthsTotalValue += orderValue;
-                    previousSixMonthsTotalOrders += 1;
-                    order.products.forEach((product: { product: string, amount: number; }) => {
-                        previousSixMonthsTotalProductsSold += product.amount;
-                        previousSixMonthsPopularProducts[product.product] = (previousSixMonthsPopularProducts[product.product] || 0) + product.amount;
-                    });
-                }
-            });
-      
-            // Month of the year
-            if (orderDate.isSame(today, 'year')) {
-                year[orderDate.month()].orders.push(order);
-                year[orderDate.month()].totalValue += orderValue;
-                year[orderDate.month()].totalOrders += 1;
-                yearTotalValue += orderValue;
-                yearTotalOrders += 1;
-                order.products.forEach((product: { product: string, amount: number; }) => {
-                    yearTotalProductsSold += product.amount,
-                    yearPopularProducts[product.product] = (yearPopularProducts[product.product] || 0) + product.amount
-                })
-            }
-
-            previousYear.forEach((period, index) => {
-                const start = moment().subtract(1, 'years').month(index).startOf('month');
-                const end = start.clone().endOf('month');
-                if (orderDate.isSameOrAfter(start) && orderDate.isBefore(end.clone().add(1, 'day'))) {
-                    previousYear[index].orders.push(order);
-                    previousYear[index].totalValue += orderValue;
-                    previousYear[index].totalOrders += 1;
-                    previousYearTotalValue += orderValue;
-                    previousYearTotalOrders += 1;
-                    order.products.forEach((product: { product: string, amount: number; }) => {
-                        previousYearTotalProductsSold += product.amount;
-                        previousYearPopularProducts[product.product] = (previousYearPopularProducts[product.product] || 0) + product.amount;
-                    });
-                }
-            });
-          });
-
-          
-      
-          const findMostPopularProductId = async (popularProducts: { [productId: string]: number }) => {
-            let mostPopularProduct = { productId: '', count: 0};
-
-            for(const productId in popularProducts) {
-                if(popularProducts[productId] > mostPopularProduct.count) {
-                    mostPopularProduct = { productId, count: popularProducts[productId] }
-                }
-            }
-
-            const product = await Product.findById(mostPopularProduct.productId)
-
-
-            if (!product) {
-              const allProducts = await Product.find();
-              if (!allProducts || allProducts.length === 0) {
-                return null; // or throw an error if no products exist at all
-              }
-              const firstProduct = allProducts[0];
-              return {
-                name: firstProduct.name,
-                id: firstProduct._id,
-                searchParam: firstProduct.params?.[0]?.value ?? null,
-                quantity: 0 // since it's not from mostPopularProduct
-              };
-            }
-            
-            return {
-              name: product.name,
-              id: product._id,
-              searchParam: product.params?.[0]?.value ?? null,
-              quantity: mostPopularProduct.count
-            };
-          }
-
-          const findPercentageValue = (previousValue: number, currentValue: number) => {
-            if(previousValue > 0) {
-                return (((currentValue - previousValue) / previousValue) * 100)
-            } else if (dayTotalValue > 0) {
-                return 100
-            } else {
-                return 0
-            }
-          }
-          
-          const previousDayStats = {
-              data: previousDay,
-              totalValue: previousDayTotalValue,
-              totalOrders: previousDayTotalOrders,
-              totalProductsSold: previousDayTotalProductsSold,
-              averageOrderValue: previousDayTotalOrders > 0 ? (previousDayTotalValue / previousDayTotalOrders) : 0,
-            }
-            
-            const dayStats = {
-              data: day,
-              totalValue: dayTotalValue,
-              totalOrders: dayTotalOrders,
-              totalProductsSold: dayTotalProductsSold,
-              averageOrderValue: dayTotalOrders > 0 ? (dayTotalValue / dayTotalOrders) : 0,
-              mostPopularProduct: Object.keys(dayPopularProducts).length > 0
-                ? await findMostPopularProductId(dayPopularProducts)
-                : { name: "No products", id: "", searchParam: "", quantity: 0 },
-              percentageStats: {
-                totalValue: findPercentageValue(previousDayStats.totalValue, dayTotalValue),
-                totalOrders: findPercentageValue(previousDayStats.totalOrders, dayTotalOrders),
-                totalProductsSold: findPercentageValue(previousDayStats.totalProductsSold, dayTotalProductsSold),
-                averageOrderValue: findPercentageValue(previousDayStats.averageOrderValue, dayTotalOrders > 0 ? (dayTotalValue / dayTotalOrders) : 0)
-              },
-              numericStats: {
-                totalValue: dayTotalValue - previousDayStats.totalValue,
-                totalOrders: dayTotalOrders - previousDayStats.totalOrders,
-                totalProductsSold: dayTotalProductsSold - previousDayStats.totalProductsSold,
-                averageOrderValue: (dayTotalOrders > 0 ? (dayTotalValue / dayTotalOrders) : 0) - previousDayStats.averageOrderValue
-              }
-            }
-          
-          const previousWeekStats = {
-              data: previousWeek,
-              totalValue: previousWeekTotalValue,
-              totalOrders: previousWeekTotalOrders,
-              totalProductsSold: previousWeekTotalProductsSold,
-              averageOrderValue: previousWeekTotalOrders > 0 ? (previousWeekTotalValue / previousWeekTotalOrders) : 0,
-            }
-            
-            const weekStats = {
-              data: week,
-              totalValue: weekTotalValue,
-              totalOrders: weekTotalOrders,
-              totalProductsSold: weekTotalProductsSold,
-              averageOrderValue: weekTotalOrders > 0 ? (weekTotalValue / weekTotalOrders) : 0,
-              mostPopularProduct: Object.keys(weekPopularProducts).length > 0
-                ? await findMostPopularProductId(weekPopularProducts)
-                : { name: "No products", id: "", searchParam: "", quantity: 0 },
-              percentageStats: {
-                totalValue: findPercentageValue(previousWeekStats.totalValue, weekTotalValue),
-                totalOrders: findPercentageValue(previousWeekStats.totalOrders, weekTotalOrders),
-                totalProductsSold: findPercentageValue(previousWeekStats.totalProductsSold, weekTotalProductsSold),
-                averageOrderValue: findPercentageValue(previousWeekStats.averageOrderValue, weekTotalOrders > 0 ? (weekTotalValue / weekTotalOrders) : 0)
-              },
-              numericStats: {
-                totalValue: weekTotalValue - previousWeekStats.totalValue,
-                totalOrders: weekTotalOrders - previousWeekStats.totalOrders,
-                totalProductsSold: weekTotalProductsSold - previousWeekStats.totalProductsSold,
-                averageOrderValue: (weekTotalOrders > 0 ? (weekTotalValue / weekTotalOrders) : 0) - previousWeekStats.averageOrderValue
-              }
-            }
-          
-          const previousMonthStats = {
-              data: previousMonth,
-              totalValue: previousMonthTotalValue,
-              totalOrders: previousMonthTotalOrders,
-              totalProductsSold: previousMonthTotalProductsSold,
-              averageOrderValue: previousMonthTotalOrders > 0 ? (previousMonthTotalValue / previousMonthTotalOrders) : 0,
-            }
-            
-            const monthStats = {
-              data: month,
-              totalValue: monthTotalValue,
-              totalOrders: monthTotalOrders,
-              totalProductsSold: monthTotalProductsSold,
-              averageOrderValue: monthTotalOrders > 0 ? (monthTotalValue / monthTotalOrders) : 0,
-              mostPopularProduct: Object.keys(monthPopularProducts).length > 0
-                ? await findMostPopularProductId(monthPopularProducts)
-                : { name: "No products", id: "", searchParam: "", quantity: 0 },
-              percentageStats: {
-                totalValue: findPercentageValue(previousMonthStats.totalValue, monthTotalValue),
-                totalOrders: findPercentageValue(previousMonthStats.totalOrders, monthTotalOrders),
-                totalProductsSold: findPercentageValue(previousMonthStats.totalProductsSold, monthTotalProductsSold),
-                averageOrderValue: findPercentageValue(previousMonthStats.averageOrderValue, monthTotalOrders > 0 ? (monthTotalValue / monthTotalOrders) : 0)
-              },
-              numericStats: {
-                totalValue: monthTotalValue - previousMonthStats.totalValue,
-                totalOrders: monthTotalOrders - previousMonthStats.totalOrders,
-                totalProductsSold: monthTotalProductsSold - previousMonthStats.totalProductsSold,
-                averageOrderValue: (monthTotalOrders > 0 ? (monthTotalValue / monthTotalOrders) : 0) - previousMonthStats.averageOrderValue
-              }
-            }
-            
-            const previousThreeMonthsStats = {
-                data: previousThreeMonths,
-                totalValue: previousThreeMonthsTotalValue,
-                totalOrders: previousThreeMonthsTotalOrders,
-                totalProductsSold: previousThreeMonthsTotalProductsSold,
-                averageOrderValue: previousThreeMonthsTotalOrders > 0 ? (previousThreeMonthsTotalValue / previousThreeMonthsTotalOrders) : 0,
-            }
-            
-            const threeMonthsStats = {
-              data: threeMonths,
-              totalValue: threeMonthsTotalValue,
-              totalOrders: threeMonthsTotalOrders,
-              totalProductsSold: threeMonthsTotalProductsSold,
-              averageOrderValue: threeMonthsTotalOrders > 0 ? (threeMonthsTotalValue / threeMonthsTotalOrders) : 0,
-              mostPopularProduct: Object.keys(sixMonthsPopularProducts).length > 0
-                ? await findMostPopularProductId(sixMonthsPopularProducts)
-                : { name: "No products", id: "", searchParam: "", quantity: 0 },
-              percentageStats: {
-                totalValue: findPercentageValue(previousThreeMonthsStats.totalValue, threeMonthsTotalValue),
-                totalOrders: findPercentageValue(previousThreeMonthsStats.totalOrders, threeMonthsTotalOrders),
-                totalProductsSold: findPercentageValue(previousThreeMonthsStats.totalProductsSold, threeMonthsTotalProductsSold),
-                averageOrderValue: findPercentageValue(previousThreeMonthsStats.averageOrderValue, threeMonthsTotalOrders > 0 ? (threeMonthsTotalValue / threeMonthsTotalOrders) : 0)
-              },
-              numericStats: {
-                totalValue: threeMonthsTotalValue - previousThreeMonthsStats.totalValue,
-                totalOrders: threeMonthsTotalOrders - previousThreeMonthsStats.totalOrders,
-                totalProductsSold: threeMonthsTotalProductsSold - previousThreeMonthsStats.totalProductsSold,
-                averageOrderValue: (threeMonthsTotalOrders > 0 ? (threeMonthsTotalValue / threeMonthsTotalOrders) : 0) - previousThreeMonthsStats.averageOrderValue
-              }
-            }
-          
-          const previousSixMonthsStats = {
-              data: previousSixMonths,
-              totalValue: previousSixMonthsTotalValue,
-              totalOrders: previousSixMonthsTotalOrders,
-              totalProductsSold: previousSixMonthsTotalProductsSold,
-              averageOrderValue: previousSixMonthsTotalOrders > 0 ? (previousSixMonthsTotalValue / previousSixMonthsTotalOrders) : 0,
-            }
-            
-            const sixMonthsStats = {
-              data: sixMonths,
-              totalValue: sixMonthsTotalValue,
-              totalOrders: sixMonthsTotalOrders,
-              totalProductsSold: sixMonthsTotalProductsSold,
-              averageOrderValue: sixMonthsTotalOrders > 0 ? (sixMonthsTotalValue / sixMonthsTotalOrders) : 0,
-              mostPopularProduct: Object.keys(sixMonthsPopularProducts).length > 0
-                ? await findMostPopularProductId(sixMonthsPopularProducts)
-                : { name: "No products", id: "", searchParam: "", quantity: 0 },
-              percentageStats: {
-                totalValue: findPercentageValue(previousSixMonthsStats.totalValue, sixMonthsTotalValue),
-                totalOrders: findPercentageValue(previousSixMonthsStats.totalOrders, sixMonthsTotalOrders),
-                totalProductsSold: findPercentageValue(previousSixMonthsStats.totalProductsSold, sixMonthsTotalProductsSold),
-                averageOrderValue: findPercentageValue(previousSixMonthsStats.averageOrderValue, sixMonthsTotalOrders > 0 ? (sixMonthsTotalValue / sixMonthsTotalOrders) : 0)
-              }, 
-              numericStats: {
-                totalValue: sixMonthsTotalValue - previousSixMonthsStats.totalValue,
-                totalOrders: sixMonthsTotalOrders - previousSixMonthsStats.totalOrders,
-                totalProductsSold: sixMonthsTotalProductsSold - previousSixMonthsStats.totalProductsSold,
-                averageOrderValue: (sixMonthsTotalOrders > 0 ? (sixMonthsTotalValue / sixMonthsTotalOrders) : 0) - previousSixMonthsStats.averageOrderValue
-              }
-            }
-          
-          const previousYearStats = {
-              data: previousYear,
-              totalValue: previousYearTotalValue,
-              totalOrders: previousYearTotalOrders,
-              totalProductsSold: previousYearTotalProductsSold,
-              averageOrderValue: previousYearTotalOrders > 0 ? (previousYearTotalValue / previousYearTotalOrders) : 0,
-            }
-            
-            const yearStats = {
-              data: year,
-              totalValue: yearTotalValue,
-              totalOrders: yearTotalOrders,
-              totalProductsSold: yearTotalProductsSold,
-              averageOrderValue: yearTotalOrders > 0 ? (yearTotalValue / yearTotalOrders) : 0,
-              mostPopularProduct: Object.keys(yearPopularProducts).length > 0
-              ? await findMostPopularProductId(yearPopularProducts)
-              : { name: "No products", id: "", searchParam: "", quantity: 0 },
-              percentageStats: {
-                totalValue: findPercentageValue(previousYearStats.totalValue, yearTotalValue),
-                totalOrders: findPercentageValue(previousYearStats.totalOrders, yearTotalOrders),
-                totalProductsSold: findPercentageValue(previousYearStats.totalProductsSold, yearTotalProductsSold),
-                averageOrderValue: findPercentageValue(previousYearStats.averageOrderValue, yearTotalOrders > 0 ? (yearTotalValue / yearTotalOrders) : 0)
-              },
-              numericStats: {
-                totalValue: yearTotalValue - previousYearStats.totalValue,
-                totalOrders: yearTotalOrders - previousYearStats.totalOrders,
-                totalProductsSold: yearTotalProductsSold - previousYearStats.totalProductsSold,
-                averageOrderValue: (yearTotalOrders > 0 ? (yearTotalValue / yearTotalOrders) : 0) - previousYearStats.averageOrderValue
-              }
-            }
-
-        return { dayStats, weekStats, monthStats, threeMonthsStats, sixMonthsStats, yearStats };
-
+      const invoice = await createWaybill(orderId, branch, settings);
+      results.push({ orderId, ok: true, number: invoice.IntDocNumber });
     } catch (error: any) {
-        throw new Error(`Error getting dashboard data: ${error.message}`)
-    }
-}
-
-function adjustToDivisionBy5(duration: number) {
-  const lastDigit = duration % 10;
-
-  let daysToSubtract = 0;
-
-  switch (lastDigit) {
-    case 0: 
-    daysToSubtract = 0;
-    break;
-
-    case 1: 
-    daysToSubtract = 1;
-    break;
-
-    case 2: 
-    daysToSubtract = 2;
-    break;
-
-    case 3: 
-    daysToSubtract = 3;
-    break;
-
-    case 4: 
-    daysToSubtract = 4;
-    break;
-
-    case 5: 
-    daysToSubtract = 0;
-    break;
-
-    case 6: 
-    daysToSubtract = 1;
-    break;
-
-    case 7: 
-    daysToSubtract = 2;
-    break;
-
-    case 8: 
-    daysToSubtract = 3;
-    break;
-
-    case 9: 
-    daysToSubtract = 4;
-    break;
-
-    default: 
-      daysToSubtract = 0;
-  }
-
-  //console.log(daysToSubtract);
-  return daysToSubtract;
-}
-
-function adjustToDivisionBy6(duration: number) {
-  let daysToSubtract = 0;
-  let nearestPrevious = 0;
-
-  const divisibleBy6Numbers = [150, 156, 162, 168, 174, 180];
-
-  for(let i = 0; i < divisibleBy6Numbers.length; i++) {
-    if(divisibleBy6Numbers[i] < duration) {
-      nearestPrevious = divisibleBy6Numbers[i];
-    } else {
-      break
+      results.push({ orderId, ok: false, error: invoiceError(error).error });
+      // Without the API nothing else will work either.
+      if (error instanceof DeliveryNotReady) break;
     }
   }
-
-  if (nearestPrevious === 0) {
-    return 0;
-  }
-
-  //console.log("Nearest previous:", nearestPrevious);
-  
-  return duration - nearestPrevious;
+  if (results.some((result) => result.ok)) await clearCache("updateOrder", undefined);
+  return { ok: true as const, results };
 }
 
-function adjustToDivisionBy3(duration: number) {
-  let daysToSubtract = 0;
-  let nearestPrevious = 0;
-
-  const divisibleBy6Numbers = [63, 66, 69, 72, 75, 78, 81, 84, 87];
-
-  for(let i = 0; i < divisibleBy6Numbers.length; i++) {
-    if(divisibleBy6Numbers[i] < duration) {
-      nearestPrevious = divisibleBy6Numbers[i];
-    } else {
-      break
-    }
-  }
-
-  if (nearestPrevious === 0) {
-    return 0;
-  }
-
-  //console.log("Nearest previous:", nearestPrevious);
-  
-  return duration - nearestPrevious;
-}
-
-function calculatePeriods(from: Date | undefined, to: Date | undefined) {
-  if (!from) return [];
-
-  const periods: { dateName: string }[] = [];
-
-  if (to) {
-    //console.log(from, to);
-    const startMoment = moment(from);
-    const endMoment = moment(to);
-    //console.log(startMoment, endMoment);
-    
-    const startYear = startMoment.year();
-    const startMonth = startMoment.month();
-    const endYear = endMoment.year();
-    const endMonth = endMoment.month();
-
-    const monthsDuration = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-    const durationInDays = endMoment.diff(startMoment, 'days') + 1;
-    const durationInHours = endMoment.diff(startMoment, 'hours') + 24;
-
-    //console.log(durationInDays);
-    //console.log(durationInHours);
-    //console.log(monthsDuration);
-
-    if (durationInDays > 5) {
-      if (durationInDays <= 31) {
-        // Return time period of subperiods = number of selected days
-        for (let i = 0; i < durationInDays; i++) {
-          const start = startMoment.clone().add(i, 'days');
-          periods.push({ dateName: start.format('YYYY-MM-DD') });
-        }
-
-        //Should return a dateName of a single time (Already correct)
-      } else {
-        if (durationInDays <= 91) {
-          if (durationInDays % 2 === 0 && durationInDays / 2 <= 31) {
-            // Return the time period of the length of division result, subperiods consist of two days
-            for (let i = 0; i < durationInDays; i += 2) {
-              const start = startMoment.clone().add(i, 'days');
-              const end = start.clone().add(1, 'days');
-              periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-            }
-            //Should return a range of time
-          } else if (durationInDays % 3 === 0) {
-            // Return the time period of the length of division result, subperiods consist of three days
-            for (let i = 0; i < durationInDays; i += 3) {
-              const start = startMoment.clone().add(i, 'days');
-              const end = start.clone().add(2, 'days');
-              periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-            }
-            //Should return a range of time
-          } else {
-
-            if(durationInDays >= 63 && durationInDays <= 89) {
-              const daysToSubtract = adjustToDivisionBy3(durationInDays);
-
-              const adjustedDurationInDays = durationInDays - daysToSubtract;
-
-              for(let i = 0; i < adjustedDurationInDays; i += 3) {
-                const start = startMoment.clone().add(i, 'days');
-                const end = start.clone().add(2, 'days');
-                periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format(`YYYY-MM-DD`)}`});
-              }
-
-              const lastPeriodStart = endMoment.clone().subtract(daysToSubtract - 1, 'days');
-
-              if(daysToSubtract === 1) {
-                periods.push({ dateName: `${lastPeriodStart.format(`YYYY-MM-DD`)}` })
-              } else {
-                periods.push({ dateName: `${lastPeriodStart.format(`YYYY-MM-DD`)} - ${endMoment.format('YYYY-MM-DD')}` });
-              }
-            } else {
-              const adjustedDurationInDays = durationInDays - 1;
-            
-              if (adjustedDurationInDays % 2 === 0 && adjustedDurationInDays / 2 <= 30) {
-                // Return the time period of the length of division result, subperiods consist of two days
-                for (let i = 0; i < adjustedDurationInDays; i += 2) {
-                  const start = startMoment.clone().add(i, 'days');
-                  const end = start.clone().add(1, 'days');
-                  periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-                  
-                }
-                
-                periods.push({ dateName: endMoment.format('YYYY-MM-DD') });          
-              } else {
-                // Return the time period of the length of division result, subperiods consist of three days
-                for (let i = 0; i < adjustedDurationInDays; i += 3) {
-                  const start = startMoment.clone().add(i, 'days');
-                  const end = start.clone().add(2, 'days');
-                  periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-                }
-              }
-            }
-          
-            // Add the last day as a single period
-          }
-        } else {
-          if (durationInDays <= 182) {
-            if (durationInDays % 4 === 0 && durationInDays / 4 <= 31) {
-              // Return the time period of the length of division result, subperiods consist of 4 days
-              for (let i = 0; i < durationInDays; i += 4) {
-                const start = startMoment.clone().add(i, 'days');
-                const end = start.clone().add(3, 'days');
-                periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-                //Should return a range of time
-              }
-            } else if (durationInDays % 5 === 0 && durationInDays / 5 <= 31) {
-              // Return the time period of the length of division result, subperiods consist of 5 days
-              for (let i = 0; i < durationInDays; i += 5) {
-                const start = startMoment.clone().add(i, 'days');
-                const end = start.clone().add(4, 'days');
-                periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-              }
-              //Should return a range of time
-            } else if (durationInDays % 6 === 0) {
-              // Return the time period of the length of division result, subperiods consist of 6 days
-              for (let i = 0; i < durationInDays; i += 6) {
-                const start = startMoment.clone().add(i, 'days');
-                const end = start.clone().add(5, 'days');
-                periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-              }
-              //Should return a range of time
-            } else if (durationInDays % 7 === 0) {
-              // Return the time period of the length of division result, subperiods consist of 7 days
-              for (let i = 0; i < durationInDays; i += 7) {
-                const start = startMoment.clone().add(i, 'days');
-                const end = start.clone().add(6, 'days');
-                periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-              }
-              //Should return a range of time
-            } else if (durationInDays % 10 === 0) {
-              // Return the time period of the length of division result, subperiods consist of 7 days
-              for (let i = 0; i < durationInDays; i += 10) {
-                const start = startMoment.clone().add(i, 'days');
-                const end = start.clone().add(9, 'days');
-                periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-              }
-            } else {
-              console.log("Else");
-
-              if(durationInDays <= 154) {
-                const daysToSubtract = adjustToDivisionBy5(durationInDays);
-
-                const adjustedDurationInDays = durationInDays - daysToSubtract;
-
-                for(let i = 0; i < adjustedDurationInDays; i += 5) {
-                  const start = startMoment.clone().add(i, 'days');
-                  const end = start.clone().add(4, 'days');
-                  periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format(`YYYY-MM-DD`)}`});
-                }
-
-                const lastPeriodStart = endMoment.clone().subtract(daysToSubtract - 1, 'days');
-
-                if(daysToSubtract === 1) {
-                  periods.push({ dateName: `${lastPeriodStart.format(`YYYY-MM-DD`)}` })
-                } else {
-                  periods.push({ dateName: `${lastPeriodStart.format(`YYYY-MM-DD`)} - ${endMoment.format('YYYY-MM-DD')}` });
-                }
-              } else if(durationInDays > 155) {
-                const daysToSubtract = adjustToDivisionBy6(durationInDays);
-
-                
-                const adjustedDurationInDays = durationInDays - daysToSubtract;
-
-                for(let i = 0; i < adjustedDurationInDays; i += 6) {
-                  const start = startMoment.clone().add(i, 'days');
-                  const end = start.clone().add(5, 'days');
-                  periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format(`YYYY-MM-DD`)}`});
-                }
-
-                const lastPeriodStart = endMoment.clone().subtract(daysToSubtract - 1, 'days');
-
-                if(daysToSubtract === 1) {
-                  periods.push({ dateName: `${lastPeriodStart.format(`YYYY-MM-DD`)}` })
-                } else {
-                  periods.push({ dateName: `${lastPeriodStart.format(`YYYY-MM-DD`)} - ${endMoment.format('YYYY-MM-DD')}` });
-                }
-              } else {
-                console.log("Else 2");
-                const adjustedDurationInDays = durationInDays - 3;
-                
-                if (adjustedDurationInDays % 4 === 0 && adjustedDurationInDays / 4 <= 30) {
-                  // Return the time period of the length of division result, subperiods consist of four days
-                  for (let i = 0; i < adjustedDurationInDays; i += 4) {
-                    const start = startMoment.clone().add(i, 'days');
-                    const end = start.clone().add(3, 'days');
-                    periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-                  }
-                  
-                } else if (adjustedDurationInDays % 5 === 0 && adjustedDurationInDays / 5 <= 30) {
-                  // Return the time period of the length of division result, subperiods consist of five days
-                  for (let i = 0; i < adjustedDurationInDays; i += 5) {
-                    const start = startMoment.clone().add(i, 'days');
-                    const end = start.clone().add(4, 'days');
-                    periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-                  }
-                } else if (adjustedDurationInDays % 6 === 0) {
-                  // Return the time period of the length of division result, subperiods consist of six days
-                  for (let i = 0; i < adjustedDurationInDays; i += 6) {
-                    const start = startMoment.clone().add(i, 'days');
-                    const end = start.clone().add(5, 'days');
-                    periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-                  }
-                } else if (adjustedDurationInDays % 7 === 0) {
-                  // Return the time period of the length of division result, subperiods consist of seven days
-                  for (let i = 0; i < adjustedDurationInDays; i += 7) {
-                    const start = startMoment.clone().add(i, 'days');
-                    const end = start.clone().add(6, 'days');
-                    periods.push({ dateName: `${start.format('YYYY-MM-DD')} - ${end.format('YYYY-MM-DD')}` });
-                  }
-                }
-            
-                // Add the last three days as a single period
-                const lastPeriodStart = endMoment.clone().subtract(3, 'days');
-                periods.push({ dateName: `${lastPeriodStart.format('YYYY-MM-DD')} - ${endMoment.format('YYYY-MM-DD')}` });
-              }
-            }
-          } else {
-            if (monthsDuration <= 31) {
-              // Return the time period of the length of division result, number of subperiods equals to the amount of months
-              for (let i = 0; i < monthsDuration; i++) {
-                const start = startMoment.clone().add(i, 'months');
-                periods.push({ dateName: start.format('YYYY-MM') });
-              }
-              //Should return a dateName of a single time (Already correct)
-            } else {
-              if (monthsDuration <= 72) {
-                if (monthsDuration % 2 === 0 && monthsDuration / 2 <= 31) {
-                  // Return the time period of the length of division result, subperiods consist of two months
-                  for (let i = 0; i < monthsDuration; i += 2) {
-                    const start = startMoment.clone().add(i, 'months');
-                    const end = start.clone().add(1, 'months');
-                    periods.push({ dateName: `${start.format('YYYY-MM')} - ${end.format('YYYY-MM')}` });
-                  }
-                  //Should return a range of time
-                } else if (monthsDuration % 3 === 0) {
-                  // Return the time period of the length of division result, subperiods consist of three months
-                  for (let i = 0; i < monthsDuration; i += 3) {
-                    const start = startMoment.clone().add(i, 'months');
-                    const end = start.clone().add(2, 'months');
-                    periods.push({ dateName: `${start.format('YYYY-MM')} - ${end.format('YYYY-MM')}` });
-                  }
-                  //Should return a range of time
-                } else {
-                  // Try to separate the end period, if the results can be divided by 2 or 3 then go through previous algorithms starting at month's division section
-                  for (let i = 0; i < monthsDuration - 1; i += 2) {
-                    const start = startMoment.clone().add(i, 'months');
-                    const end = start.clone().add(1, 'months');
-                    periods.push({ dateName: `${start.format('YYYY-MM')} - ${end.format('YYYY-MM')}` });
-                  }
-                  periods.push({ dateName: endMoment.format('YYYY-MM') });
-                  //Should return a range of time, the last one should be the end month and be a single time
-                }
-              } else {
-                // Return the time period of the length of division result, the number of subperiods equals to the amount of years
-                const yearsDuration = Math.ceil((monthsDuration)/ 12);
-                for (let i = 0; i < yearsDuration; i++) {
-                  const start = startMoment.clone().add(i, 'years');
-                  periods.push({ dateName: start.format('YYYY') });
-                }
-                //Should return a dateName of a single time (Already correct)
-              }
-            }
-          }
-        }
-      }
-    } else {
-      if (durationInHours % 2 === 0 && durationInHours / 2 <= 31) {
-        // Return the time period of the length of division result, subperiods consist of 2 hours
-        for (let i = 0; i < durationInHours; i += 2) {
-          const start = startMoment.clone().add(i, 'hours');
-          const end = start.clone().add(1, 'hours');
-          periods.push({ dateName: `${start.format('YYYY-MM-DD HH:00')} - ${end.format('YYYY-MM-DD HH:00')}` });
-        }
-        //Should return a range of time
-      } else if (durationInHours % 3 === 0 && durationInHours / 3 <= 31) {
-        // Return the time period of the length of division result, subperiods consist of 3 hours
-        for (let i = 0; i < durationInHours; i += 3) {
-          const start = startMoment.clone().add(i, 'hours');
-          const end = start.clone().add(2, 'hours');
-          periods.push({ dateName: `${start.format('YYYY-MM-DD HH:00')} - ${end.format('YYYY-MM-DD HH:00')}` });
-        }
-        //Should return a range of time
-      } else if (durationInHours % 4 === 0) {
-        // Return the time period of the length of division result, subperiods consist of 4 hours
-        for (let i = 0; i < durationInHours; i += 4) {
-          const start = startMoment.clone().add(i, 'hours');
-          const end = start.clone().add(3, 'hours');
-          periods.push({ dateName: `${start.format('YYYY-MM-DD HH:00')} - ${end.format('YYYY-MM-DD HH:00')}` });
-        }
-        //Should return a range of time
-      } else {
-        // Try to separate the end period, if the results can be divided by 2 or 3 then go through previous algorithms starting at division section
-        for (let i = 0; i < durationInHours - 1; i += 2) {
-          const start = startMoment.clone().add(i, 'hours');
-          const end = start.clone().add(1, 'hours');
-          periods.push({ dateName: `${start.format('YYYY-MM-DD HH:00')} - ${end.format('YYYY-MM-DD HH:00')}` });
-        }
-        periods.push({ dateName: endMoment.format('YYYY-MM-DD HH:00') });
-        //Should return a range of time, the last one should be the end hour and be a single time
-      }
-    }
-  } else {
-    // The number of subperiods = 24 
-    for (let hour = 0; hour < 24; hour++) {
-      const start = moment(from).startOf('day').add(hour, 'hours');
-      periods.push({ dateName: start.format('YYYY-MM-DD HH:00') });
-      //Should return a dateName of a single time (Already correct)
-    }
-  }
-
-  //console.log(periods.length);
-  return periods;
-}
-
-function determineDateFormat(dateString: string) {
-  if(/^\d{4}-\d{2}-\d{2} \d{2}:00$/.test(dateString)) {
-
-    return 'YYYY-MM-DD HH:00';
-  } else if(/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-
-    return 'YYYY-MM-DD';
-  } else if(/^\d{4}-\d{2}$/.test(dateString)) {
-
-    return 'YYYY-MM';
-  } else if(/^\d{4}$/.test(dateString)) {
-
-    return 'YYYY';
-  }
-}
-
-function reformat(transformedData: { dateName: string, value: any }[]) {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-
-  function getDaySuffix(day: number) {
-    if (day > 3 && day < 21) return 'th';
-    switch (day % 10) {
-      case 1: return "st";
-      case 2: return "nd";
-      case 3: return "rd";
-      default: return "th";
-    }
-  }
-
-
-  return transformedData.map((item, index, array) => {
-    const [startDate, endDate] = item.dateName.split(" - ");
-
-    const format = determineDateFormat(startDate);
-
-    if(format === "YYYY-MM-DD"){
-      if (!item.dateName.includes(" - ")) {
-        // Single date
-        const [year, month, day] = item.dateName.split("-");
-        let formattedDate = `${months[parseInt(month) - 1]} ${parseInt(day)}`;
-  
-        if(index === 0 || index === array.length - 1) {
-          formattedDate = `${year} ${formattedDate}`;
-        } 
-  
-        return {
-          dateName: `${formattedDate}`,
-          value: item.value
-        };
-      } else {
-        // Date range
-  
-        const [startYear, startMonth, startDay] = startDate.split("-");
-        const [endYear, endMonth, endDay] = endDate.split("-");
-  
-        let formattedStartDate = `${months[parseInt(startMonth) - 1]} ${parseInt(startDay)}`;
-        let formattedEndDate = `${months[parseInt(endMonth) - 1]} ${parseInt(endDay)}`;
-  
-        if (index === 0) {
-          formattedStartDate = `${startYear} ${formattedStartDate}`;
-        }
-  
-        if (index === array.length - 1) {
-          formattedEndDate = `${endYear} ${formattedEndDate}`;
-        }
-  
-        return {
-          dateName: `${formattedStartDate} - ${formattedEndDate}`,
-          value: item.value
-        };
-      }
-    } else if(format === "YYYY-MM-DD HH:00") {
-      if (!item.dateName.includes(" - ")) {
-        // Single date
-        const [date, time] = item.dateName.split(" ");
-        const [year, month, day] = date.split("-").map(Number);
-
-        const dateObject = new Date(year, month - 1, day);
-        const dayOfWeek = daysOfWeek[dateObject.getDay()];
-        const dayWithSuffix = `${day}${getDaySuffix(day)}`; 
-  
-        return {
-          dateName: `${time}`,
-          value: item.value
-        };
-      } else {
-        const [startDateDay, startTime] = startDate.split(" ");
-        const [startYear, startMonth, startDay] = startDateDay.split("-").map(Number);
-
-        const startDateObject = new Date(startYear, startMonth - 1, startDay);
-        const startDayOfWeek = daysOfWeek[startDateObject.getDay()];
-
-        const [endDateDay, endTime] = endDate.split(" ");
-        const [endYear, endMonth, endDay] = endDateDay.split("-").map(Number);
-
-        const endDateObject = new Date(endYear, endMonth - 1, endDay);
-        const endDayOfWeek = daysOfWeek[endDateObject.getDay()];
-
-        return {
-          dateName: `${startDayOfWeek} ${startTime} - ${endTime}`,
-          value: item.value
-        }
-      }
-    } else if(format === "YYYY-MM") {
-      if (!item.dateName.includes(" - ")) {
-        // Single date
-        const [year, month, day] = item.dateName.split("-");
-        let formattedDate = `${year} ${months[parseInt(month) - 1]}`;
-        return {
-          dateName: `${formattedDate}`,
-          value: item.value
-        };
-      } else {
-        // Date range
-  
-        const [startYear, startMonth, startDay] = startDate.split("-");
-        const [endYear, endMonth, endDay] = endDate.split("-");
-  
-        let formattedStartDate = `${startYear} ${months[parseInt(startMonth) - 1]}`;
-        let formattedEndDate = `${endYear} ${months[parseInt(endMonth) - 1]}`;
-  
-        return {
-          dateName: `${formattedStartDate} - ${formattedEndDate}`,
-          value: item.value
-        };
-      }
-    } else {
-      return {
-        dateName: item.dateName,
-        value: item.value
-      }
-    }
-  });
-}
-
-function groupOrdersByPeriods(orders: Order[], periods: { dateName: string}[]) {
-  const data: { [key: string]: Order[]} = {};
-
-  periods.forEach(period => {
-    const periodKey = period.dateName;
-    data[periodKey] = []; // Initialize period key here
-  });
-
-  orders.forEach(order => {
-    const orderDate = moment(order.data);
-
-    periods.forEach(period => {
-      const periodKey = period.dateName;
-
-      if(periodKey.includes(` - `)) {
-        const [start, end] = periodKey.split(' - ');
-  
-        // console.log("Start:", start);
-  
-        const format = determineDateFormat(start);
-
-        const startDate = moment(start, format);
-        let endDate = moment(end, format);
-
-        //console.log("Start date", startDate);
-
-        if(format === 'YYYY-MM-DD HH:00') {
-          endDate = endDate.endOf('hour');
-        } else if(format === 'YYYY-MM-DD') {
-          endDate = endDate.endOf('day');
-        } else if(format === 'YYYY-MM') {
-          endDate = endDate.endOf('month');
-        } else if(format === 'YYYY') {
-          endDate = endDate.endOf('year');
-        }
-  
-        if(orderDate.isBetween(startDate, endDate, undefined, '[]')) {
-          data[periodKey].push(order)
-        }
-      } else {
-        const format = determineDateFormat(periodKey);
-  
-        // console.log(format);
-
-        const date = moment(periodKey, format);
-
-        //console.log("Start date", date);
-        // console.log(orderDate, date, orderDate.isSame(date, 'day'));
-        if (
-          (format === 'YYYY-MM-DD HH:00' && orderDate.isSame(date, 'hour')) ||
-          (format === 'YYYY-MM-DD' && orderDate.isSame(date, 'day')) ||
-          (format === 'YYYY-MM' && orderDate.isSame(date, 'month')) ||
-          (format === 'YYYY' && orderDate.isSame(date, 'year'))
-        ) {
-          data[periodKey].push(order);
-        }
-        // console.log(periodKey);
-  
-        // console.log('Format:', format)
-      }
-    });
-  })
-
-  // console.log(data);
-
-  return data;
-}
-
-export async function findAverageOrderValue(from: Date | undefined, to: Date | undefined) {
+/** Reads the current tracking status of up to 100 waybills and stores it on the orders. */
+export async function refreshWaybillStatuses(numbers: string[]): Promise<{ ok: true; updated: number } | { ok: false; error: string }> {
+  await requireAdmin();
   try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        }
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        }
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const averageData: { [key: string]: number} = {};
-
-    let totalOrders = 0;
-    let totalRevenue = 0;
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      if(ordersInPeriod.length > 0) {
-        const totalValue = ordersInPeriod.reduce((sum, order) => sum + order.value, 0);
-
-        totalOrders += ordersInPeriod.length;
-        totalRevenue += totalValue;
-
-        const averageValue = totalValue !== 0 ? totalValue / ordersInPeriod.length : 0;
-
-        averageData[period] = averageValue;
-      } else {
-        averageData[period] = 0;
-      }
-    }
-
-    //console.log(averageData);
-    const transformedData = Object.entries(averageData).map(([dateName, averageValue]) => ({
-      dateName,
-      value: averageValue
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    const averageOverall = totalRevenue !== 0  ? totalRevenue / totalOrders : 0;
-
-    return { data: reformatedData, overall: averageOverall };
+    const updated = await refreshStatuses((numbers ?? []).map((number) => String(number).replace(/\s/g, "")));
+    return { ok: true, updated };
   } catch (error: any) {
-    throw new Error(`Error finding average order value: ${error.message}`)
+    return invoiceError(error);
   }
 }
 
-export async function findTotalOrders(from: Date | undefined, to: Date | undefined) {
+/** Tracking data of one waybill. Staff only (it carries the recipient's name and phone). */
+export async function getInvoiceDetails(documentNumber: string): Promise<{ ok: true; tracking: Record<string, unknown> } | { ok: false; error: string }> {
+  await requireAdmin();
+  const number = String(documentNumber ?? "").replace(/\s/g, "")
+  if (!/^\d{6,20}$/.test(number)) return { ok: false, error: "Невірний номер накладної." }
   try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        }
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        }
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const totalOrders: { [key: string]: number} = {};
-
-    let ordersOverall = 0;
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      totalOrders[period] = ordersInPeriod.length;
-
-      ordersOverall += ordersInPeriod.length;
-    }
-
-    //console.log(totalOrders);
-
-    const transformedData = Object.entries(totalOrders).map(([dateName, orders]) => ({
-      dateName,
-      value: orders
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return {data: reformatedData, overall: ordersOverall};
+    const tracking = await trackOne(number);
+    await Order.updateOne({ invoiceString: number }, { $set: { invoiceStatus: String(tracking.Status ?? ""), invoiceStatusCode: String(tracking.StatusCode ?? ""), invoiceCheckedAt: new Date() } });
+    return { ok: true, tracking };
   } catch (error: any) {
-    throw new Error(`Error finding total orders: ${error.message}`)
+    return invoiceError(error);
   }
 }
 
-export async function findTotalRevenue(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        }
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        }
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const totalRevenue: { [key: string]: number} = {};
-
-    let revenueOverall = 0;
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      if(ordersInPeriod.length > 0) {
-        const totalValue = ordersInPeriod.reduce((sum, order) => sum + order.value, 0);
-
-        totalRevenue[period] = totalValue;
-        revenueOverall += totalValue;
-      } else {
-        totalRevenue[period] = 0;
-      }
-    }
-
-    //console.log(totalRevenue);
-
-    const transformedData = Object.entries(totalRevenue).map(([dateName, revenue]) => ({
-      dateName,
-      value: revenue
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return {data: reformatedData, overall: revenueOverall};
-  } catch (error: any) {
-    throw new Error(`Error finding total revenue: ${error.message}`)
-  }
-}
-
-export async function findTopSellingProduct(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        }
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        }
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const topSellingProduct: { [key: string]: { product: {name: string, image: string, searchParam: string | null}, amount: number } } = {};
-
-    let totalTopSellingProduct: { [key: string]: number } = {};
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      if(ordersInPeriod.length > 0) {
-        const productSales: { [key: string ]: number } = {};
-
-        ordersInPeriod.forEach(order => {
-          order.products.forEach(product => {
-            if(!productSales[product.product]) {
-              productSales[product.product] = 0;
-              totalTopSellingProduct[product.product] = 0;
-            }
-
-            productSales[product.product] += product.amount;
-            totalTopSellingProduct[product.product] += product.amount;
-          })
-        })
-
-        let topProduct = '';
-        let maxAmount = 0;
-
-        for(const product in productSales) {
-          if(productSales[product] > maxAmount) {
-            topProduct = product;
-            maxAmount = productSales[product];
-          }
-        }
-
-        const topProductInfo = await Product.findById(topProduct);
-
-
-        topSellingProduct[period] = { product: { name: topProductInfo.name, image: topProductInfo.images[0], searchParam: topProductInfo.params[0].value }, amount: maxAmount };
-      } else {
-        topSellingProduct[period] = { product: { name: 'No sales', image: "", searchParam: null}, amount: 0 };
-      }
-    }
-
-    let totalTopProduct = '';
-    let totalMaxAmount = 0
-
-    for(const product in totalTopSellingProduct) {
-      if(totalTopSellingProduct[product] > totalMaxAmount) {
-        totalTopProduct = product;
-        totalMaxAmount = totalTopSellingProduct[product];
-      }
-    }
-
-    let totalTopSellingProductInfo = {
-      name: "No sales",
-      images: [""],
-      params: [{ value: null }],
-    }
-
-    if(totalTopProduct !== '') {
-      totalTopSellingProductInfo = await Product.findById(totalTopProduct) as any;
-    }
-
-    //console.log(topSellingProduct);
-
-    const transformedData = Object.entries(topSellingProduct).map(([dateName, product]) => ({
-      dateName,
-      value: product
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return { data: reformatedData, topProduct: { name: totalTopSellingProductInfo.name, image: totalTopSellingProductInfo.images[0], searchParam: totalTopSellingProductInfo.params[0].value, amount: totalMaxAmount } };
-  } catch (error: any) {
-    throw new Error(`Error finding top-selling product: ${error.message}`)
-  }
-}
-
-export async function findLeastSellingProduct(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        }
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        }
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const leastSellingProducts: { [key: string]: { product: string, amount: number } } = {};
-
-    const totalProductSales: { [key: string]: number } = {};
-
-    let totalLowProduct = "";
-    let totalMinAmount = Infinity;
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      if(ordersInPeriod.length > 0) {
-        const productSales: { [key: string ]: number } = {};
-
-        ordersInPeriod.forEach(order => {
-          order.products.forEach(product => {
-            if(!productSales[product.product]) {
-              productSales[product.product] = 0;
-              totalProductSales[product.product] = 0;
-            }
-
-            productSales[product.product] += product.amount;
-            totalProductSales[product.product] += product.amount;
-          })
-        })
-
-        let lowProduct = '';
-        let minAmount = Infinity;
-
-        for(const product in productSales) {
-          if(productSales[product] < minAmount) {
-            lowProduct = product;
-            minAmount = productSales[product];
-          }
-        }
-
-        leastSellingProducts[period] = { product: lowProduct, amount: minAmount };
-      } else {
-        leastSellingProducts[period] = { product: '', amount: Infinity};
-      }
-    }
-
-    for(const product in totalProductSales) {
-      if(totalProductSales[product] < totalMinAmount) {
-        totalLowProduct = product;
-        totalMinAmount = totalProductSales[product];
-      }
-    }
-
-    //console.log(totalLowProduct);
-
-    //console.log(leastSellingProducts);
-
-    const transformedData = Object.entries(leastSellingProducts).map(([dateName, product]) => ({
-      dateName,
-      value: product,
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return {data: reformatedData, totalLowProduct};
-  } catch (error: any) {
-    throw new Error(`Error finding least selling product: ${error.message}`)
-  }
-}
-
-export async function findSalesByCategory(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders: Order[] = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        }
-      }).populate({
-        path: "products.product"
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        }
-      }).populate({
-        path: "products.product"
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const salesByCategory: { [key: string]: { category: string, sales: number } } = {};
-
-    const totalMostPopularCategory: { [category: string]: number } = {};
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      if(ordersInPeriod.length > 0) {
-        const categorySales: { [category: string]: number } = {};
-
-        ordersInPeriod.forEach(order => {
-          order.products.forEach((orderedProduct: { product: any, amount:number }) => {
-            if(!categorySales[orderedProduct.product.category]) {
-              categorySales[orderedProduct.product.category] = 0;
-              totalMostPopularCategory[orderedProduct.product.category] = 0;
-            }
-
-            categorySales[orderedProduct.product.category] = orderedProduct.amount;
-            totalMostPopularCategory[orderedProduct.product.category] = orderedProduct.amount;
-          })
-
-          const mostPopularCategory = Object.keys(categorySales).reduce((current, previous) => categorySales[current] > categorySales[previous] ? current : previous);
-
-          salesByCategory[period] = {
-            category: mostPopularCategory,
-            sales: categorySales[mostPopularCategory]
-          }
-        })
-      } else {
-        salesByCategory[period] = {
-          category: "No sales",
-          sales: 0
-        }
-      }
-    }
-
-    const mostPopularCategoryOverall = Object.keys(totalMostPopularCategory).reduce(
-      (current, previous) => totalMostPopularCategory[current] > totalMostPopularCategory[previous] ? current : previous,
-      Object.keys(totalMostPopularCategory)[0] || "None"
-    );
-
-    //console.log(salesByCategory);
-
-    const transformedData = Object.entries(salesByCategory).map(([dateName, sales]) => ({
-      dateName,
-      value: {
-        category: sales.category,
-        number: sales.sales
-      }
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return {data: reformatedData, topCategory: mostPopularCategoryOverall};
-  } catch (error: any) {
-    throw new Error(`Error finding sales by category: ${error.message}`)
-  }
-}
-
-export async function findMostPopularRegion(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        }
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        }
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const postalCodeToRegion: { [key: string]: string } = {
-      '01': 'Kyiv',
-      '02': 'Kyiv Oblast',
-      '04': 'Kyiv',
-      '08': 'Kyiv Oblast',
-      '09': 'Kyiv Oblast',
-      '10': 'Zhytomyr Oblast',
-      '11': 'Zhytomyr Oblast',
-      '12': 'Zhytomyr Oblast',
-      '13': 'Zhytomyr Oblast',
-      '14': 'Chernihiv Oblast',
-      '15': 'Chernihiv Oblast',
-      '16': 'Chernihiv Oblast',
-      '17': 'Chernihiv Oblast',
-      '18': 'Cherkasy Oblast',
-      '19': 'Cherkasy Oblast',
-      '20': 'Cherkasy Oblast',
-      '21': 'Vinnytsia Oblast',
-      '22': 'Vinnytsia Oblast',
-      '23': 'Vinnytsia Oblast',
-      '24': 'Vinnytsia Oblast',
-      '25': 'Kirovohrad Oblast',
-      '26': 'Kirovohrad Oblast',
-      '27': 'Kirovohrad Oblast',
-      '28': 'Kirovohrad Oblast',
-      '29': 'Khmelnytskyi Oblast',
-      '30': 'Khmelnytskyi Oblast',
-      '31': 'Khmelnytskyi Oblast',
-      '32': 'Khmelnytskyi Oblast',
-      '33': 'Rivne Oblast',
-      '34': 'Rivne Oblast',
-      '35': 'Rivne Oblast',
-      '36': 'Poltava Oblast',
-      '37': 'Poltava Oblast',
-      '38': 'Poltava Oblast',
-      '39': 'Poltava Oblast',
-      '40': 'Sumy Oblast',
-      '41': 'Sumy Oblast',
-      '42': 'Sumy Oblast',
-      '43': 'Volyn Oblast',
-      '44': 'Volyn Oblast',
-      '45': 'Volyn Oblast',
-      '46': 'Ternopil Oblast',
-      '47': 'Ternopil Oblast',
-      '48': 'Ternopil Oblast',
-      '49': 'Dnipropetrovsk Oblast',
-      '50': 'Dnipropetrovsk Oblast',
-      '51': 'Dnipropetrovsk Oblast',
-      '52': 'Dnipropetrovsk Oblast',
-      '53': 'Dnipropetrovsk Oblast',
-      '54': 'Mykolaiv Oblast',
-      '55': 'Mykolaiv Oblast',
-      '56': 'Mykolaiv Oblast',
-      '57': 'Mykolaiv Oblast',
-      '58': 'Chernivtsi Oblast',
-      '59': 'Chernivtsi Oblast',
-      '60': 'Chernivtsi Oblast',
-      '61': 'Kharkiv Oblast',
-      '62': 'Kharkiv Oblast',
-      '63': 'Kharkiv Oblast',
-      '64': 'Kharkiv Oblast',
-      '65': 'Odesa Oblast',
-      '66': 'Odesa Oblast',
-      '67': 'Odesa Oblast',
-      '68': 'Odesa Oblast',
-      '69': 'Zaporizhzhia Oblast',
-      '70': 'Zaporizhzhia Oblast',
-      '71': 'Zaporizhzhia Oblast',
-      '72': 'Zaporizhzhia Oblast',
-      '73': 'Kherson Oblast',
-      '74': 'Kherson Oblast',
-      '75': 'Kherson Oblast',
-      '76': 'Ivano-Frankivsk Oblast',
-      '77': 'Ivano-Frankivsk Oblast',
-      '78': 'Ivano-Frankivsk Oblast',
-      '79': 'Lviv Oblast',
-      '80': 'Lviv Oblast',
-      '81': 'Lviv Oblast',
-      '82': 'Lviv Oblast',
-      '83': 'Donetsk Oblast',
-      '84': 'Donetsk Oblast',
-      '85': 'Donetsk Oblast',
-      '86': 'Donetsk Oblast',
-      '87': 'Donetsk Oblast',
-      '88': 'Zakarpattia Oblast',
-      '89': 'Zakarpattia Oblast',
-      '90': 'Zakarpattia Oblast',
-      '91': 'Luhansk Oblast',
-      '92': 'Luhansk Oblast',
-      '93': 'Luhansk Oblast',
-      '94': 'Luhansk Oblast',
-      '95': 'Crimea',
-      '96': 'Crimea',
-      '97': 'Crimea',
-      '98': 'Crimea'
-    };
-
-    const regionOrders: { [key: string]: { region: string, number: number } } = {};
-
-    const totalMostPopularRegion: { [region: string]: number } = {};
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      if(ordersInPeriod.length > 0) {
-        const regionSales: { [region: string]: number } = {};
-
-        ordersInPeriod.forEach(order => {
-          const postalCode = order.postalCode.substring(0, 2);
-          const region = postalCodeToRegion[postalCode] || "Else";
-
-          if(!regionSales[region]) {
-            regionSales[region] = 0;
-            totalMostPopularRegion[region] = totalMostPopularRegion[region] || 0;
-          }
-
-          regionSales[region] += 1;
-          totalMostPopularRegion[region] += 1
-        })
-
-        const mostPopularRegion = Object.keys(regionSales).reduce((current, previous) => regionSales[current] > regionSales[previous] ? current : previous);
-
-        regionOrders[period] = {
-          region: mostPopularRegion,
-          number: regionSales[mostPopularRegion]
-        }
-
-      } else {
-        regionOrders[period] = {
-          region: "None",
-          number: 0
-        }
-      }
-    }
-
-    const mostPopularRegionOverall = Object.keys(totalMostPopularRegion).reduce(
-      (current, previous) => totalMostPopularRegion[current] > totalMostPopularRegion[previous] ? current : previous,
-      Object.keys(totalMostPopularRegion)[0] || "None"
-    );
-  
-    //console.log(`Most popular region overall: ${mostPopularRegionOverall}`);
-
-    //console.log(regionOrders);
-
-    const transformedData = Object.entries(regionOrders).map(([dateName, orders]) => ({
-      dateName,
-      value: {
-        region: orders.region,
-        number: orders.number
-      }
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return {data: reformatedData, topRegion: mostPopularRegionOverall};
-  } catch (error: any) {
-    throw new Error(`Error finding most popular region: : ${error.message}`)
-  }
-}
-
-export async function findSuccessfulOrders(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        },
-        paymentStatus: "Success",
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        },
-        paymentStatus: "Success"
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const successfulOrders: { [key: string]: number } = {};
-
-    let successfulOrdersOverall = 0;
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      successfulOrders[period] = ordersInPeriod.length;
-
-      successfulOrdersOverall += ordersInPeriod.length;
-    }
-
-    //console.log(successfulOrders);
-
-    const transformedData = Object.entries(successfulOrders).map(([dateName, orders]) => ({
-      dateName,
-      value: orders
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return { data: reformatedData, overall: successfulOrdersOverall };
-  } catch (error: any) {
-    throw new Error(`Error finding successful orders: ${error.message}`)
-  }
-}
-
-
-export async function findDeclinedOrders(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        },
-        paymentStatus: "Declined",
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        },
-        paymentStatus: "Declined"
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const declinedOrders: { [key: string]: number } = {};
-
-    let declinedOrdersOverall = 0;
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      declinedOrders[period] = ordersInPeriod.length;
-      declinedOrdersOverall += ordersInPeriod.length;
-    }
-
-    //console.log(declinedOrders);
-
-    const transformedData = Object.entries(declinedOrders).map(([dateName, orders]) => ({
-      dateName,
-      value: orders
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return { data: reformatedData, overall: declinedOrdersOverall };
-  } catch (error: any) {
-    throw new Error(`Error finding declined orders: ${error.message}`)
-  }
-}
-
-export async function findFulfilledOrders(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        },
-        deliveryStatus: "Fulfilled",
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        },
-        deliveryStatus: "Fulfilled"
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const fulfilledOrders: { [key: string]: number } = {};
-
-    let fulfilledOrdersOverall = 0;
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      fulfilledOrders[period] = ordersInPeriod.length;
-      fulfilledOrdersOverall += ordersInPeriod.length;
-    }
-
-    //console.log(fulfilledOrders);
-
-    const transformedData = Object.entries(fulfilledOrders).map(([dateName, orders]) => ({
-      dateName,
-      value: orders
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return { data: reformatedData, overall: fulfilledOrdersOverall };
-  } catch (error: any) {
-    throw new Error(`Error finding fulfilled orders: ${error.message}`)
-  }
-}
-
-export async function findCanceledOrders(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    
-    let orders = [];
-
-
-    if(from && to) {
-      const startDay = new Date(from);
-      // startDay.setDate(startDay.getDate() + 1);
-
-      //console.log(startDay);
-
-      const endDay = new Date(to);
-      endDay.setDate(endDay.getDate() + 1);
-
-      //console.log(endDay);
-
-      orders = await Order.find({
-        data: {
-          $gte: startDay,
-          $lte: endDay
-        },
-        deliveryStatus: "Canceled",
-      });
-
-    } else if(from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      orders = await Order.find({
-        data: {
-          $gte: startOfDay,
-          $lt: endOfDay
-        },
-        deliveryStatus: "Canceled"
-      });
-    } else {
-      orders = [];
-    }
-
-    const periods = calculatePeriods(from, to);
-
-    const data = groupOrdersByPeriods(orders, periods);
-
-    const canceledOrders: { [key: string]: number } = {};
-
-    let canceledOrdersOverall = 0;
-
-
-    for(const period in data) {
-      const ordersInPeriod = data[period];
-
-      canceledOrders[period] = ordersInPeriod.length;
-
-      canceledOrdersOverall += ordersInPeriod.length;
-    }
-
-    //console.log(canceledOrders);
-
-    const transformedData = Object.entries(canceledOrders).map(([dateName, orders]) => ({
-      dateName,
-      value: orders
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return { data: reformatedData, overall: canceledOrdersOverall };
-  } catch (error: any) {
-    throw new Error(`Error finding canceled orders: ${error.message}`)
-  }
-}
-
-export async function findAddedToCart(from: Date | undefined, to: Date | undefined) {
-  try {
-    connectToDB();
-
-    const products = await Product.find();
-
-    const periods = calculatePeriods(from, to);
-
-    const productsAddedToCart: { [key: string]: number } = {};
-
-    let addedToCartOverall = 0;
-
-    periods.forEach(period => {
-      const periodKey = period.dateName;
-      productsAddedToCart[periodKey] = 0;
-    })
-
-    products.forEach(product => {
-      product.addedToCart.forEach((addedTime: Date) => {
-        const addedDate= moment(addedTime);
-
-        periods.forEach(period => {
-          const periodKey = period.dateName;
-
-          if(periodKey.includes(' - ')) {
-            const [start, end] = periodKey.split(' - ');
-            const format = determineDateFormat(start);
-  
-            const startDate = moment(start, format);
-            let endDate = moment(end, format);
-
-            if (format === 'YYYY-MM-DD HH:00') {
-              endDate = endDate.endOf('hour');
-            } else if (format === 'YYYY-MM-DD') {
-              endDate = endDate.endOf('day');
-            } else if (format === 'YYYY-MM') {
-              endDate = endDate.endOf('month');
-            } else if (format === 'YYYY') {
-              endDate = endDate.endOf('year');
-            }
-
-            if(addedDate.isBetween(startDate, endDate, undefined, '[]')) {
-              productsAddedToCart[periodKey] += 1;
-              addedToCartOverall += 1;
-            }
-          } else {
-            const format = determineDateFormat(periodKey);
-  
-    
-            const date = moment(periodKey, format);
-    
-            if (
-              (format === 'YYYY-MM-DD HH:00' && addedDate.isSame(date, 'hour')) ||
-              (format === 'YYYY-MM-DD' && addedDate.isSame(date, 'day')) ||
-              (format === 'YYYY-MM' && addedDate.isSame(date, 'month')) ||
-              (format === 'YYYY' && addedDate.isSame(date, 'year'))
-            ) {
-              productsAddedToCart[periodKey] += 1;
-              addedToCartOverall += 1;
-            }
-          }
-        })
-      })
-    })
-
-    //console.log(productsAddedToCart);
-
-    const transformedData = Object.entries(productsAddedToCart).map(([dateName, addedToCart]) => ({
-      dateName,
-      value: addedToCart
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return { data: reformatedData, overall: addedToCartOverall };
-  } catch (error: any) {
-    throw new Error(`Error finding products added to cart: ${error.message}`)
-  }
-}
-
-export async function findNewCustomers(from: Date | undefined, to: Date | undefined) {
-  try {
-    await connectToDB();
-
-    let users = [];
-
-    if (from && to) {
-      const startDay = new Date(from);
-      startDay.setHours(0, 0, 0, 0);
-
-      const endDay = new Date(to);
-      endDay.setHours(23, 59, 59, 999);
-
-      users = await User.find({
-        "orders.createdAt": {
-          $gte: startDay
-        },
-      }).populate({
-        path: 'orders.order'
-      });
-
-    } else if (from) {
-      const startOfDay = new Date(from);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(from);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      users = await User.find({
-        "orders.createdAt": {
-          $gte: startOfDay
-        }
-      }).populate({
-        path: 'orders.order'
-      });
-
-    } else {
-      return { data: [], overall: 0 }; //Return empty object if no date range is provided
-    }
-
-
-    //console.log(users);
-
-    let firstOrders: Order[] = [];
-
-    let newCustomersOverall = 0;
-
-    users.forEach((user) => {
-      if(user.orders.length > 0) {
-        const sortedOrders = user.orders.sort((current: { order: Order, createdAt: Date }, previous: { order: Order, createdAt: Date }) => current.createdAt.getTime() - previous.createdAt.getTime());
-
-        firstOrders.push(sortedOrders[0].order);
-      }
-    })
-    const periods = calculatePeriods(from, to);
-    const data = groupOrdersByPeriods(firstOrders, periods);
-
-    const newCustomerOrders: { [key: string]: number } = {};
-
-    for (const period in data) {
-      const ordersInPeriod = data[period];
-
-      newCustomerOrders[period] = ordersInPeriod.length;
-      newCustomersOverall += ordersInPeriod.length;
-    }
-
-    //console.log("New customers", newCustomerOrders);
-
-    const transformedData = Object.entries(newCustomerOrders).map(([dateName, customer]) => ({
-      dateName,
-      value: customer
-    }))
-
-    //console.log(transformedData);
-
-    const reformatedData = reformat(transformedData);
-
-    //console.log(reformatedData);
-
-    return { data: reformatedData, overall: newCustomersOverall };
-  } catch (error: any) {
-    throw new Error(`Error finding new customers: ${error.message}`);
-  }
-}
-
-const NOVA_POSHTA_API_KEY = process.env.NOVA_POSHTA_API_KEY;
-const NOVA_POSHTA_API_URL = 'https://api.novaposhta.ua/v2.0/json/'
-const NOVA_SENDER_CITY_REF = process.env.NOVA_SENDER_CITY_REF;
-const NOVA_SENDER_REF = process.env.NOVA_SENDER_REF;
-const NOVA_SENDER_ADDRESS_REF = process.env.NOVA_SENDER_ADDRESS_REF;
-const NOVA_SENDER_CONTACT_REF = process.env.NOVA_SENDER_CONTACT_REF;
-const NOVA_SENDER_PHONE = process.env.NOVA_SENDER_PHONE
-
-export async function makeNovaPoshtaRequest(payload: any) {
-  try {
-    const response = await axios.post(NOVA_POSHTA_API_URL, payload)
-    const apiResponse = response.data // Store the whole data object
-
-    if (!apiResponse.success || !apiResponse.data || apiResponse.data.length === 0) {
-      // Extract error messages from the 'errors' array if available, otherwise use a generic message
-      const errorMessage =
-        apiResponse.errors?.join(", ") || "Nova Poshta API request failed without specific error message."
-      console.error("Nova Poshta API Error:", errorMessage, payload)
-      throw new Error(errorMessage)
-    }
-    return apiResponse.data[0]
-  } catch (error: any) {
-    console.error("Error making Nova Poshta API request:", error)
-    // If it's an Axios error and has a response data, try to extract error messages
-    if (axios.isAxiosError(error) && error.response?.data?.errors) {
-      throw new Error(error.response.data.errors.join(", "))
-    }
-    throw error // Re-throw the original error if it's not from API response
-  }
-}
-
-export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string }): Promise<string>
-export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string }, type: "json"): Promise<string>
-
-export async function createCounterParty({ stringifiedOrder }: { stringifiedOrder: string }, type?: "json") {
-  try {
-    const order = JSON.parse(stringifiedOrder)
-
-    const { name, surname, phoneNumber } = order
-
-    function smartTransliterate(str: string): string {
-      // Assuming latinToKyrylic is correctly defined elsewhere
-      return str.replace(/[A-Za-z]+/g, (match) => latinToKyrylic(match))
-    }
-
-    const cleanedName = smartTransliterate(name)
-    const cleanedSurname = smartTransliterate(surname)
-
-    // Step 1: Create the counterparty (recipient)
-    const counterpartyFields = {
-      apiKey: process.env.NOVA_POSHTA_API_KEY, // Your API Key
-      modelName: "CounterpartyGeneral",
-      calledMethod: "save",
-      methodProperties: {
-        FirstName: cleanedName,
-        MiddleName: "",
-        LastName: cleanedSurname,
-        Phone: phoneNumber.replace("+38", ""),
-        Email: order.email, // Assuming `email` is stored on the order
-        CounterpartyType: "PrivatePerson",
-        CounterpartyProperty: "Recipient",
-      },
-    }
-
-    const counterpartyResponse = await axios.post(NOVA_POSHTA_API_URL, counterpartyFields)
-    const counterpartyData = counterpartyResponse.data
-
-    if (!counterpartyData || !counterpartyData.success || !counterpartyData.data || counterpartyData.data.length === 0) {
-      const errorMessage =
-        counterpartyData.errors?.join(", ") || "Failed to create counterparty without specific error message."
-      throw new Error(errorMessage)
-    }
-
-    if (type === "json") {
-      return JSON.stringify(counterpartyData.data[0].Ref)
-    } else {
-      return counterpartyData.data[0].Ref
-    }
-  } catch (error: any) {
-    console.error("Error creating counterparty:", error)
-    // If it's an Axios error and has a response data, try to extract error messages
-    if (axios.isAxiosError(error) && error.response?.data?.errors) {
-      throw new Error(error.response.data.errors.join(", "))
-    }
-    throw new Error(`Error creating counterparty: ${error.message}`) // Fallback for other errors
-  }
-}
-
-export async function createCounterPartyContact({
-  stringifiedOrder,
-  ref,
-}: {
-  stringifiedOrder: string
-  ref: string
-}): Promise<string>
-export async function createCounterPartyContact(
-  { stringifiedOrder, ref }: { stringifiedOrder: string; ref: string },
-  type: "json",
-): Promise<string>
-
-export async function createCounterPartyContact(
-  { stringifiedOrder, ref }: { stringifiedOrder: string; ref: string },
-  type?: "json",
-) {
-  try {
-    const { name, surname, phoneNumber } = JSON.parse(stringifiedOrder)
-
-    const contactPersonFields = {
-      apiKey: process.env.NOVA_POSHTA_API_KEY, // Your API Key
-      modelName: "ContactPersonGeneral",
-      calledMethod: "save",
-      methodProperties: {
-        CounterpartyRef: ref, // Use the counterparty's reference
-        FirstName: name,
-        LastName: surname,
-        MiddleName: "", // Assuming this is part of the contact person details
-        Phone: phoneNumber,
-      },
-    }
-
-    const contactPersonResponse = await axios.post(NOVA_POSHTA_API_URL, contactPersonFields)
-    const contactPersonData = contactPersonResponse.data
-
-    if (
-      !contactPersonData ||
-      !contactPersonData.success ||
-      !contactPersonData.data ||
-      contactPersonData.data.length === 0
-    ) {
-      const errorMessage =
-        contactPersonData.errors?.join(", ") || "Failed to create contact person without specific error message."
-      throw new Error(errorMessage)
-    }
-
-    if (type === "json") {
-      return JSON.stringify(contactPersonData.data[0].Ref)
-    } else {
-      return contactPersonData.data[0].Ref
-    }
-  } catch (error: any) {
-    console.error("Error creating counterparty contact:", error)
-    // If it's an Axios error and has a response data, try to extract error messages
-    if (axios.isAxiosError(error) && error.response?.data?.errors) {
-      throw new Error(error.response.data.errors.join(", "))
-    }
-    throw new Error(`Error creating counterparty contact: ${error.message}`)
-  }
-}
-
-export async function calculateDeliveryCost({
-  stringifiedOrder,
-  senderCityRef,
-}: {
-  stringifiedOrder: string
-  senderCityRef: string
-}): Promise<string>
-export async function calculateDeliveryCost(
-  { stringifiedOrder, senderCityRef }: { stringifiedOrder: string; senderCityRef: string },
-  type: "json",
-): Promise<string>
-
-export async function calculateDeliveryCost(
-  { stringifiedOrder, senderCityRef }: { stringifiedOrder: string; senderCityRef: string },
-  type?: "json",
-) {
-  try {
-    const { deliveryMethod, cityRef, value } = JSON.parse(stringifiedOrder)
-
-    const requestBody = {
-      apiKey: process.env.NOVA_POSHTA_API_KEY,
-      modelName: "InternetDocumentGeneral",
-      calledMethod: "getDocumentPrice",
-      methodProperties: {
-        Weight: "1", // weight in kg
-        CitySender: senderCityRef,
-        CityRecipient: cityRef,
-        ServiceType: deliveryMethod === "Нова пошта (Поштомат)" ? "DoorsWarehouse" : "WarehouseWarehouse", // service type
-        Cost: value.toFixed(0),
-        CargoType: "Cargo",
-        SeatsAmount: "1",
-        // RedeliveryCalculate : {
-        //   CargoType: "Money",
-        //   Amount: value.toFixed(0)
-        // },
-      },
-    }
-
-    const response = await fetch(NOVA_POSHTA_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    })
-
-    const data = await response.json() // Parse JSON from fetch response
-
-    if (!response.ok || !data.success || !data.data || data.data.length === 0) {
-      const errorMessage = data.errors?.join(", ") || "Failed to calculate shipment cost without specific error message."
-      throw new Error(errorMessage)
-    }
-
-    if (type === "json") {
-      return JSON.stringify(data.data[0].Cost)
-    } else {
-      return data.data[0].Cost
-    }
-  } catch (error: any) {
-    console.error("Error calculating shipment cost:", error)
-    // If it's a network error or fetch throws, re-throw with a generic message or original error
-    if (error instanceof Error) {
-      throw error // Re-throw if it's already an Error object
-    }
-    throw new Error(`Error calculating shipment cost: ${error.message}`)
-  }
-}
-
-export async function generateInvoice({
-  stringifiedOrder,
-  counterPartyRef,
-  contactRef,
-  deliveryCost,
-  senderCityRef,
-  senderWarehouseRef,
-}: {
-  stringifiedOrder: string
-  counterPartyRef: string
-  contactRef: string
-  deliveryCost: string
-  senderCityRef: string
-  senderWarehouseRef: string
-}): Promise<any>
-export async function generateInvoice(
-  {
-    stringifiedOrder,
-    counterPartyRef,
-    contactRef,
-    deliveryCost,
-    senderCityRef,
-    senderWarehouseRef,
-  }: { stringifiedOrder: string; counterPartyRef: string; contactRef: string; deliveryCost: string; senderCityRef: string; senderWarehouseRef: string },
-  type: "json",
-): Promise<string>
-
-export async function generateInvoice(
-  {
-    stringifiedOrder,
-    counterPartyRef,
-    contactRef,
-    deliveryCost,
-    senderCityRef,
-    senderWarehouseRef,
-  }: { stringifiedOrder: string; counterPartyRef: string; contactRef: string; deliveryCost: string; senderCityRef: string; senderWarehouseRef: string },
-  type?: "json",
-) {
-  try {
-    const {
-      _id,
-      deliveryMethod,
-      cityRef,
-      warehouseRef,
-      warehouseIndex,
-      value,
-      phoneNumber,
-      paymentType, // <- Add paymentType here
-    } = JSON.parse(stringifiedOrder)
-
-    function getFormattedDateTime(): string {
-      return DateTime.now().setZone("Europe/Kiev").toFormat("dd.MM.yyyy")
-    }
-
-    const methodProperties: Record<string, any> = {
-      PayerType: "Recipient",
-      PaymentMethod: "Cash",
-      RecipientWarehouseIndex: warehouseIndex,
-      DateTime: getFormattedDateTime(),
-      CargoType: "Cargo",
-      Weight: "1",
-      ServiceType: deliveryMethod === "Нова пошта (Поштомат)" ? "DoorsWarehouse" : "WarehouseWarehouse",
-      SeatsAmount: "1",
-      Description: `Замовлення з ${Store.name}`,
-      Cost: deliveryCost,
-      CitySender: senderCityRef,
-      Sender: process.env.NOVA_SENDER_REF,
-      SenderAddress: senderWarehouseRef,
-      ContactSender: process.env.NOVA_SENDER_CONTACT_REF,
-      SendersPhone: process.env.NOVA_SENDER_PHONE,
-      CityRecipient: cityRef,
-      Recipient: counterPartyRef,
-      RecipientAddress: warehouseRef,
-      ContactRecipient: contactRef,
-      RecipientsPhone: phoneNumber,
-      NewAddress: "1",
-      OptionsSeat: [
-        {
-          volumetricVolume: "1",
-          volumetricWidth: "20",
-          volumetricLength: "20",
-          volumetricHeight: "20",
-          weight: "1",
-        },
-      ],
-    }
-
-    // ✅ Add backward delivery if NOT 'За реквізитами'
-    if (paymentType !== "За реквізитами") {
-      methodProperties.AfterpaymentOnGoodsCost = value.toFixed(2)
-    }
-
-    const baseFields = {
-      apiKey: process.env.NOVA_POSHTA_API_KEY,
-      modelName: "InternetDocumentGeneral",
-      calledMethod: "save",
-      methodProperties,
-    }
-
-    const response = await axios.post(NOVA_POSHTA_API_URL, baseFields)
-    const apiResponse = response.data
-
-    if (!apiResponse.success || !apiResponse.data || apiResponse.data.length === 0) {
-      const errorMessage = apiResponse.errors?.join(", ") || "Failed to create invoice without specific error message."
-      throw new Error(errorMessage)
-    }
-
-    await Order.findByIdAndUpdate(_id, {
-      invoice: JSON.stringify(apiResponse.data[0]),
-    })
-
-    return type === "json" ? JSON.stringify(apiResponse.data[0]) : apiResponse.data[0]
-  } catch (error: any) {
-    console.error("Error generating invoice:", error)
-    // If it's an Axios error and has a response data, try to extract error messages
-    if (axios.isAxiosError(error) && error.response?.data?.errors) {
-      throw new Error(error.response.data.errors.join(", "))
-    }
-    throw new Error(`Error generating invoice: ${error.message}`)
-  }
-}
-
-export async function getInvoiceDetails(documentNumber: string, phone?: string) {
-  const requestData = {
-    apiKey: process.env.NOVA_POSHTA_API_KEY,
-    modelName: "TrackingDocument",
-    calledMethod: "getStatusDocuments",
-    methodProperties: {
-      Documents: [
-        {
-          DocumentNumber: documentNumber,
-          ...(phone && { Phone: phone }), // optionally include Phone if available
-        },
-      ],
-    },
-  }
-
-  try {
-    const response = await axios.post(NOVA_POSHTA_API_URL, requestData)
-    const { data, success, errors } = response.data
-
-    if (!success || !data || data.length === 0) {
-      const errorMessage = errors?.join(", ") || "Failed to fetch invoice details without specific error message."
-      throw new Error(errorMessage)
-    }
-
-    return data[0]
-  } catch (error: any) {
-    console.error("Error fetching invoice details:", error)
-    // If it's an Axios error and has a response data, try to extract error messages
-    if (axios.isAxiosError(error) && error.response?.data?.errors) {
-      throw new Error(error.response.data.errors.join(", "))
-    }
-    throw error
-  }
-}
-
+/** Saves a waybill number typed in by hand (an empty value removes it). */
 export async function addInvoiceString({ orderId, invoiceString}: { orderId: string, invoiceString: string}) {
   try {
-    await connectToDB();
+    await requireAdmin();
+    if (!mongoose.isValidObjectId(orderId)) throw new Error("Invalid order id");
+    const value = String(invoiceString ?? "").replace(/\s/g, "").slice(0, 40);
+    if (value && !/^\d{6,20}$/.test(value)) throw new Error("Номер накладної складається з цифр.");
 
-    await Order.findByIdAndUpdate(
-      orderId,
-      {
-        invoiceString
-      }
-    )
+    await connectToDB();
+    await Order.updateOne(
+      { _id: orderId },
+      value
+        ? { $set: { invoiceString: value, invoiceCreatedAt: new Date() }, $unset: { invoiceStatus: "", invoiceStatusCode: "", invoiceCheckedAt: "" } }
+        : { $unset: { invoiceString: "", invoice: "", invoiceCreatedAt: "", invoiceStatus: "", invoiceStatusCode: "", invoiceCheckedAt: "" } },
+    );
+    await clearCache("updateOrder", undefined);
+    return value;
   } catch (error: any) {
     throw new Error(`Error adding invoice stringto order: ${error.message}`)
   }
@@ -3319,100 +569,76 @@ interface UserDataForBackend {
   warehouse: string;
 }
 
-// Updated updateOrder function
+/**
+ * Saves an edited order: contact and delivery data and the line items.
+ * The total is recalculated from current prices and keeps the order's promo
+ * discount (it used to be dropped on every edit). Stock is not touched.
+ */
 export async function updateOrder({
   orderId,
   userData,
   productsData,
-  // Optionally, allow updating invoiceString if needed outside of generateInvoice
-  invoiceString,
 }: {
   orderId: string;
   userData: UserDataForBackend;
   productsData: ProductDataForBackend[];
-  invoiceString?: string; // Optional: for manual invoice string updates
-}) {
+}): Promise<{ ok: true; value: number } | { ok: false; error: string }> {
+  await requireAdmin();
   try {
+    if (!mongoose.isValidObjectId(orderId)) throw new Error("Замовлення не знайдено.");
     await connectToDB();
 
-    // 1. Recalculate the order value on the backend
-    // Fetch actual product prices from the database for security
-    let calculatedValue = 0;
-    if (productsData && productsData.length > 0) {
-      const productIds = productsData.map(p => p.product);
-      const dbProducts = await Product.find({ _id: { $in: productIds } }).select('priceToShow');
-
-      const productMap = new Map(dbProducts.map(p => [p._id.toString(), p.priceToShow]));
-
-      for (const item of productsData) {
-        const productPrice = productMap.get(item.product.toString());
-        if (productPrice !== undefined) {
-          calculatedValue += productPrice * item.amount;
-        } else {
-          // Handle case where a product ID is invalid or not found
-          console.warn(`Product with ID ${item.product} not found or invalid. Skipping calculation for this item.`);
-          // You might choose to throw an error here, or exclude the item, etc.
-        }
+    const amounts = new Map<string, number>();
+    for (const line of productsData ?? []) {
+      const id = String(line?.product ?? "");
+      const amount = Math.floor(Number(line?.amount));
+      if (!mongoose.isValidObjectId(id) || !Number.isFinite(amount) || amount < 1 || amount > MAX_LINE_QUANTITY) {
+        throw new Error("Кількість кожного товару має бути від 1 до 99.");
       }
+      amounts.set(id, Math.min(MAX_LINE_QUANTITY, (amounts.get(id) ?? 0) + amount));
     }
+    if (amounts.size === 0) throw new Error("У замовленні має лишитися хоча б один товар.");
 
-    // 2. Prepare the update object for Mongoose
-    const updateFields: any = {
-      // User Data
-      name: userData.name,
-      surname: userData.surname,
-      phoneNumber: userData.phoneNumber,
-      email: userData.email,
-      city: userData.city,
-      adress: userData.adress,
-      comment: userData.comment,
-      warehouse: userData.warehouse,
-      
-      // Products Array (replace entirely)
-      products: productsData.map(p => ({
-        product: new mongoose.Types.ObjectId(p.product), // Convert string ID back to ObjectId
-        amount: p.amount,
-      })),
+    const [order, dbProducts] = await Promise.all([
+      Order.findById(orderId).select("_id discount").lean<{ _id: unknown; discount?: number }>(),
+      Product.find({ _id: { $in: Array.from(amounts.keys()) } }).select("_id priceToShow").lean<{ _id: unknown; priceToShow: number }[]>(),
+    ]);
+    if (!order) throw new Error("Замовлення не знайдено.");
 
-      // Recalculated Value
-      value: calculatedValue,
-    };
-
-    // Add invoiceString if provided
-    if (invoiceString !== undefined) {
-      updateFields.invoiceString = invoiceString;
+    const prices = new Map(dbProducts.map((product) => [String(product._id), product.priceToShow ?? 0]));
+    let subtotal = 0;
+    for (const [id, amount] of Array.from(amounts.entries())) {
+      const price = prices.get(id);
+      if (price === undefined) throw new Error("Один із товарів більше не існує. Приберіть його із замовлення.");
+      subtotal += price * amount;
     }
+    const discount = Number(order.discount) > 0 && Number(order.discount) < 100 ? Number(order.discount) : 0;
+    const value = Math.round(subtotal * (1 - discount / 100));
 
-    // Apply the update
-    await Order.findByIdAndUpdate(
-      orderId,
-      { $set: updateFields }, // Use $set to update specific fields
-      { runValidators: true } // Return the updated document, run schema validators
+    const text = (input: unknown, max = 300) => String(input ?? "").trim().slice(0, max);
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          name: text(userData?.name, 100),
+          surname: text(userData?.surname, 100),
+          phoneNumber: text(userData?.phoneNumber, 40),
+          email: text(userData?.email, 254).toLowerCase(),
+          city: text(userData?.city, 200),
+          adress: text(userData?.adress),
+          comment: text(userData?.comment, 2000),
+          warehouse: text(userData?.warehouse),
+          products: Array.from(amounts.entries()).map(([product, amount]) => ({ product: new mongoose.Types.ObjectId(product), amount })),
+          value,
+        },
+      },
+      { runValidators: true },
     );
 
-    const updatedOrder = await Order.findById(orderId)
-      .populate({
-        path: 'products',
-        populate: {
-            path: 'product',
-            model: 'Product',
-            select: '_id id name images priceToShow params articleNumber'
-        }
-      })
-      .populate({
-          path: 'user',
-          model: 'User',
-      });
-  
-
-    if (!updatedOrder) {
-      throw new Error("Order not found or could not be updated.");
-    }
-
-    console.log(`Order ${orderId} updated successfully.`);
-    return JSON.stringify(updatedOrder); // Return the updated order document
+    await clearCache("updateOrder", undefined);
+    return { ok: true, value };
   } catch (error: any) {
-    console.error("Error in updateOrder:", error); // Log the full error
-    throw new Error(`Error updating order: ${error.message}`);
+    console.error("Error in updateOrder:", error?.message ?? error);
+    return { ok: false, error: String(error?.message ?? "Не вдалося зберегти замовлення.") };
   }
 }

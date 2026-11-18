@@ -2,8 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+# .npmrc carries the peer-dependency setting the lockfile was resolved with.
+COPY package*.json .npmrc ./
+RUN npm ci
 
 COPY . .
 

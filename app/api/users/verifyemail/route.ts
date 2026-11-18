@@ -1,39 +1,53 @@
-import { connectToDB } from "@/lib/mongoose";
 import { NextRequest, NextResponse } from "next/server";
+import { generatePromoCode } from "@/lib/actions/promocode.actions";
+import { finishGuestClaim } from "@/lib/auth/accounts";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
 import User from "@/lib/models/user.model";
+import { connectToDB } from "@/lib/mongoose";
 
-
-
-connectToDB();
-
-
-export async function POST(request: NextRequest){
-
-    try {
-        const reqBody = await request.json()
-        const {token} = reqBody
-    
-
-        const user = await User.findOne({verifyToken: token, verifyTokenExpiry: {$gt: Date.now()}});
-
-        if (!user) {
-            return NextResponse.json({error: "Invalid token"}, {status: 400})
-        }
-      
-
-        user.isVerfied = true;
-        user.verifyToken = undefined;
-        user.verifyTokenExpiry = undefined;
-        await user.save();
-        
-        return NextResponse.json({
-            message: "Email verified successfully",
-            success: true
-        })
-
-
-    } catch (error:any) {
-        return NextResponse.json({error: error.message}, {status: 500})
+/**
+ * The link from a confirmation letter. Two kinds of token arrive here:
+ * a registration on an address that already had guest orders (the account
+ * opens now, see lib/auth/accounts.ts), and the older plain verification.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const reqBody = await request.json().catch(() => ({}));
+    const token = typeof reqBody?.token === "string" ? reqBody.token.trim() : "";
+    if (!token || token.length > 200) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 400 });
     }
 
+    const account = await finishGuestClaim(token, (email) =>
+      generatePromoCode({
+        email,
+        validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
+        reusabilityTimes: 1,
+        discountPercentage: 10,
+      }),
+    );
+    if (account) {
+      // The promised promo code; the account is open whether or not this letter goes out.
+      try {
+        await sendWelcomeEmail(account.email, account.promoCode);
+      } catch (error: any) {
+        console.error("[verifyemail] welcome letter:", error?.message ?? error);
+      }
+      return NextResponse.json({ message: "Email verified successfully", success: true });
+    }
+
+    await connectToDB();
+    const result = await User.updateOne(
+      { verifyToken: token, verifyTokenExpiry: { $gt: Date.now() } },
+      { $set: { isVerfied: true }, $unset: { verifyToken: "", verifyTokenExpiry: "" } },
+    );
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 400 });
+    }
+
+    return NextResponse.json({ message: "Email verified successfully", success: true });
+  } catch (error: any) {
+    console.error("[verifyemail]", error?.message ?? error);
+    return NextResponse.json({ error: "Could not verify the e-mail" }, { status: 500 });
+  }
 }

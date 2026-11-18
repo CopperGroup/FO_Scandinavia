@@ -1,28 +1,15 @@
-// app/(root)/info/conf-policy/page.tsx
-import fs from 'fs';
-import path from 'path';
-import InfoPageLayout from "@/components/layout/InfoPageLayout"; // Assuming this component exists
+import type { Metadata } from "next"
+import InfoPageLayout from "@/components/layout/InfoPageLayout"
+import { getContent } from "@/lib/content/server"
 
-// This page is a Server Component, allowing it to use Node.js modules like 'fs'
+export const metadata: Metadata = {
+  title: "Політика конфіденційності",
+  description: "Як магазин збирає, зберігає та використовує дані покупців.",
+  alternates: { canonical: "/info/conf-policy" },
+}
 
-export default function ConfPolicyPage() {
-  const markdownPath = path.join(process.cwd(), 'app/(root)/info/conf-policy', 'conf-policy.md');
-  let markdownContent = '';
-  
-  try {
-    // Read the Markdown file content synchronously
-    markdownContent = fs.readFileSync(markdownPath, 'utf-8');
-  } catch (error) {
-    console.error("Error reading conf-policy.md:", error);
-    markdownContent = "# 404: Документ не знайдено";
-  }
-
-  // The InfoPageLayout component (assumed to be a Client Component) 
-  // will handle the actual rendering of the markdown string to HTML.
-  return (
-    <InfoPageLayout
-      title="Політика конфіденційності"
-      markdownContent={markdownContent}
-    />
-  );
+/** The text is edited in the admin: Сторінки → Політика конфіденційності. Its default is lib/content/legal.ts. */
+export default async function ConfPolicyPage() {
+  const { body } = await getContent<{ body: string }>("privacy")
+  return <InfoPageLayout title="Політика конфіденційності" markdownContent={body} edit="privacy:body" />
 }

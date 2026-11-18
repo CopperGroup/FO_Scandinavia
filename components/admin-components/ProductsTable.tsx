@@ -1,603 +1,318 @@
-// app/(root)/products/ProductsTable.tsx
-"use client";
+"use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Card } from "@/components/ui/card";
-import { fetchAllCategories } from "@/lib/actions/categories.actions";
-import { fetchAllProducts, fetchExportProducts, fetchProductsByBatches } from "@/lib/actions/product.actions";
-import { Store } from "@/constants/store";
-import { CategoryType } from "@/lib/types/types";
-import ProductsHeader from "./products/ProductsHeader";
-import ProductStatsCards from "./products/ProductStatsCards";
-import ProductActionsBar from "./products/ProductActionsBar";
-import AdvancedFiltersSection from "./products/AdvancedFiltersSection";
-import { Button } from "../ui/button";
-import ProductsDisplay from "./products/ProductsDisplay";
-import ProductsPagination from "./products/ProductsPagination";
-import ProductsSummaryFooter from "./products/ProductsSummaryFooter";
-import ExportProgressDialog from "./products/ExportProgressDialog";
-import BulkEditProductsModal from "./modals/BulkEditProductsModal/BulkEditProductsModal";
-import DateFilterModal from "./products/DateFilterModal";
-import { generateFullCatalogXmlOnClient } from "@/lib/xml-parser/export";
-import SortModal from "./products/SortModal";
+import Image from "next/image"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useMemo, useRef, useState, useTransition } from "react"
+import { Download, FolderInput, Percent, Trash2, X } from "lucide-react"
+import { Pill, adminButton, adminTable } from "@/components/admin/ui"
+import BulkEditProductsModal, { type BulkMode } from "./modals/BulkEditProductsModal/BulkEditProductsModal"
+import type { BulkTarget } from "@/lib/actions/product.actions"
+import type { ProductListFilter, ProductRow } from "@/lib/admin/products"
+import { discountPercent, productsWord } from "@/lib/admin/catalog-shared"
+import { cn } from "@/lib/utils"
 
-interface Product {
-  _id: string;
-  id: string;
-  vendor: string;
-  name: string;
-  isAvailable: boolean;
-  price: number;
-  priceToShow: number;
-  category: string | string[];
-  articleNumber: string;
-  createdAt?: string;
-  updatedAt?: string;
-  images: string[];
+const money = new Intl.NumberFormat("uk-UA", { maximumFractionDigits: 0 })
+const dateFormat = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Kiev" })
+
+type Props = {
+  rows: ProductRow[]
+  /** How many products match the current filter (all pages). */
+  total: number
+  /** "51–100 з 3 553": where this page sits in the list. */
+  position?: string
+  filter: ProductListFilter
+  categories: { id: string; name: string; path?: string }[]
 }
 
-interface PriceFilter { min: string; max: string; }
-interface DateFilter { from: string; to: string; }
-interface FilterState {
-  price: PriceFilter;
-  createdAt: DateFilter;
-  updatedAt: DateFilter;
-}
+/**
+ * One page of products with selection and bulk actions. Selection covers the
+ * rows on this page, or, after "select all matching", every product that
+ * matches the filter; the server resolves that set itself.
+ */
+export default function ProductsTable({ rows, total, position, filter, categories }: Props) {
+  const router = useRouter()
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [allMatching, setAllMatching] = useState(false)
+  const [mode, setMode] = useState<BulkMode | null>(null)
+  const [notice, setNotice] = useState("")
+  const [, startTransition] = useTransition()
+  const exportForm = useRef<HTMLFormElement>(null)
 
-interface InitialFilters {
-  search: string;
-  searchField: string;
-  priceMin: string;
-  priceMax: string;
-  createdFrom: string;
-  createdTo: string;
-  updatedFrom: string;
-  updatedTo: string;
-  sortField: string;
-  sortDirection: "asc" | "desc";
-  page: number;
-  viewMode?: "table" | "grid";
-  emptyCategory?: string;
-}
+  const pageIds = useMemo(() => rows.map((row) => row._id), [rows])
+  const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
+  const count = allMatching ? total : selected.size
+  const target: BulkTarget = allMatching ? { filter } : { ids: Array.from(selected) }
+  const sampleNames = allMatching ? rows.slice(0, 5).map((row) => row.name) : rows.filter((row) => selected.has(row._id)).map((row) => row.name)
 
-const convertToUTC = (localDateTimeString: string): Date => {
-  if (!localDateTimeString) return new Date(0);
-  const localDate = new Date(localDateTimeString);
-  return new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000);
-};
+  const toggle = (id: string) => {
+    setAllMatching(false)
+    setSelected((previous) => {
+      const next = new Set(previous)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
-const convertToLocalDateTime = (utcDateString: string): string => {
-  if (!utcDateString) return "";
-  const utcDate = new Date(utcDateString);
-  const localDate = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
-  return localDate.toISOString().slice(0, 16);
-};
+  const togglePage = () => {
+    setAllMatching(false)
+    setSelected(allOnPage ? new Set() : new Set(pageIds))
+  }
 
-const ITEMS_PER_PAGE = 10;
+  const clear = () => {
+    setSelected(new Set())
+    setAllMatching(false)
+  }
 
-const ProductsTable = ({
-  stringifiedProducts,
-  initialFilters,
-}: {
-  stringifiedProducts: string;
-  initialFilters: InitialFilters;
-}) => {
-  const products: Product[] = useMemo(() => JSON.parse(stringifiedProducts), [stringifiedProducts]);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [pageNumber, setPageNumber] = useState(initialFilters.page);
-  const [viewMode, setViewMode] = useState<"table" | "grid">(initialFilters.viewMode || "table");
-  const [inputValue, setInputValue] = useState(initialFilters.search);
-  const [searchField, setSearchField] = useState(initialFilters.searchField);
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
-  const [isMobileView, setIsMobileView] = useState(false);
-
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
-  const [exportStage, setExportStage] = useState("");
-  const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
-  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
-  const [isSortModalOpen, setIsSortModalOpen] = useState(false);
-  const [isDateFilterModalOpen, setIsDateFilterModalOpen] = useState(false);
-
-  const [filters, setFilters] = useState<FilterState>({
-    price: { min: initialFilters.priceMin || "", max: initialFilters.priceMax || "" },
-    createdAt: { from: initialFilters.createdFrom || "", to: initialFilters.createdTo || "" },
-    updatedAt: { from: initialFilters.updatedFrom || "", to: initialFilters.updatedTo || "" },
-  });
-
-  const [emptyCategoryFilter, setEmptyCategoryFilter] = useState<boolean>(
-    initialFilters.emptyCategory === "true"
-  );
-
-  const [tempDateFilters, setTempDateFilters] = useState<FilterState>(filters);
-
-  const [sortConfig, setSortConfig] = useState<{
-    field: string;
-    direction: "asc" | "desc";
-  } | null>(initialFilters.sortField ? { field: initialFilters.sortField, direction: initialFilters.sortDirection } : null);
-
-  const formatter = useMemo(() => new Intl.NumberFormat("uk-UA", { style: "currency", currency: "UAH", currencyDisplay: "code" }), []);
-
-
-  const updateSearchParams = useCallback(
-    (updates: Partial<InitialFilters>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") {
-          params.set(key, value.toString());
-        } else {
-          params.delete(key);
-        }
-      });
-      const newUrl = `?${params.toString()}`;
-      router.push(newUrl, { scroll: false });
-    },
-    [router, searchParams]
-  );
-
-  useEffect(() => {
-    const currentParams = Object.fromEntries(searchParams.entries());
-    const newFilterParams: Partial<InitialFilters> = {
-      search: inputValue,
-      searchField: searchField,
-      priceMin: filters.price.min,
-      priceMax: filters.price.max,
-      createdFrom: filters.createdAt.from,
-      createdTo: filters.createdAt.to,
-      updatedFrom: filters.updatedAt.from,
-      updatedTo: filters.updatedAt.to,
-      emptyCategory: emptyCategoryFilter ? "true" : "",
-    };
-
-    const hasFilterChanged = Object.entries(newFilterParams).some(([key, value]) => {
-      return String(value || '') !== String(currentParams[key] || '');
-    });
-
-    if (hasFilterChanged) {
-      updateSearchParams({
-        ...newFilterParams,
-        page: 1
-      });
-    }
-  }, [inputValue, searchField, filters, emptyCategoryFilter, updateSearchParams, searchParams]);
-
-
-  useEffect(() => {
-    const urlPage = Number.parseInt(searchParams.get("page") || "1");
-    if (urlPage !== pageNumber) {
-      setPageNumber(urlPage);
-    }
-
-    const urlViewMode = (searchParams.get("viewMode") as "table" | "grid") || "table";
-    if (urlViewMode !== viewMode) {
-      setViewMode(urlViewMode);
-    }
-  }, [searchParams]);
-
-  const availableProducts = useMemo(() => products.filter((p) => p.isAvailable).length, [products]);
-  const discountedProducts = useMemo(() => products.filter((p) => p.priceToShow < p.price).length, [products]);
-
-  const searchFields = useMemo(() => ([
-    { value: "name", label: "Назва" },
-    { value: "id", label: "ID" },
-    { value: "vendor", label: "Постачальник" },
-    { value: "category", label: "Категорія" },
-    { value: "isAvailable", label: "Доступність" },
-    { value: "articleNumber", label: "Артикул" },
-  ]), []);
-
-  const sortFields = useMemo(() => ([
-    { value: "name", label: "Назва" },
-    { value: "price", label: "Ціна без знижки" },
-    { value: "priceToShow", label: "Ціна зі знижкою" },
-    { value: "createdAt", label: "Дата створення" },
-    { value: "updatedAt", label: "Дата оновлення" },
-    { value: "isAvailable", label: "Доступність" },
-  ]), []);
-
-  const sortedAndFilteredProducts = useMemo(() => {
-    let filtered = products.filter((product) => {
-      const searchValue = product[searchField as keyof Product];
-      let matchesSearch = true;
-
-      if (inputValue) {
-        if (typeof searchValue === "boolean") {
-          matchesSearch = inputValue.toLowerCase() === searchValue.toString();
-        } else {
-          matchesSearch = searchValue?.toString().toLowerCase().includes(inputValue.toLowerCase()) || false;
-        }
-      }
-
-      let matchesPriceRange = true;
-      if (filters.price.min || filters.price.max) {
-        const minPrice = filters.price.min ? Number.parseFloat(filters.price.min) : 0;
-        const maxPrice = filters.price.max ? Number.parseFloat(filters.price.max) : Number.POSITIVE_INFINITY;
-        matchesPriceRange = product.price >= minPrice && product.price <= maxPrice;
-      }
-
-      let matchesCreatedAtRange = true;
-      if (product.createdAt && (filters.createdAt.from || filters.createdAt.to)) {
-        const productDate = new Date(product.createdAt);
-        const fromDate = filters.createdAt.from ? convertToUTC(filters.createdAt.from) : new Date(0);
-        const toDate = filters.createdAt.to ? convertToUTC(filters.createdAt.to) : new Date();
-        matchesCreatedAtRange = productDate >= fromDate && productDate <= toDate;
-      }
-
-      let matchesUpdatedAtRange = true;
-      if (product.updatedAt && (filters.updatedAt.from || filters.updatedAt.to)) {
-        const productDate = new Date(product.updatedAt);
-        const fromDate = filters.updatedAt.from ? convertToUTC(filters.updatedAt.from) : new Date(0);
-        const toDate = filters.updatedAt.to ? convertToUTC(filters.updatedAt.to) : new Date();
-        matchesUpdatedAtRange = productDate >= fromDate && productDate <= toDate;
-      }
-
-      let matchesEmptyCategory = true;
-      if (emptyCategoryFilter) {
-        // Check if category is empty array or all values are empty strings
-        const category = product.category;
-        if (Array.isArray(category)) {
-          matchesEmptyCategory = category.length === 0 || category.every(cat => !cat || cat.trim() === "");
-        } else {
-          // Handle case where category might be a string
-          matchesEmptyCategory = !category || category.trim() === "";
-        }
-      }
-
-      return matchesSearch && matchesPriceRange && matchesCreatedAtRange && matchesUpdatedAtRange && matchesEmptyCategory;
-    });
-
-    if (sortConfig) {
-      filtered.sort((a, b) => {
-        const aValue = a[sortConfig.field as keyof Product];
-        const bValue = b[sortConfig.field as keyof Product];
-
-        if (aValue === undefined || aValue === null) return 1;
-        if (bValue === undefined || bValue === null) return -1;
-
-        let comparison = 0;
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          comparison = aValue.localeCompare(bValue, "uk-UA");
-        } else if (typeof aValue === "number" && typeof bValue === "number") {
-          comparison = aValue - bValue;
-        } else if (typeof aValue === "boolean" && typeof bValue === "boolean") {
-          comparison = aValue === bValue ? 0 : aValue ? -1 : 1;
-        } else if (sortConfig.field === "createdAt" || sortConfig.field === "updatedAt") {
-          const dateA = new Date(aValue as string);
-          const dateB = new Date(bValue as string);
-          comparison = dateA.getTime() - dateB.getTime();
-        } else {
-          comparison = String(aValue).localeCompare(String(bValue), "uk-UA");
-        }
-        return sortConfig.direction === "desc" ? -comparison : comparison;
-      });
-    }
-    return filtered;
-  }, [products, searchField, inputValue, filters, sortConfig, emptyCategoryFilter]);
-
-  const paginatedProducts = useMemo(() => {
-    const start = (pageNumber - 1) * ITEMS_PER_PAGE;
-    return sortedAndFilteredProducts.slice(start, start + ITEMS_PER_PAGE);
-  }, [sortedAndFilteredProducts, pageNumber]);
-
-  const totalPages = Math.ceil(sortedAndFilteredProducts.length / ITEMS_PER_PAGE);
-
-  const hasActiveFilters = useMemo(() => {
-    return (
-      inputValue ||
-      filters.price.min ||
-      filters.price.max ||
-      filters.createdAt.from ||
-      filters.createdAt.to ||
-      filters.updatedAt.from ||
-      filters.updatedAt.to ||
-      emptyCategoryFilter
-    );
-  }, [inputValue, filters, emptyCategoryFilter]);
-
-
-  const toggleProductSelection = (productId: string) => {
-    setSelectedProducts((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(productId)) {
-        newSet.delete(productId);
-      } else {
-        newSet.add(productId);
-      }
-      return newSet;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedProducts.size === products.length) {
-      setSelectedProducts(new Set());
-    } else {
-      setSelectedProducts(new Set(products.map((product) => product._id)));
-    }
-  };
-
-  const updateFilter = (filterType: keyof FilterState, field: string, value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterType]: { ...prev[filterType], [field]: value },
-    }));
-  };
-
-  const clearAllFilters = () => {
-    setFilters({
-      price: { min: "", max: "" },
-      createdAt: { from: "", to: "" },
-      updatedAt: { from: "", to: "" },
-    });
-    setInputValue("");
-    setEmptyCategoryFilter(false);
-  };
-
-  const handleSort = (field: string, direction: "asc" | "desc") => {
-    setSortConfig({ field, direction });
-    setIsSortModalOpen(false);
-    updateSearchParams({ sortField: field, sortDirection: direction, page: 1 });
-  };
-
-  const clearSort = () => {
-    setSortConfig(null);
-    setIsSortModalOpen(false);
-    updateSearchParams({ sortField: "", sortDirection: "asc", page: 1 });
-  };
-
-  const handlePageChange = (newPage: number) => {
-    updateSearchParams({ page: newPage });
-  };
-
-  const handleViewModeChange = (mode: "table" | "grid") => {
-    setViewMode(mode);
-    updateSearchParams({ viewMode: mode, page: 1 });
-  };
-
-  const handleDateFilterApply = () => {
-    setFilters(tempDateFilters);
-    setIsDateFilterModalOpen(false);
-  };
-
-  const handleDateFilterCancel = () => {
-    setTempDateFilters(filters);
-    setIsDateFilterModalOpen(false);
-  };
-
-  const handleClearDateFilters = () => {
-    const clearedDates = {
-      createdAt: { from: "", to: "" },
-      updatedAt: { from: "", to: "" },
-    };
-    setTempDateFilters(prev => ({ ...prev, ...clearedDates }));
-    setFilters(prev => ({ ...prev, ...clearedDates }));
-  };
-
-  const updateTempDateFilter = (filterType: "createdAt" | "updatedAt", field: "from" | "to", value: string) => {
-    setTempDateFilters((prev) => ({
-      ...prev,
-      [filterType]: { ...prev[filterType], [field]: value },
-    }));
-  };
-
-  // Modified handleExportXml to accept a boolean argument
-  const handleExportXml = async (exportSelected: boolean) => {
-    try {
-      setIsExporting(true);
-      setExportProgress(10);
-      setExportStage("Підготовка даних...");
-
-      if (!products || !Array.isArray(products)) {
-        throw new Error("Дані про товари не знайдено або вони некоректні.");
-      }
-
-      let productsToExport: Product[] = [];
-      if (exportSelected && selectedProducts.size > 0) {
-        // Filter products based on selectedProductIds
-        const result = await fetchExportProducts();
-
-        const fullProducts: Product[] = await JSON.parse(result)
-
-        console.log(fullProducts)
-        productsToExport = fullProducts.filter(product => selectedProducts.has(product._id));
-      } else {
-        // Export all products if no selection or exportSelected is false
-        // Fetch all products from the server to ensure we have the complete, unfiltered list
-        setExportProgress(30);
-        setExportStage("Отримання всіх товарів з сервера...");
-        const allFetchedProducts: Product[] = [];
-        const batchSize = 500;
-        let skip = 0;
-        let batch: Product[] = [];
-        do {
-          const raw = await fetchProductsByBatches(batchSize, skip);
-          batch = JSON.parse(raw);
-          allFetchedProducts.push(...batch);
-          skip += batchSize;
-        } while (batch.length === batchSize);
-        productsToExport = allFetchedProducts;
-      }
-
-      if (productsToExport.length === 0) {
-        setExportStage("Немає товарів для експорту.");
-        setTimeout(() => { setIsExporting(false); setExportProgress(0); setExportStage(""); }, 2000);
-        return;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      setExportProgress(30); // Adjust based on whether products were fetched or already available
-      setExportStage("Отримання категорій...");
-      const categoriesJsonString = await fetchAllCategories("json");
-      const rawCategories: CategoryType[] = JSON.parse(categoriesJsonString);
-      if (!rawCategories || !Array.isArray(rawCategories)) {
-        throw new Error("Не вдалося завантажити або обробити категорії.");
-      }
-
-      setExportProgress(60);
-      setExportStage("Генерація XML файлу на вашому пристрої...");
-      const xmlString = generateFullCatalogXmlOnClient(rawCategories, productsToExport); // Use productsToExport
-      if (!xmlString) {
-        throw new Error("Помилка під час генерації XML файлу.");
-      }
-
-      setExportProgress(80);
-      setExportStage("Підготовка до завантаження...");
-      const blob = new Blob([xmlString], { type: "application/xml; charset=utf-8" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${Store.name}_catalog_client.xml`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      setExportProgress(100);
-      setExportStage("Завантаження завершено!");
-      setTimeout(() => { setIsExporting(false); setExportProgress(0); setExportStage(""); }, 1000);
-    } catch (error: any) {
-      console.error("handleExportXml: Export error", error);
-      setExportStage(`Помилка: ${error.message}`);
-      setTimeout(() => { setIsExporting(false); setExportProgress(0); setExportStage(""); }, 3000);
-    }
-  };
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobileView(window.innerWidth < 640);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const done = (message: string) => {
+    setMode(null)
+    clear()
+    setNotice(message)
+    startTransition(() => router.refresh())
+  }
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-full">
-      <ProductsHeader
-        onExportXml={handleExportXml}
-        selectedProductsCount={selectedProducts.size} // Pass the count here
-      />
-      <ProductStatsCards
-        totalProducts={products.length}
-        availableProducts={availableProducts}
-        discountedProducts={discountedProducts}
-      />
-
-      <Card className="border-slate-200 shadow-sm">
-        <ProductActionsBar
-          inputValue={inputValue}
-          searchField={searchField}
-          searchFields={searchFields}
-          sortConfig={sortConfig}
-          sortFields={sortFields}
-          selectedProductsIds={Array.from(selectedProducts)}
-          allProductsCount={products.length}
-          onSearchChange={setInputValue}
-          onSearchFieldChange={setSearchField}
-          onBulkEditClick={() => setIsBulkEditModalOpen(true)}
-          onDeleteSelected={() => setSelectedProducts(new Set())}
-          onSortClick={() => setIsSortModalOpen(true)}
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-        />
-
-        <div className="pt-4 sm:pt-6 px-4 sm:px-6">
-          <div className="space-y-3 sm:space-y-4">
-            <AdvancedFiltersSection
-              filters={filters}
-              inputValue={inputValue}
-              isAdvancedFiltersOpen={isAdvancedFiltersOpen}
-              onToggleAdvancedFilters={setIsAdvancedFiltersOpen}
-              onUpdateFilter={updateFilter}
-              onClearAllFilters={clearAllFilters}
-              onOpenDateFilterModal={() => setIsDateFilterModalOpen(true)}
-              emptyCategoryFilter={emptyCategoryFilter}
-              onEmptyCategoryFilterChange={setEmptyCategoryFilter}
-            />
-
-            {sortedAndFilteredProducts.length !== products.length && (
-              <div className="text-sm text-slate-600 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                Показано {sortedAndFilteredProducts.length} з {products.length} товарів
-                {hasActiveFilters && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="ml-2 text-yellow-700 hover:text-yellow-800 p-0 h-auto"
-                  >
-                    Скинути фільтри
-                  </Button>
-                )}
+    <div>
+      {/* Bulk bar: stays in view while the admin scrolls the list. */}
+      <div className={cn("sticky top-0 z-10 border-b border-neutral-200 bg-white px-4 py-3 sm:px-4", count === 0 && "py-2")}>
+        <div className="flex flex-wrap items-center gap-2">
+          {count > 0 ? (
+            <>
+              <p className="mr-2 text-sm font-medium tabular-nums" aria-live="polite">
+                Вибрано {count} {productsWord(count)}
+              </p>
+              {!allMatching && allOnPage && total > rows.length && (
+                <button type="button" className={cn(adminButton.ghost, "underline underline-offset-2")} onClick={() => setAllMatching(true)}>
+                  Вибрати всі {total} за фільтром
+                </button>
+              )}
+              <div className="flex flex-wrap gap-2 sm:ml-auto">
+                <button type="button" className={adminButton.secondary} onClick={() => setMode("category")}>
+                  <FolderInput className="h-4 w-4" aria-hidden="true" />
+                  Категорія
+                </button>
+                <button type="button" className={adminButton.secondary} onClick={() => setMode("price")}>
+                  <Percent className="h-4 w-4" aria-hidden="true" />
+                  Ціна
+                </button>
+                <button type="button" className={adminButton.secondary} onClick={() => exportForm.current?.requestSubmit()}>
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  Завантажити файл (XML)
+                </button>
+                <button type="button" className={adminButton.danger} onClick={() => setMode("delete")}>
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  Видалити
+                </button>
+                <button type="button" className={adminButton.icon} onClick={clear} aria-label="Зняти вибір">
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
               </div>
-            )}
-
-            <ProductsDisplay
-              products={paginatedProducts}
-              totalProductsCount={sortedAndFilteredProducts.length}
-              selectedProducts={selectedProducts}
-              onToggleSelection={toggleProductSelection}
-              onToggleSelectAll={toggleSelectAll}
-              formatter={formatter}
-              viewMode={viewMode}
-              isMobileView={isMobileView}
-            />
-          </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-500" aria-live="polite">
+                {notice || (
+                  <>
+                    <span className="font-medium tabular-nums text-neutral-900">{position ?? total}</span> · Позначте товари, щоб змінити їх разом.
+                  </>
+                )}
+              </p>
+              <button type="button" className={cn(adminButton.ghost, "ml-auto")} onClick={() => exportForm.current?.requestSubmit()}>
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Завантажити файл (XML), {total}
+              </button>
+            </>
+          )}
         </div>
-      </Card>
+      </div>
 
-      <ProductsPagination
-        currentPage={pageNumber}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-        isMobileView={isMobileView}
-      />
-      <ProductsSummaryFooter
-        displayedProductsCount={paginatedProducts.length}
-        totalFilteredProducts={sortedAndFilteredProducts.length}
-        overallTotalProducts={products.length}
-        currentPage={pageNumber}
-        itemsPerPage={ITEMS_PER_PAGE}
-      />
+      {/* The export runs on the server and comes back as a file download; the page stays. */}
+      <form ref={exportForm} method="post" action="/admin/products/export" className="hidden">
+        {count > 0 && !allMatching ? (
+          <input type="hidden" name="ids" value={Array.from(selected).join(",")} />
+        ) : (
+          <>
+            <input type="hidden" name="tab" value={filter.tab} />
+            <input type="hidden" name="q" value={filter.query} />
+            <input type="hidden" name="category" value={filter.category} />
+          </>
+        )}
+      </form>
 
-      <ExportProgressDialog
-        isOpen={isExporting}
-        onOpenChange={setIsExporting}
-        progress={exportProgress}
-        stage={exportStage}
-      />
+      {/* Wide screens: a table. */}
+      <div className={cn(adminTable.wrap, "hidden md:block")}>
+        <table className={cn(adminTable.table, "min-w-[53.75rem]")}>
+          <thead>
+            <tr className={adminTable.headRow}>
+              <th scope="col" className="w-12 py-3 pl-4 pr-2">
+                <input
+                  type="checkbox"
+                  checked={allOnPage}
+                  onChange={togglePage}
+                  aria-label={allOnPage ? "Зняти вибір з усіх на сторінці" : "Вибрати всі на сторінці"}
+                  className="check"
+                />
+              </th>
+              <th scope="col" className={adminTable.th}>
+                Товар
+              </th>
+              <th scope="col" className={adminTable.th}>
+                Категорії
+              </th>
+              <th scope="col" className={adminTable.th}>
+                Склад
+              </th>
+              <th scope="col" className={cn(adminTable.th, "text-right")}>
+                Ціна, ₴
+              </th>
+              <th scope="col" className={cn(adminTable.th, "pr-4")}>
+                Змінено
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const isSelected = allMatching || selected.has(row._id)
+              return (
+                <tr key={row._id} className={cn(adminTable.row, isSelected && "bg-neutral-50")}>
+                  <td className="py-3 pl-4 pr-2 align-middle">
+                    <input type="checkbox" checked={isSelected} onChange={() => toggle(row._id)} aria-label={`Вибрати «${row.name}»`} className="check" />
+                  </td>
+                  <td className={adminTable.td}>
+                    <div className="flex items-center gap-3">
+                      <Thumb src={row.image} />
+                      <div className="min-w-0">
+                        <Link
+                          href={`/admin/createProduct/list/${row._id}`}
+                          className="line-clamp-2 font-medium text-neutral-900 hover:underline focus-visible:underline focus-visible:outline-none"
+                        >
+                          {row.name || "Без назви"}
+                        </Link>
+                        <p className="mt-0.5 truncate text-xs text-neutral-500">
+                          {[row.articleNumber && `Арт. ${row.articleNumber}`, row.vendor, `ID ${row.id}`].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={cn(adminTable.td, "max-w-[13.75rem]")}>
+                    <CategoryPills row={row} />
+                  </td>
+                  <td className={adminTable.td}>
+                    <Stock row={row} />
+                  </td>
+                  <td className={cn(adminTable.td, "text-right")}>
+                    <Price row={row} />
+                  </td>
+                  <td className={cn(adminTable.td, "whitespace-nowrap pr-4 text-xs text-neutral-500")}>
+                    {row.updatedAt ? dateFormat.format(new Date(row.updatedAt)) : "—"}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
 
-      <SortModal
-        isOpen={isSortModalOpen}
-        onOpenChange={setIsSortModalOpen}
-        sortConfig={sortConfig}
-        sortFields={sortFields}
-        onSort={handleSort}
-        onClearSort={clearSort}
-      />
+      {/* Phones: cards. */}
+      <ul className="divide-y divide-neutral-100 md:hidden">
+        <li className="flex items-center gap-3 px-4 py-3 text-sm">
+          <input type="checkbox" id="select-page-mobile" checked={allOnPage} onChange={togglePage} className="check" />
+          <label htmlFor="select-page-mobile" className="text-neutral-600">
+            Вибрати всі на сторінці
+          </label>
+        </li>
+        {rows.map((row) => {
+          const isSelected = allMatching || selected.has(row._id)
+          return (
+            <li key={row._id} className={cn("flex gap-3 px-4 py-4", isSelected && "bg-neutral-50")}>
+              <input type="checkbox" checked={isSelected} onChange={() => toggle(row._id)} aria-label={`Вибрати «${row.name}»`} className="check mt-1" />
+              <Thumb src={row.image} />
+              <div className="min-w-0 flex-1">
+                <Link href={`/admin/createProduct/list/${row._id}`} className="line-clamp-2 text-sm font-medium hover:underline">
+                  {row.name || "Без назви"}
+                </Link>
+                <p className="mt-0.5 truncate text-xs text-neutral-500">{[row.articleNumber && `Арт. ${row.articleNumber}`, row.vendor].filter(Boolean).join(" · ")}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Price row={row} inline />
+                  <Stock row={row} />
+                </div>
+                <div className="mt-2">
+                  <CategoryPills row={row} />
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
 
       <BulkEditProductsModal
-        isOpen={isBulkEditModalOpen}
-        onOpenChange={setIsBulkEditModalOpen}
-        selectedProductIds={Array.from(selectedProducts)}
-        onEditComplete={() => {
-          setSelectedProducts(new Set());
-          router.refresh();
-        }}
-      />
-
-      <DateFilterModal
-        isOpen={isDateFilterModalOpen}
-        onOpenChange={setIsDateFilterModalOpen}
-        tempDateFilters={tempDateFilters}
-        onUpdateTempDateFilter={updateTempDateFilter}
-        onApply={handleDateFilterApply}
-        onCancel={handleDateFilterCancel}
-        onClearDates={handleClearDateFilters}
+        mode={mode}
+        target={target}
+        count={count}
+        categories={categories}
+        sampleNames={sampleNames}
+        onClose={() => setMode(null)}
+        onDone={done}
       />
     </div>
-  );
-};
+  )
+}
 
-export default ProductsTable;
+// Hosts next/image may resize (see next.config.js). Any other URL an admin pasted is shown as is.
+const OPTIMIZED_HOSTS = /(^|\.)(juventa\.ua|utfs\.io|uploadthing\.com|sveamoda\.com\.ua|nordiva\.com\.ua|rozetka\.com\.ua)$/
+
+/** `size` is in px of the 16px base; the box is set in rem so it scales with the panel (48 → 36px on a desktop). */
+export function Thumb({ src, size = 48 }: { src: string | null; size?: number }) {
+  let optimizable = false
+  try {
+    optimizable = Boolean(src) && OPTIMIZED_HOSTS.test(new URL(src!).hostname)
+  } catch {
+    optimizable = false
+  }
+  return (
+    <span className="relative shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white" style={{ width: `${size / 16}rem`, height: `${size / 16}rem` }}>
+      {/* Fixed width (not `fill`): the srcset then has two entries instead of eleven long URLs. */}
+      {src && optimizable ? <Image src={src} alt="" width={size} height={size} className="h-full w-full object-contain" /> : null}
+      {src && !optimizable ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" loading="lazy" className="h-full w-full object-contain" />
+      ) : null}
+    </span>
+  )
+}
+
+function CategoryPills({ row }: { row: ProductRow }) {
+  if (row.categories.length === 0) return <Pill tone="problem">Без категорії</Pill>
+  const shown = row.categories.slice(0, 2)
+  return (
+    <div className="flex flex-wrap gap-1">
+      {shown.map((category) => (
+        <Link key={category.id} href={`/admin/categories?id=${category.id}`} className="max-w-full truncate rounded-full border border-neutral-200 px-2 py-0.5 text-xs text-neutral-700 hover:border-black">
+          {category.name}
+        </Link>
+      ))}
+      {row.categories.length > shown.length && <span className="px-1 py-0.5 text-xs text-neutral-500">+{row.categories.length - shown.length}</span>}
+    </div>
+  )
+}
+
+function Stock({ row }: { row: ProductRow }) {
+  if (row.purchasable) return <Pill tone="ok">{row.quantity} шт.</Pill>
+  if (row.isAvailable) return <Pill tone="problem" tip="Товар продається, але на складі нічого немає. Купити його не можна, доки ви не додасте кількість.">Закінчився</Pill>
+  return <Pill tone="muted" tip="Товар знято з продажу: його вимкнули ви або файл постачальника.">Вимкнено</Pill>
+}
+
+function Price({ row, inline }: { row: ProductRow; inline?: boolean }) {
+  const discount = discountPercent(row.price, row.priceToShow)
+  return (
+    <div className={cn("tabular-nums", inline && "flex items-baseline gap-2")}>
+      <p className="font-semibold">{money.format(row.priceToShow)}{inline ? " ₴" : ""}</p>
+      {discount > 0 && (
+        <p className="text-xs text-neutral-500">
+          <span className="line-through">{money.format(row.price)}</span> −{discount}%
+        </p>
+      )}
+    </div>
+  )
+}

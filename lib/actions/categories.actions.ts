@@ -1,710 +1,742 @@
 "use server";
 
-import { ObjectId, startSession, Types as MongooseTypes  } from "mongoose";
+import mongoose from "mongoose";
 import Category from "../models/category.model";
 import Product from "../models/product.model";
-import { connectToDB } from "../mongoose";
-import { CategoriesParams, CategoryType, FetchedCategory, ProductType } from "../types/types";
-import clearCache from "./cache";
-import { clearCatalogCache } from "./redis/catalog.actions";
-import { deleteManyProducts, deleteProduct } from "./product.actions";
-import { revalidatePath, revalidateTag } from "next/cache";
-import { redirect } from "next/navigation";
 import Filter from "../models/filter.model";
-import mongoose from "mongoose";
+import { connectToDB } from "../mongoose";
+import { CategoryType, FetchedCategory } from "../types/types";
+import clearCache from "./cache";
+import { deleteManyProducts } from "./product.actions";
+import { requireCatalogAdmin } from "@/lib/admin/catalog-auth";
+import { escapeRegExp } from "@/lib/catalog/text";
+import { pageText } from "@/lib/menu";
+import { findCategoryByName, loadCategoryOptions, syncCategoryMembership, toObjectIds } from "@/lib/admin/categories";
+import {
+  DELETED_CATEGORY_ID,
+  DELETED_PRODUCT_ID,
+  categoryNameProblem,
+  childrenFromParents,
+  isObjectIdLike,
+  normalizeCategoryName,
+  productsWord,
+} from "@/lib/admin/catalog-shared";
 
-const DELETEDCATEGORY_ID = "681a9c9a90b4efb3dd18d1e5"
+type Oid = mongoose.Types.ObjectId;
+const { ObjectId } = mongoose.Types;
 
-const excludeDeletedCategory = { _id: { $ne: DELETEDCATEGORY_ID }}
+const NOT_PLACEHOLDER = { _id: { $ne: new ObjectId(DELETED_CATEGORY_ID) } };
 
+/** One cache call per user action, after the writes (clearCache also invalidates the catalog snapshot). */
+async function afterCategoryWrite(kind: "createCategory" | "updateCategory" | "deleteCategory") {
+  await clearCache(kind);
+}
 
-export async function findCategoryByExternalId(
-  externalId: string
-) {
+function plain<T>(value: unknown): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 
+function requireId(value: unknown, message = "Категорію не знайдено."): Oid {
+  if (!isObjectIdLike(value) || value.toLowerCase() === DELETED_CATEGORY_ID) throw new Error(message);
+  return new ObjectId(value.toLowerCase());
+}
+
+/**
+ * Finds a category by name (any letter case) or creates it. Never creates a
+ * category whose name is empty or looks like an id.
+ */
+async function findOrCreateCategory(rawName: unknown): Promise<{ id: Oid; name: string; created: boolean }> {
+  const name = normalizeCategoryName(rawName);
+  const problem = categoryNameProblem(name);
+  if (problem) throw new Error(problem);
+
+  const found = await findCategoryByName(name);
+  if (found) return { id: new ObjectId(found.id), name: found.name, created: false };
+
+  const created = await Category.create({ name, products: [], totalValue: 0, subCategories: [] });
+  return { id: created._id, name, created: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*                          XML importer (categories)                         */
+/* -------------------------------------------------------------------------- */
+
+export async function findCategoryByExternalId(externalId: string) {
+  await requireCatalogAdmin();
   await connectToDB();
-
-  const category = await Category.findOne({ id: externalId });
-
+  const category = await Category.findOne({ id: externalId }).select("_id id name subCategories").lean();
   return JSON.stringify(category);
 }
 
-export async function persistCategory(
-  category: FetchedCategory,
-  parentDbId?: mongoose.Types.ObjectId
-) {
+export async function persistCategory(category: FetchedCategory, parentDbId?: mongoose.Types.ObjectId) {
+  await requireCatalogAdmin();
   await connectToDB();
 
-  const doc = new Category({
-    name: category.name,
-    id:   category.id,
-    subCategories: [],
-  });
+  const name = normalizeCategoryName(category.name) || String(category.id ?? "");
+  const doc = new Category({ name, id: category.id, subCategories: [], products: [], totalValue: 0 });
+  await doc.save();
 
   if (parentDbId) {
-    await Category.findByIdAndUpdate(parentDbId, {
-      $push: { subCategories: doc._id },
-    });
+    await Category.updateOne({ _id: parentDbId }, { $addToSet: { subCategories: doc._id } });
   }
 
-  await doc.save();
   return JSON.stringify(doc);
 }
 
 export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }): Promise<CategoryType[]>;
-export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type: 'json'): Promise<string>;
+export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type: "json"): Promise<string>;
 
-export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type?: 'json') {
-   try {
-      
-    const sortedCategories = [...categories].sort((a, b) => {
-        if (a.parentCategoryId && !b.parentCategoryId) return 1;
-        if (!a.parentCategoryId && b.parentCategoryId) return -1;
-        return 0;
-    });
-
-    // console.log(sortedCategories)
-    const categoryMap = new Map<string, mongoose.Types.ObjectId>();
-
-    for (const category of sortedCategories) {
-        // Check if the category already exists
-        const existingCategory = await Category.findOne({ id: category.id });
-
-        if (existingCategory) {
-            // If category already exists, update the category map
-            categoryMap.set(category.id, existingCategory._id);
-            continue;
-        }
-
-        // If the category doesn't exist, create it
-        const newCategory = new Category({
-            name: category.name,
-            id: category.id,
-            subCategories: [],
-        });
-
-        if (category.parentCategoryId) {
-            const parentCategoryId = categoryMap.get(category.parentCategoryId);
-
-            if (parentCategoryId) {
-                await Category.findByIdAndUpdate(parentCategoryId, {
-                    $push: { subCategories: newCategory._id }
-                });
-            }
-        }
-
-        await newCategory.save();
-        categoryMap.set(category.id, newCategory._id);
-    }
-
-    const updatedCategories =  await Category.find(excludeDeletedCategory);
-
-    if(type === 'json'){
-      return JSON.stringify(updatedCategories)
-    } else {
-      return updatedCategories
-    }
-   } catch (error: any) {
-     throw new Error(`Erorr creating and ${error.message}`)
-   }
-}
-
-export async function updateCategories(
-  products: ProductType[],
-  productOperation: "create" | "update" | "delete"
-) {
+/** Creates the feed's categories that do not exist yet (matched by external id), parents first. */
+export async function createUrlCategories({ categories }: { categories: FetchedCategory[] }, type?: "json") {
   try {
-    connectToDB();
-
-    // Fetch all existing categories only when necessary
-    const existingCategories = await Category.find(excludeDeletedCategory);
-    const categoryMap = new Map(
-      existingCategories.map((cat) => [cat._id.toString(), cat])
-    );
-
-    // To track changes for recalculation
-    const categoriesToUpdate: Record<
-      string,
-      { productIds: string[]; totalValue: number }
-    > = {};
-
-    const calculateTotalValue = async (categoryId: string): Promise<number> => {
-      const category = await Category.findById(categoryId).populate("subCategories");
-      if (!category) return 0;
-
-      let totalValue = category.totalValue || 0;
-
-      for (const subCategory of category.subCategories) {
-        const subCategoryValue = await calculateTotalValue(subCategory._id.toString());
-        totalValue += subCategoryValue;
-      }
-
-      return totalValue;
-    };
-
-    for (const product of products) {
-      const newCategoryIds = product.category; // Updated category IDs
-
-      if (productOperation === "create") {
-        for (const categoryId of newCategoryIds) {
-          if (!categoriesToUpdate[categoryId]) {
-            const existingCategory = categoryMap.get(categoryId);
-            categoriesToUpdate[categoryId] = {
-              productIds: existingCategory ? [...existingCategory.products] : [],
-              totalValue: existingCategory ? await calculateTotalValue(categoryId) : 0,
-            };
-          }
-
-          const newCategory = categoriesToUpdate[categoryId];
-          if (!newCategory.productIds.includes(product._id)) {
-            newCategory.productIds.push(product._id);
-            newCategory.totalValue += product.priceToShow || 0;
-          }
-        }
-        continue;
-      }
-
-      for (const [categoryId, category] of categoryMap.entries()) {
-        if (category.products.includes(product._id)) {
-          if (!newCategoryIds.includes(categoryId) || productOperation === "delete") {
-            category.products = category.products.filter(
-              (id: string) => id.toString() !== product._id.toString()
-            );
-
-            const remainingProducts = await Product.find({
-              _id: { $in: category.products },
-            });
-
-            category.totalValue = remainingProducts.reduce(
-              (sum, prod) => sum + (prod.priceToShow || 0),
-              0
-            );
-
-            categoriesToUpdate[categoryId] = {
-              productIds: category.products,
-              totalValue: category.totalValue,
-            };
-          }
-        }
-      }
-
-      if (productOperation === "update") {
-        for (const categoryId of newCategoryIds) {
-          if (!categoriesToUpdate[categoryId]) {
-            const existingCategory = categoryMap.get(categoryId);
-            categoriesToUpdate[categoryId] = {
-              productIds: existingCategory ? [...existingCategory.products] : [],
-              totalValue: existingCategory ? existingCategory.totalValue : 0,
-            };
-          }
-
-          const newCategory = categoriesToUpdate[categoryId];
-          if (!newCategory.productIds.includes(product._id)) {
-            newCategory.productIds.push(product._id);
-
-            const categoryProducts = await Product.find({
-              _id: { $in: newCategory.productIds },
-            });
-            newCategory.totalValue = categoryProducts.reduce(
-              (sum, prod) => sum + (prod.priceToShow || 0),
-              0
-            );
-          }
-        }
-      }
-    }
-
-    for (const categoryId in categoriesToUpdate) {
-      const category = categoriesToUpdate[categoryId];
-      category.productIds = Array.from(new Set(category.productIds.map((id) => id.toString())));
-    }
-
-    const categoryOps = Object.entries(categoriesToUpdate).map(
-      async ([categoryId, { productIds, totalValue }]) => {
-        if (categoryMap.has(categoryId)) {
-          await Category.updateOne(
-            { _id: categoryId },
-            { products: productIds, totalValue }
-          );
-        }
-      }
-    );
-
-    await Promise.all(categoryOps);
-
-    clearCatalogCache();
-    clearCache(["updateCategory", "updateProduct"], undefined);
-  } catch (error: any) {
-    throw new Error(
-      `Error updating categories with products: ${error.message}`
-    );
-  }
-}
-
-
-export async function fetchAllCategories(): Promise<CategoryType[]>;
-export async function fetchAllCategories(type: 'json'): Promise<string>;
-
-export async function fetchAllCategories(type?: 'json') {
-   try {
-      
-    connectToDB();
-
-    const allCategories = await Category.find(excludeDeletedCategory);
-
-    if(type === 'json'){
-      return JSON.stringify(allCategories)
-    } else {
-      return allCategories
-    }
-   } catch (error: any) {
-     throw new Error(`Error fetching all catgeories: ${error.message}`)
-   }
-}
-
-export async function fetchRawCategoriesJSON(): Promise<string> {
-  try {
+    await requireCatalogAdmin();
     await connectToDB();
 
-    const rawCategoriesFromDB = await Category.find(excludeDeletedCategory)
-      .populate({
-        path: "products",
-        model: Product,
-        select: 'price _id isAvailable'
-      })
-      .lean();
+    const sorted = [...categories].sort((a, b) => Number(Boolean(a.parentCategoryId)) - Number(Boolean(b.parentCategoryId)));
+    const existing = await Category.find({ id: { $in: sorted.map((category) => category.id) } }).select("_id id").lean<{ _id: Oid; id: string }[]>();
+    const byExternalId = new Map<string, Oid>(existing.map((category) => [category.id, category._id]));
 
-    return JSON.stringify(rawCategoriesFromDB);
+    for (const category of sorted) {
+      if (byExternalId.has(category.id)) continue;
+      const doc = await Category.create({
+        name: normalizeCategoryName(category.name) || category.id,
+        id: category.id,
+        subCategories: [],
+        products: [],
+        totalValue: 0,
+      });
+      byExternalId.set(category.id, doc._id);
+      const parentId = category.parentCategoryId ? byExternalId.get(category.parentCategoryId) : undefined;
+      if (parentId) await Category.updateOne({ _id: parentId }, { $addToSet: { subCategories: doc._id } });
+    }
+
+    const updated = await Category.find(NOT_PLACEHOLDER).select("_id id name subCategories totalValue").lean();
+    return type === "json" ? JSON.stringify(updated) : plain<CategoryType[]>(updated);
   } catch (error: any) {
-    console.error("Error fetching raw categories JSON:", error);
-    throw new Error(`Failed to fetch raw categories JSON: ${error.message}`);
+    throw new Error(`Erorr creating and ${error.message}`);
   }
 }
 
-export async function fetchCategory({ categoryId }: { categoryId: string }) {
+export async function fetchAllCategories(): Promise<CategoryType[]>;
+export async function fetchAllCategories(type: "json"): Promise<string>;
+
+/** Every category without the product lists (the importer uses _id, id, name). */
+export async function fetchAllCategories(type?: "json") {
   try {
-    connectToDB();
+    await requireCatalogAdmin();
+    await connectToDB();
+    const all = await Category.find(NOT_PLACEHOLDER).select("_id id name subCategories totalValue").lean();
+    return type === "json" ? JSON.stringify(all) : plain<CategoryType[]>(all);
+  } catch (error: any) {
+    throw new Error(`Error fetching all catgeories: ${error.message}`);
+  }
+}
 
-    // Fetch the category by its ID and populate its products
-    const categoryData = await Category.findById(categoryId).populate("products");
+/** Id and name of every category, sorted by name. */
+export async function getCategoriesNamesAndIds(): Promise<{ name: string; categoryId: string }[]> {
+  await requireCatalogAdmin();
+  const options = await loadCategoryOptions();
+  return options.map((option) => ({ name: option.name, categoryId: option.id }));
+}
 
-    if (!categoryData) {
-      throw new Error("Category not found");
+/** Rebuilds Category.products / totalValue for every category from Product.category. Call once after an import. */
+export async function syncAllCategoryMembership(): Promise<{ categories: number }> {
+  await requireCatalogAdmin();
+  const result = await syncCategoryMembership();
+  await afterCategoryWrite("updateCategory");
+  return result;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               Admin actions                                */
+/* -------------------------------------------------------------------------- */
+
+export type CategoryActionResult = { ok: true; message: string; id?: string } | { ok: false; error: string };
+
+function failure(error: unknown): CategoryActionResult {
+  return { ok: false, error: error instanceof Error ? error.message : "Не вдалося виконати дію. Спробуйте ще раз." };
+}
+
+/** Creates a category, or reports that one with this name exists. Optionally nests it under a parent. */
+export async function createNewCategory({
+  name,
+  products,
+  previousCategoryId,
+  parentId,
+}: {
+  name: string;
+  products?: { _id: string }[];
+  previousCategoryId?: string;
+  parentId?: string;
+}): Promise<{ _id: string; name: string; created: boolean }> {
+  await requireCatalogAdmin();
+  await connectToDB();
+
+  const category = await findOrCreateCategory(name);
+  const productIds = toObjectIds((products ?? []).map((product) => product._id));
+  const touched: unknown[] = [category.id];
+
+  if (productIds.length) {
+    await Product.updateMany({ _id: { $in: productIds } }, { $addToSet: { category: category.id } });
+    if (isObjectIdLike(previousCategoryId)) {
+      await Product.updateMany({ _id: { $in: productIds } }, { $pull: { category: new ObjectId(previousCategoryId) } });
+      touched.push(previousCategoryId);
     }
+  }
 
-    const products = categoryData.products;
-    const category = {
-      _id: categoryData._id,
-      categoryName: categoryData.name,
-      totalProducts: 0,
-      totalValue: 0,
-      averageProductPrice: 0,
-      averageDiscountPercentage: 0,
+  if (isObjectIdLike(parentId) && parentId !== String(category.id)) {
+    await Category.updateMany({ subCategories: category.id }, { $pull: { subCategories: category.id } });
+    await Category.updateOne({ _id: parentId }, { $addToSet: { subCategories: category.id } });
+  }
+
+  await syncCategoryMembership(touched);
+  await afterCategoryWrite("createCategory");
+  return { _id: String(category.id), name: category.name, created: category.created };
+}
+
+/** Form action for "Нова категорія". */
+export async function createCategoryAction(input: { name: string; parentId?: string }): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    const existing = await findCategoryByName(normalizeCategoryName(input.name));
+    if (existing) return { ok: false, error: `Категорія «${existing.name}» уже існує.` };
+    const created = await createNewCategory({ name: input.name, parentId: input.parentId });
+    return { ok: true, message: `Категорію «${created.name}» створено.`, id: created._id };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function changeCategoryName({ categoryId, newName }: { categoryId: string; newName: string }): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const id = requireId(categoryId);
+    const name = normalizeCategoryName(newName);
+    const problem = categoryNameProblem(name);
+    if (problem) return { ok: false, error: problem };
+
+    const clash = await findCategoryByName(name, String(id));
+    if (clash) return { ok: false, error: `Категорія «${clash.name}» уже існує. Оберіть іншу назву.` };
+
+    const result = await Category.updateOne({ _id: id }, { $set: { name } });
+    if (result.matchedCount === 0) return { ok: false, error: "Категорію не знайдено." };
+
+    await afterCategoryWrite("updateCategory");
+    return { ok: true, message: "Назву змінено." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Saves the text shown under the products on the category's page in the shop (empty removes it). */
+export async function changeCategoryText({ categoryId, text }: { categoryId: string; text: string }): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const id = requireId(categoryId);
+    const clean = pageText(text);
+
+    const result = await Category.updateOne({ _id: id }, clean ? { $set: { text: clean } } : { $unset: { text: 1 } });
+    if (result.matchedCount === 0) return { ok: false, error: "Категорію не знайдено." };
+
+    await afterCategoryWrite("updateCategory");
+    return { ok: true, message: clean ? "Текст збережено." : "Текст прибрано." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Sets the sale price of every product in the category to `price - percentage%` (0 removes the discount). */
+export async function setCategoryDiscount({ categoryId, percentage }: { categoryId: string; percentage: number }): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const id = requireId(categoryId);
+    const percent = Number(percentage);
+    if (!Number.isFinite(percent) || percent < 0 || percent >= 100) return { ok: false, error: "Вкажіть знижку від 0 до 99%." };
+
+    const factor = 1 - percent / 100;
+    const result = await Product.updateMany({ category: id }, [
+      { $set: { priceToShow: { $max: [0, { $round: [{ $multiply: [{ $ifNull: ["$price", 0] }, factor] }, 0] }] } } },
+    ]);
+
+    await syncCategoryMembership(await Product.distinct("category", { category: id }));
+    await afterCategoryWrite("updateCategory");
+    return {
+      ok: true,
+      message: percent === 0 ? `Знижку прибрано для ${result.matchedCount} товарів.` : `Знижку ${percent}% застосовано до ${result.matchedCount} товарів.`,
     };
-
-    let totalPriceWithoutDiscount = 0;
-
-    for (const product of products) {
-      category.totalProducts += 1;
-      category.totalValue += product.priceToShow;
-      totalPriceWithoutDiscount += product.price;
-    }
-
-    category.averageProductPrice =
-      category.totalProducts !== 0 ? category.totalValue / category.totalProducts : 0;
-
-    category.averageDiscountPercentage = 100 - parseInt(
-      (
-        (totalPriceWithoutDiscount !== 0
-          ? category.totalValue / totalPriceWithoutDiscount
-          : 0) * 100
-      ).toFixed(0)
-    );
-
-    return { ...category, stringifiedProducts: JSON.stringify(products) };
-  } catch (error: any) {
-    throw new Error(`Error fetching category: ${error.message}`);
+  } catch (error) {
+    return failure(error);
   }
 }
 
-export async function setCategoryDiscount({categoryId, percentage}: {categoryId: string, percentage: number}) {
-  try {
-    connectToDB();
-
-    // Fetch the category by its ID and populate its products
-
-    // console.log(percentage)
-    const category = await Category.findById(categoryId).populate("products");
-
-    if (!category) {
-      throw new Error("Category not found");
-    }
-
-    const products = category.products;
-    let totalValue = 0;
-    for (const product of products) {
-      const priceWithDiscount = product.price - product.price * (percentage / 100);
-      product.priceToShow = priceWithDiscount;
-
-      totalValue += priceWithDiscount
-      await product.save();
-    }
-
-    category.totalValue = totalValue;
-
-    await category.save();
-    // Clear the cache after updating product prices
-    await clearCatalogCache();
-    clearCache(["updateCategory", "updateProduct"], undefined);
-
-  } catch (error: any) {
-    throw new Error(`Error changing discount for all the products in the category: ${error.message}`);
-  }
-}
-
-export async function changeCategoryName({ categoryId, newName }: { categoryId: string, newName: string }) {
-  try {
-    connectToDB();
-
-    // Find the category by its _id
-    const category = await Category.findById(categoryId);
-
-    if (!category) {
-      throw new Error(`Category with ID ${categoryId} not found`);
-    }
-
-    // Update the category name
-    category.name = newName;
-    await category.save();
-
-    // Update the category name in all associated products
-    await clearCatalogCache();
-
-    clearCache(["updateCategory","updateProduct"], undefined);
-  } catch (error: any) {
-    throw new Error(`Error changing category's name: ${error.message}`);
-  }
-}
-
+/**
+ * Moves products of one category to another (existing or new by name). With
+ * productIds only those products move; without, every product of the source
+ * category does. keepInSource=true copies instead of moving.
+ */
 export async function moveProductsToCategory({
   initialCategoryId,
   targetCategoryId,
+  newCategoryName,
   productIds,
+  keepInSource = false,
 }: {
   initialCategoryId: string;
-  targetCategoryId: string;
+  targetCategoryId?: string;
+  newCategoryName?: string;
+  productIds?: string[];
+  keepInSource?: boolean;
+}): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const source = requireId(initialCategoryId);
+
+    let target: Oid;
+    let targetName: string;
+    if (isObjectIdLike(targetCategoryId)) {
+      target = requireId(targetCategoryId);
+      const found = await Category.findById(target).select("name").lean<{ name?: string } | null>();
+      if (!found) return { ok: false, error: "Цільової категорії вже не існує." };
+      targetName = found.name ?? "";
+    } else {
+      const created = await findOrCreateCategory(newCategoryName);
+      target = created.id;
+      targetName = created.name;
+    }
+    if (target.equals(source)) return { ok: false, error: "Оберіть іншу категорію: товари вже в цій." };
+
+    const scope: Record<string, unknown> = { category: source };
+    if (productIds?.length) scope._id = { $in: toObjectIds(productIds) };
+
+    const added = await Product.updateMany(scope, { $addToSet: { category: target } });
+    if (!keepInSource) {
+      const ids = productIds?.length ? toObjectIds(productIds) : null;
+      await Product.updateMany(ids ? { _id: { $in: ids } } : { category: source }, { $pull: { category: source } });
+    }
+
+    await syncCategoryMembership([source, target]);
+    await afterCategoryWrite("updateCategory");
+    return {
+      ok: true,
+      id: String(target),
+      message: `${keepInSource ? "Додано" : "Перенесено"} ${added.matchedCount} ${productsWord(added.matchedCount)} до «${targetName}».`,
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export type ProductMoveResult =
+  | { ok: true; message: string; moved: string[]; addedToTarget: string[] }
+  | { ok: false; error: string };
+
+/**
+ * Puts the chosen products into `targetId` and, with a `sourceId`, takes them
+ * out of that category (a move); without one it only adds (giving products
+ * without a category their first one). Reports which products gained the
+ * target, so undoProductMove can put everything back exactly.
+ */
+export async function moveSelectedProducts({
+  sourceId,
+  targetId,
+  productIds,
+}: {
+  sourceId: string | null;
+  targetId: string;
   productIds: string[];
-}) {
+}): Promise<ProductMoveResult> {
   try {
-    connectToDB();
+    await requireCatalogAdmin();
+    await connectToDB();
+    const target = requireId(targetId, "Цільової категорії вже не існує.");
+    const source = sourceId ? requireId(sourceId) : null;
+    if (source && source.equals(target)) return { ok: false, error: "Оберіть іншу категорію: товари вже в цій." };
+    const ids = toObjectIds(productIds);
+    if (!ids.length) return { ok: false, error: "Не вибрано жодного товару." };
+    const found = await Category.findById(target).select("name").lean<{ name?: string } | null>();
+    if (!found) return { ok: false, error: "Цільової категорії вже не існує." };
 
-    const initialCategory = await Category.findById(initialCategoryId).populate("products");
-    if (!initialCategory) {
-      throw new Error(`Initial category with ID ${initialCategoryId} not found`);
-    }
+    const scope = { _id: { $in: ids }, ...(source ? { category: source } : {}) };
+    const [inScope, gaining] = await Promise.all([
+      Product.find(scope).select("_id").lean<{ _id: Oid }[]>(),
+      Product.find({ ...scope, category: source ? { $eq: source, $ne: target } : { $ne: target } }).select("_id").lean<{ _id: Oid }[]>(),
+    ]);
+    const moved = inScope.map((row) => row._id);
+    if (!moved.length) return { ok: false, error: "Цих товарів уже немає в категорії. Оновіть сторінку." };
 
-    const targetCategory = await Category.findById(targetCategoryId);
-    if (!targetCategory) {
-      throw new Error(`Target category with ID ${targetCategoryId} not found`);
-    }
+    await Product.updateMany({ _id: { $in: moved } }, { $addToSet: { category: target } });
+    if (source) await Product.updateMany({ _id: { $in: moved } }, { $pull: { category: source } });
 
-    await Product.updateMany(
-      { _id: { $in: productIds } },
-      { $addToSet: { category: targetCategory._id } }
-    );
-
-    targetCategory.products.push(...productIds);
-
-    await targetCategory.save();
-
-    const populatedTargetCategory = await Category.findById(targetCategoryId).populate("products");
-
-    populatedTargetCategory.totalValue = populatedTargetCategory.products.reduce((sum: number, product: ProductType) => sum + product.priceToShow, 0)
-
-    await populatedTargetCategory.save();
-    
-    initialCategory.products = initialCategory.products.filter(
-      (product: ProductType) => !productIds.includes(product._id.toString())
-    );
-
-    initialCategory.totalValue = initialCategory.products.reduce((sum: number, product: ProductType) => sum + (product.priceToShow || 0), 0)
-
-    await initialCategory.save();
-
-    await targetCategory.save();
-
-    await clearCatalogCache();
-    clearCache(["updateCategory", "updateProduct"], undefined);
-    revalidatePath(`/admin/categories/edit/${initialCategoryId}`)
-  } catch (error: any) {
-    throw new Error(`Error moving products to another category: ${error.message}`);
+    await syncCategoryMembership(source ? [source, target] : [target]);
+    await afterCategoryWrite("updateCategory");
+    const count = `${moved.length} ${productsWord(moved.length)}`;
+    return {
+      ok: true,
+      moved: moved.map(String),
+      addedToTarget: gaining.map((row) => String(row._id)),
+      message: source ? `Перенесено ${count} до «${found.name ?? ""}».` : `${count} тепер у «${found.name ?? ""}».`,
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Не вдалося перенести товари. Спробуйте ще раз." };
   }
 }
 
-export async function getCategoriesNamesAndIds(): Promise<{ name: string; categoryId: string; }[]> {
+/** Reverses moveSelectedProducts: back into the source, out of the target where the move put them. */
+export async function undoProductMove({
+  sourceId,
+  targetId,
+  moved,
+  addedToTarget,
+}: {
+  sourceId: string | null;
+  targetId: string;
+  moved: string[];
+  addedToTarget: string[];
+}): Promise<CategoryActionResult> {
   try {
-    connectToDB();
-
-    const categories = await Category.find(excludeDeletedCategory);
-
-    const categoriesNamesAndIdsArray = categories.map(category => ({ name: category.name, categoryId: category._id.toString()}))
-
-    return categoriesNamesAndIdsArray
-  } catch (error: any) {
-    throw new Error(`Error fetching all categories names an _ids: ${error.message}`)
+    await requireCatalogAdmin();
+    await connectToDB();
+    const target = requireId(targetId);
+    const source = sourceId ? requireId(sourceId) : null;
+    const back = toObjectIds(moved);
+    const out = toObjectIds(addedToTarget);
+    if (source && back.length) await Product.updateMany({ _id: { $in: back } }, { $addToSet: { category: source } });
+    if (out.length) await Product.updateMany({ _id: { $in: out } }, { $pull: { category: target } });
+    await syncCategoryMembership(source ? [source, target] : [target]);
+    await afterCategoryWrite("updateCategory");
+    return { ok: true, message: "Скасовано: товари там, де були." };
+  } catch (error) {
+    return failure(error);
   }
 }
 
-export async function getCategoriesNamesIdsTotalProducts(): Promise<{ name: string; categoryId: string; totalProducts: number, subCategories: string[] }[]> {
-  try {
-    connectToDB();
-
-    const categories = await Category.find(excludeDeletedCategory);
-
-    const categoriesNamesAndIdsArray = categories.map(category => ({ name: category.name, categoryId: category._id.toString(), totalProducts: category.products.length, subCategories: category.subCategories }))
-
-    return categoriesNamesAndIdsArray
-  } catch (error: any) {
-    throw new Error(`Error fetching all categories names an _ids: ${error.message}`)
-  }
-}
-
-export async function createNewCategory({ name, products, previousCategoryId }: { name: string, products: ProductType[], previousCategoryId?: string }) {
-  try {
-    connectToDB();
-
-    const productIds = products.map(product => product._id);
-
-    if(previousCategoryId) {
-      const previousCategory = await Category.findById(previousCategoryId).populate("products");
-
-      previousCategory.products = previousCategory.products.filter(
-        (product: ProductType) => !productIds.includes(product._id.toString())
-      );
-
-      previousCategory.totalValue = previousCategory.products.reduce((sum: number, product: ProductType) => sum + product.priceToShow, 0)
-      
-      await previousCategory.save();
-
-      revalidatePath(`/admin/categories/edit/${previousCategoryId}`)
-    }
-
-    const totalValue = products.reduce((sum, product) => sum + (product.priceToShow || 0), 0);
-
-    const createdCategory = await Category.create({
-      name,
-      totalValue,
-
-      products: productIds
-    })
-
-    // console.log(createdCategory)
-    clearCatalogCache();
-    clearCache(["createCategory", "updateProduct"], undefined);
-
-    return createdCategory
-  } catch (error: any) {
-    throw new Error(`Error creating new category: ${error.message}`)
-  }
-}
-
-interface DeleteCategoryProps {
+/**
+ * Deletes a category and every reference to it: Product.category, parents'
+ * subCategories (its children move up to its parent) and the filter.
+ * removeProducts deletes its products as well; moveToCategoryId (or
+ * moveToNewName) first adds its products to another category.
+ */
+export async function deleteCategory(props: {
   categoryId: string;
   removeProducts: boolean;
-}
-
-interface ICategoryDocument extends mongoose.Document {
-  _id: MongooseTypes.ObjectId;
-  name: string;
-  products: MongooseTypes.ObjectId[] | any[];
-  subCategories: MongooseTypes.ObjectId[];
-  totalValue?: number;
-}
-
-export async function deleteCategory(props: DeleteCategoryProps) {
-  const session = await startSession();
-  session.startTransaction();
-
+  moveToCategoryId?: string;
+  moveToNewName?: string;
+}): Promise<CategoryActionResult> {
   try {
+    await requireCatalogAdmin();
     await connectToDB();
+    const id = requireId(props.categoryId);
 
-    const categoryToDelete = await Category.findById(props.categoryId)
-      .populate<{ products: any[] }>("products")
-      .session(session) as ICategoryDocument | null;
+    const category = await Category.findById(id).select("_id name subCategories").lean<{ _id: Oid; name?: string; subCategories?: Oid[] } | null>();
+    if (!category) return { ok: false, error: "Категорію не знайдено." };
 
-    if (!categoryToDelete) {
-      await session.abortTransaction();
-      session.endSession();
-      throw new Error("Category not found.");
-    }
-
-    const productObjectIdsToRemoveOrUpdate = categoryToDelete.products.map(
-      (product) => new MongooseTypes.ObjectId(product._id)
-    );
+    const touched: unknown[] = [];
+    let deletedProducts = 0;
 
     if (props.removeProducts) {
-      if (productObjectIdsToRemoveOrUpdate.length > 0) {
-        await deleteManyProducts(productObjectIdsToRemoveOrUpdate.map(id => id.toString()), "keep-catalog-cache");
-      }
-      await Category.updateMany(
-        { products: { $in: productObjectIdsToRemoveOrUpdate } },
-        { $pull: { products: { $in: productObjectIdsToRemoveOrUpdate } } },
-        { session }
-      );
-    } else {
-      if (productObjectIdsToRemoveOrUpdate.length > 0) {
-        await Product.updateMany(
-          { _id: { $in: productObjectIdsToRemoveOrUpdate } },
-          { $pull: { category: categoryToDelete._id } },
-          { session }
-        );
-      }
+      const ids = (await Product.find({ category: id }).select("_id").lean<{ _id: Oid }[]>()).map((row) => String(row._id));
+      if (ids.length) deletedProducts = await deleteManyProducts(ids, "keep-catalog-cache");
+    } else if (isObjectIdLike(props.moveToCategoryId) || normalizeCategoryName(props.moveToNewName)) {
+      const target = isObjectIdLike(props.moveToCategoryId) ? requireId(props.moveToCategoryId) : (await findOrCreateCategory(props.moveToNewName)).id;
+      if (target.equals(id)) return { ok: false, error: "Оберіть іншу категорію для товарів." };
+      await Product.updateMany({ category: id }, { $addToSet: { category: target } });
+      touched.push(target);
     }
 
-    const childrenOfDeletedCategoryIds: MongooseTypes.ObjectId[] = categoryToDelete.subCategories || [];
-    const parentOfDeletedCategory = await Category.findOne({ subCategories: categoryToDelete._id }).session(session) as ICategoryDocument | null;
+    // No product may keep pointing at the deleted category.
+    await Product.updateMany({ category: id }, { $pull: { category: id } });
 
-    if (parentOfDeletedCategory) {
-      let newSubcategoriesForParent = parentOfDeletedCategory.subCategories || [];
-      newSubcategoriesForParent = newSubcategoriesForParent.filter(
-        (subId) => !subId.equals(categoryToDelete._id)
-      );
-
-      const childrenObjectIds = childrenOfDeletedCategoryIds.map(id =>
-        id instanceof MongooseTypes.ObjectId ? id : new MongooseTypes.ObjectId(id)
-      );
-      newSubcategoriesForParent = newSubcategoriesForParent.concat(childrenObjectIds);
-
-      const uniqueNewParentSubcategories = Array.from(new Set(newSubcategoriesForParent.map(id => id.toString())))
-        .map(idStr => new MongooseTypes.ObjectId(idStr));
-
-      await Category.updateOne(
-        { _id: parentOfDeletedCategory._id },
-        { $set: { subCategories: uniqueNewParentSubcategories } },
-        { session }
-      );
+    // Its children move up to its parent (or become top-level).
+    const parent = await Category.findOne({ subCategories: id }).select("_id").lean<{ _id: Oid } | null>();
+    await Category.updateMany({ subCategories: id }, { $pull: { subCategories: id } });
+    const children = toObjectIds(category.subCategories ?? []).filter((child) => !child.equals(id));
+    if (parent && children.length) {
+      await Category.updateOne({ _id: parent._id }, { $addToSet: { subCategories: { $each: children } } });
     }
 
-    await Filter.updateOne(
-      { "categories.categoryId": props.categoryId },
-      { $pull: { categories: { categoryId: props.categoryId } } },
-      { session }
-    );
+    await Filter.updateMany({}, { $pull: { categories: { categoryId: id } } });
+    await Category.deleteOne({ _id: id });
 
-    await Category.deleteOne({ _id: categoryToDelete._id }, { session });
+    if (touched.length) await syncCategoryMembership(touched);
+    await afterCategoryWrite("deleteCategory");
 
-    await session.commitTransaction();
-
-    await clearCatalogCache();
-    clearCache(["deleteCategory", "updateProduct", "updateCategory"], undefined);
-
-  } catch (error: any) {
-    await session.abortTransaction();
-    throw new Error(`Error deleting category: ${error.message}`);
-  } finally {
-    session.endSession();
+    const label = isObjectIdLike(category.name ?? "") ? "Пошкоджену категорію" : `Категорію «${category.name}»`;
+    return {
+      ok: true,
+      message: props.removeProducts
+        ? `${label} і ${deletedProducts} її товарів видалено.`
+        : touched.length
+          ? `${label} видалено, товари перенесено.`
+          : `${label} видалено.`,
+    };
+  } catch (error) {
+    return failure(error);
   }
 }
 
-
-export async function fetchCategoriesProducts(categoryId: string, type?: 'json') {
+/**
+ * Saves the whole tree at once from a child → parent map. Validates that every
+ * parent exists and there are no cycles, then writes every changed
+ * subCategories list in one bulkWrite.
+ */
+export async function saveCategoryStructure(parentById: Record<string, string | null>): Promise<CategoryActionResult> {
   try {
-    // Connect to the database
+    await requireCatalogAdmin();
     await connectToDB();
 
-    // Find the category by _id
-    const category = await Category.findById(categoryId).populate('products');
+    const categories = await Category.find(NOT_PLACEHOLDER).select("_id subCategories").lean<{ _id: Oid; subCategories?: Oid[] }[]>();
+    const ids = categories.map((category) => String(category._id));
+    const known = new Set(ids);
 
-    if (!category) {
-      throw new Error('Category not found');
+    const parentOf = new Map<string, string | null>();
+    for (const id of ids) {
+      const parent = parentById[id];
+      parentOf.set(id, parent && known.has(parent) ? parent : null);
     }
 
-    const products = category.products;
-
-    // Return the products in the specified format
-    if (type === 'json') {
-      return JSON.stringify(products);
-    } else {
-      return products;
-    }
-  } catch (error: any) {
-    throw new Error(`Error fetching category products: ${error.message}`);
-  }
-}
-
-
-export async function fetchCategoriesParams(): Promise<CategoriesParams>;
-export async function fetchCategoriesParams(type: 'json'): Promise<string>;
-
-export async function fetchCategoriesParams(type?: 'json') {
-  try {
-      await connectToDB();
-      
-      const categories = await Category.find(excludeDeletedCategory).populate("products");
-      
-      const result = categories.reduce((acc, category) => {
-          const totalProducts = category.products.length;
-          const paramCounts: Record<string, number> = {};
-          
-          category.products.forEach((product: ProductType) => {
-              product.params.forEach(param => {
-                  const key = param.name;
-                  if (!paramCounts[key]) {
-                      paramCounts[key] = 0;
-                  }
-                  paramCounts[key] += 1;
-              });
-          });
-          
-          acc[category._id] = {
-              name: category.name,
-              totalProducts,
-              params: Object.entries(paramCounts).map(([name, totalProducts]) => ({ name, totalProducts, type: ""}))
-          };
-          
-          return acc;
-      }, {});
-
-      return type === 'json' ? JSON.stringify(result) : result;
-  } catch (error: any) {
-      throw new Error(`Error fetching categories params: ${error.message}`);
-  }
-}
-
-
-export async function fetchRawCategoriesForFilterConfig(): Promise<string> {
-  try {
-    await connectToDB();
-    
-    const rawCategories = await Category.find(excludeDeletedCategory)
-      .populate({
-        path: "products",
-        model: Product,
-        select: 'params' 
+    const children = childrenFromParents(ids, parentOf);
+    const operations = categories
+      .map((category) => {
+        const id = String(category._id);
+        const wanted = new Set(children.get(id) ?? []);
+        const current = (category.subCategories ?? []).map(String);
+        // Keep the existing order of children that stay; new ones go to the end.
+        const next = [...current.filter((child) => wanted.has(child)), ...Array.from(wanted).filter((child) => !current.includes(child))];
+        const unique = Array.from(new Set(next));
+        const same = current.length === unique.length && current.every((child, index) => child === unique[index]);
+        return same ? null : { updateOne: { filter: { _id: category._id }, update: { $set: { subCategories: unique.map((child) => new ObjectId(child)) } } } };
       })
-      .lean();
+      .filter((operation): operation is NonNullable<typeof operation> => operation !== null);
 
-    return JSON.stringify(rawCategories);
-  } catch (error: any) {
-    console.error(`Error fetching raw categories for filter config: ${error.message}`);
-    throw new Error(`Error fetching raw categories for filter config: ${error.message}`);
+    if (operations.length) await Category.bulkWrite(operations, { ordered: false });
+    await afterCategoryWrite("updateCategory");
+    return { ok: true, message: operations.length ? `Структуру збережено (змінено ${operations.length}).` : "Змін немає." };
+  } catch (error) {
+    return failure(error);
   }
 }
 
-export async function updateSubcategories({ categories }: { categories: CategoryType[] }) {
-  try {
-    await connectToDB();
+/** Moves a category under another one (or to the top level). Refuses a move into itself or its own subcategory. */
+export async function setCategoryParent(categoryId: string, parentId: string | null): Promise<CategoryActionResult> {
+  const result = await moveCategory(categoryId, parentId);
+  return result.ok ? { ok: true, message: result.message } : result;
+}
 
-      for (const category of categories) {
-        await Category.updateOne(
-          { _id: category._id },
-          { $set: { subCategories: category.subCategories } }
-        )
+export type MoveCategoryResult =
+  | { ok: true; message: string; changed: boolean; previous: { parentId: string | null; index: number } }
+  | { ok: false; error: string };
+
+/**
+ * Puts a category under another one at `index` among its children (the end
+ * when left out), or at the top level (`parentId` null). Refuses a move into
+ * itself or its own subcategory. Returns where it was before, so the admin
+ * can undo the move with the same call.
+ */
+export async function moveCategory(categoryId: string, parentId: string | null, index?: number): Promise<MoveCategoryResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const id = requireId(categoryId);
+    const parent = parentId ? requireId(parentId, "Батьківську категорію не знайдено.") : null;
+    if (parent && parent.equals(id)) return { ok: false, error: "Категорія не може бути вкладена сама в себе." };
+
+    const categories = await Category.find(NOT_PLACEHOLDER).select("_id name subCategories").lean<{ _id: Oid; name?: string; subCategories?: Oid[] }[]>();
+    const self = categories.find((category) => category._id.equals(id));
+    if (!self) return { ok: false, error: "Категорію не знайдено." };
+    const target = parent ? categories.find((category) => category._id.equals(parent)) : null;
+    if (parent && !target) return { ok: false, error: "Батьківську категорію не знайдено." };
+
+    const parentOf = new Map<string, string>();
+    for (const category of categories) for (const child of category.subCategories ?? []) if (!parentOf.has(String(child))) parentOf.set(String(child), String(category._id));
+
+    // Walk up from the new parent: meeting the category means it would sit inside its own subtree.
+    if (parent) {
+      let cursor: string | undefined = String(parent);
+      const seen = new Set<string>();
+      while (cursor && !seen.has(cursor)) {
+        if (cursor === String(id)) return { ok: false, error: "Не можна перемістити категорію у її власну підкатегорію." };
+        seen.add(cursor);
+        cursor = parentOf.get(cursor);
       }
-    
-    await clearCatalogCache();
-    await clearCache("updateCategory", undefined)
-  } catch (error: any) {
-    throw new Error(`Error updating subcategories: ${error.message}`)
+    }
+
+    const previousParentId = parentOf.get(String(id)) ?? null;
+    const previousParent = previousParentId ? categories.find((category) => String(category._id) === previousParentId) : null;
+    const previousIndex = previousParent ? Math.max(0, (previousParent.subCategories ?? []).findIndex((child) => String(child) === String(id))) : 0;
+    const previous = { parentId: previousParentId, index: previousIndex };
+
+    const siblings = (target?.subCategories ?? []).filter((child) => !child.equals(id));
+    const position = Number.isInteger(index) ? Math.max(0, Math.min(index as number, siblings.length)) : siblings.length;
+    const samePlace =
+      previousParentId === (parent ? String(parent) : null) && (!parent || (target?.subCategories ?? []).findIndex((child) => child.equals(id)) === position);
+    if (samePlace) return { ok: true, changed: false, message: "Категорія вже тут.", previous };
+
+    await Category.updateMany({ subCategories: id }, { $pull: { subCategories: id } });
+    if (parent) await Category.updateOne({ _id: parent }, { $push: { subCategories: { $each: [id], $position: position } } });
+
+    await afterCategoryWrite("updateCategory");
+    const name = self.name?.trim() || "Категорію";
+    return {
+      ok: true,
+      changed: true,
+      previous,
+      message: parent ? `«${name}» тепер у «${target?.name?.trim() ?? ""}».` : `«${name}» тепер на верхньому рівні.`,
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Не вдалося перемістити категорію. Спробуйте ще раз." };
   }
+}
+
+/**
+ * Deletes categories that hold no products. A category that has products by
+ * now is skipped, not deleted. Subcategories that stay move up to the nearest
+ * parent that stays.
+ */
+export async function deleteEmptyCategories(categoryIds: string[]): Promise<CategoryActionResult & { deleted?: number; skipped?: number }> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const wanted = toObjectIds(categoryIds).filter((id) => String(id) !== DELETED_CATEGORY_ID);
+    if (!wanted.length) return { ok: false, error: "Не вибрано жодної категорії." };
+
+    const [categories, used] = await Promise.all([
+      Category.find(NOT_PLACEHOLDER).select("_id subCategories").lean<{ _id: Oid; subCategories?: Oid[] }[]>(),
+      Product.distinct("category", { _id: { $ne: new ObjectId(DELETED_PRODUCT_ID) }, category: { $in: wanted } }),
+    ]);
+    const busy = new Set(used.map(String));
+    const known = new Set(categories.map((category) => String(category._id)));
+    const doomed = new Set(wanted.map(String).filter((id) => known.has(id) && !busy.has(id)));
+    if (!doomed.size) return { ok: false, error: "У цих категоріях уже є товари, тому їх не видалено." };
+
+    // Every category that stays keeps its place; children of a deleted one go to the nearest ancestor that stays.
+    const parentOf = new Map<string, string>();
+    for (const category of categories) for (const child of category.subCategories ?? []) if (!parentOf.has(String(child))) parentOf.set(String(child), String(category._id));
+    const keeperAbove = (id: string): string | null => {
+      const seen = new Set<string>();
+      let cursor = parentOf.get(id);
+      while (cursor && doomed.has(cursor) && !seen.has(cursor)) {
+        seen.add(cursor);
+        cursor = parentOf.get(cursor);
+      }
+      return cursor && !doomed.has(cursor) ? cursor : null;
+    };
+    const adopted = new Map<string, string[]>();
+    for (const id of Array.from(known)) {
+      if (doomed.has(id) || !doomed.has(parentOf.get(id) ?? "")) continue;
+      const keeper = keeperAbove(id);
+      if (keeper) adopted.set(keeper, [...(adopted.get(keeper) ?? []), id]);
+    }
+
+    const operations = categories
+      .filter((category) => !doomed.has(String(category._id)))
+      .map((category) => {
+        const current = (category.subCategories ?? []).map(String);
+        const next = Array.from(new Set([...current.filter((child) => !doomed.has(child)), ...(adopted.get(String(category._id)) ?? [])]));
+        const same = next.length === current.length && next.every((child, index) => child === current[index]);
+        return same ? null : { updateOne: { filter: { _id: category._id }, update: { $set: { subCategories: next.map((child) => new ObjectId(child)) } } } };
+      })
+      .filter((operation): operation is NonNullable<typeof operation> => operation !== null);
+
+    const ids = Array.from(doomed).map((id) => new ObjectId(id));
+    if (operations.length) await Category.bulkWrite(operations, { ordered: false });
+    await Filter.updateMany({}, { $pull: { categories: { categoryId: { $in: ids } } } });
+    await Category.deleteMany({ _id: { $in: ids } });
+    await afterCategoryWrite("deleteCategory");
+
+    const skipped = wanted.length - doomed.size;
+    return {
+      ok: true,
+      deleted: doomed.size,
+      skipped,
+      message:
+        doomed.size === 1 && skipped === 0
+          ? "Категорію видалено."
+          : `Видалено порожніх категорій: ${doomed.size}.${skipped ? ` Пропущено ${skipped}: у них з’явилися товари.` : ""}`,
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Saves the order of a category's subcategories (ids not among its children are ignored). */
+export async function reorderSubcategories(parentId: string, orderedIds: string[]): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const id = requireId(parentId);
+    const parent = await Category.findById(id).select("subCategories").lean<{ subCategories?: Oid[] } | null>();
+    if (!parent) return { ok: false, error: "Категорію не знайдено." };
+    const current = (parent.subCategories ?? []).map(String);
+    const wanted = orderedIds.filter((child) => current.includes(child));
+    const next = [...wanted, ...current.filter((child) => !wanted.includes(child))];
+    await Category.updateOne({ _id: id }, { $set: { subCategories: next.map((child) => new ObjectId(child)) } });
+    await afterCategoryWrite("updateCategory");
+    return { ok: true, message: "Порядок збережено." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Adds products to a category (keeps their other categories). */
+export async function addProductsToCategory(categoryId: string, productIds: string[]): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const id = requireId(categoryId);
+    const ids = toObjectIds(productIds);
+    if (!ids.length) return { ok: false, error: "Не вибрано жодного товару." };
+    if (!(await Category.exists({ _id: id }))) return { ok: false, error: "Категорію не знайдено." };
+    const result = await Product.updateMany({ _id: { $in: ids } }, { $addToSet: { category: id } });
+    await syncCategoryMembership([id]);
+    await afterCategoryWrite("updateCategory");
+    return { ok: true, message: `Додано товарів: ${result.modifiedCount}.` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Takes products out of a category (they keep their other categories). */
+export async function removeProductsFromCategory(categoryId: string, productIds: string[]): Promise<CategoryActionResult> {
+  try {
+    await requireCatalogAdmin();
+    await connectToDB();
+    const id = requireId(categoryId);
+    const ids = toObjectIds(productIds);
+    if (!ids.length) return { ok: false, error: "Не вибрано жодного товару." };
+    const result = await Product.updateMany({ _id: { $in: ids } }, { $pull: { category: id } });
+    await syncCategoryMembership([id]);
+    await afterCategoryWrite("updateCategory");
+    return { ok: true, message: `Прибрано з категорії: ${result.modifiedCount}.` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export type ProductSearchHit = { _id: string; name: string; articleNumber: string; image: string | null; inCategory: boolean };
+
+/** Up to 20 products by name, article number or ID, for the "add products" search in a category. */
+export async function searchProductsForCategory(query: string, categoryId: string): Promise<ProductSearchHit[]> {
+  await requireCatalogAdmin();
+  await connectToDB();
+  const text = String(query ?? "").trim().slice(0, 80);
+  if (text.length < 2) return [];
+  const pattern = new RegExp(escapeRegExp(text), "i");
+  const rows = await Product.find(
+    { _id: { $ne: new ObjectId(DELETED_PRODUCT_ID) }, $or: [{ name: pattern }, { articleNumber: pattern }, { id: text }] },
+    { name: 1, articleNumber: 1, category: 1, images: { $slice: 1 } },
+  )
+    .limit(20)
+    .lean<{ _id: Oid; name?: string; articleNumber?: string; category?: Oid[]; images?: string[] }[]>();
+  const target = isObjectIdLike(categoryId) ? categoryId.toLowerCase() : "";
+  return rows.map((row) => ({
+    _id: String(row._id),
+    name: row.name ?? "",
+    articleNumber: row.articleNumber ?? "",
+    image: row.images?.[0] ?? null,
+    inCategory: (row.category ?? []).some((value) => String(value) === target),
+  }));
 }

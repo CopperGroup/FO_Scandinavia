@@ -1,199 +1,137 @@
-"use client";
-import Link from "next/link";
-import React, { useEffect, useState } from "react";
-import {useRouter} from "next/navigation";
-import axios from "axios";
-import GoogleSignIn from "@/components/authButtons/GoogleSignIn";
-import { useSession } from "next-auth/react";
-import Image from "next/image";
-import { useToast } from "@/components/ui/use-toast";
-import { Button } from "@/components/ui/button";
-import { TransitionLink } from "@/components/interface/TransitionLink";
-import { trackFacebookEvent } from "@/helpers/pixel";
-import { Store } from "@/constants/store";
+"use client"
+
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import axios from "axios"
+import { signIn, useSession } from "next-auth/react"
+import { Loader2 } from "lucide-react"
+import GoogleSignIn from "@/components/authButtons/GoogleSignIn"
+import AuthShell, { Divider, FormError, TextField } from "@/components/storefront/auth/AuthShell"
+import { trackFacebookEvent } from "@/helpers/pixel"
+
+const MIN_PASSWORD_LENGTH = 8
 
 export default function SignupPage() {
-    const session = useSession();
-    const router = useRouter();
-    const { toast } = useToast()
-    useEffect(() => {
-        if (session.status === 'authenticated') {
-          router.replace("/");
-        }
-    }, [session]);
- 
+  const session = useSession()
+  const router = useRouter()
 
-    const [user, setUser] = React.useState({
-        email: "",
-        password: "",
-        username: ""
-    })
+  const [user, setUser] = useState({ username: "", email: "", password: "" })
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  // Set when the address already has orders: the account opens from the link sent there.
+  const [confirmSentTo, setConfirmSentTo] = useState("")
 
-    const [error, setError] = useState('');
-    const [disabled, setDisabled] = React.useState(false);
-    const [wasSended, setWasSended] = useState(false);
+  useEffect(() => {
+    if (session.status === "authenticated") router.replace("/")
+  }, [session.status, router])
 
-
-    const onSignup = async () => {
-        try {               
-          
-          const response = await axios.post("/api/users/signup", user);
-          // setWasSended(true);
-          
-          trackFacebookEvent("CompleteRegistration", {
-            registration_method: "email",
-          });
-
-          router.push('/login')
-        } catch (error: any) {
-            console.log(error.message);
-           
-            setError('Акаунт вже існує')
-        }
+  async function onSignup(event: React.FormEvent) {
+    event.preventDefault()
+    setError("")
+    if (user.password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Пароль має містити щонайменше ${MIN_PASSWORD_LENGTH} символів`)
+      return
     }
 
-   
+    setLoading(true)
+    try {
+      const { data } = await axios.post("/api/users/signup", { ...user, email: user.email.trim() })
+      if (data?.confirmEmail) {
+        setConfirmSentTo(user.email.trim())
+        return
+      }
+      trackFacebookEvent("CompleteRegistration", { registration_method: "email" })
 
-    useEffect(() => {
-        if(user.email.length > 0 && user.password.length > 0 && user.username.length > 0) {
-            setDisabled(false);
-        } else {
-            setDisabled(true);
-        }
-    }, [user]);
+      // Sign the new customer in straight away; if that fails they can do it on the login page.
+      const response = await signIn("credentials", { email: user.email.trim(), password: user.password, redirect: false })
+      router.replace(response?.error ? "/login" : "/")
+    } catch (error: any) {
+      setError(
+        error?.response?.status === 400
+          ? "Обліковий запис із цією адресою вже існує. Увійдіть або відновіть пароль."
+          : error?.response?.data?.code === "EMAIL_FAILED"
+            ? "Не вдалося надіслати лист для підтвердження адреси. Спробуйте ще раз за хвилину або увійдіть через Google."
+            : "Не вдалося зареєструватися. Спробуйте ще раз за хвилину.",
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  const complete = user.username.trim() && user.email.trim() && user.password
 
+  if (confirmSentTo) {
     return (
-        <main className="w-full h-screen flex flex-1">
-        <div className="w-2/5 max-w-[40rem] h-full flex flex-col justify-center items-center max-[1640px]:max-w-[44rem] max-[1640px]:w-1/2 max-[1010px]:hidden">
-          <div className="w-full flex items-center h-20 px-7">
-            <Link href="/" className="text-heading3-bold pl-3">{Store.name}</Link>
-          </div>
-          <div className="w-full h-full flex justify-center items-center px-28 py-20 overflow-y-auto max-[1600px]:px-24 max-[1340px]:px-20 max-[1095px]:px-16">
-            <div className="w-full h-full flex-col justify-center flex-1">
-            {wasSended
-                 ?
-                 <div>
-                     <h1 className="text-heading1-semibold text-dark-3 font-[550] mt-5 mb-1">Лист Відправлено!</h1>
-                     <p className="text-gray-700 text-[17px] mt-3">Перевірте вашу електронну адресу на наявність листа! <br/>Не забудьте подиввитися у папці &quot;Спам&quot;!</p>
-                     <Image src='assets/mail.svg' width={100} height={100} alt="" className="mx-auto my-10"></Image>
-                 </div>
-                 :
-                (<>
-                    <h3 className="text-heading1-semibold text-dark-3 font-[550] mt-5 mb-1">Sign up</h3>
-                    <p className="text-dark-4 mb-8">Продовжте з Google, або введіть дані самостійно.</p>
-                    <GoogleSignIn className="" label="Sign up with Google"/>
-                    <div className="relative w-full h-7 flex gap-1 shrink-0 items-center justify-between my-12">
-                      <div className="w-[47%] h-[2px] bg-stone-100"></div>
-                      <p className="w-10 bg-trasnparent text-center rounded-2xl px-3">or</p>
-                      <div className="w-[47%] h-[2px] bg-stone-100"></div>
-                    </div>
-                    <div className="flex flex-col text-center">
-                        <label htmlFor="username"></label>
-                        <input 
-                            className="bg-transparent appearance-none rounded-none border-b-2 border-stone-200 font-medium focus:outline-none focus:border-gray-600 text-black placeholder-slate-600 p-2 mb-4"
-                            id="username"
-                            type="text"
-                            value={user.username}
-                            onChange={(e) => {setUser({...user, username: e.target.value}); setError('')}}
-                            placeholder="Name"
-                        />
-                        <label htmlFor="email"></label>
-                        <input 
-                        className="bg-transparent appearance-none rounded-none border-b-2 border-stone-200 font-medium focus:outline-none focus:border-gray-600 text-black placeholder-slate-600 p-2 mb-4"
-                            id="email"
-                            type="text"
-                            value={user.email}
-                            onChange={(e) => {setUser({...user, email: e.target.value}); setError('')}}
-                            placeholder="Email"
-                        />
-                        <label htmlFor="password"></label>
-                        <input 
-                            className="bg-transparent appearance-none rounded-none border-b-2 border-stone-200 font-medium focus:outline-none focus:border-gray-600 text-black placeholder-slate-600 p-2 mb-4"
-                            id="password"
-                            type="password"
-                            value={user.password}
-                            onChange={(e) => setUser({...user, password: e.target.value})}
-                            placeholder="Password"
-                        />
-                        {error && (
-                        <div className="w-full bg-red-500 text-white text-small-regular py-1 px-3 rounded-md mt-2 mb-3">
-                            {error}
-                        </div>
-                        )} 
-                        {disabled?<button className="w-full mx-auto py-3 px-10 font-medium tracking-wide border bg-gray-50 border-gray-300 text-gray-300 rounded-lg pointer-events-none mt-9 mb-4">Зареєструватися</button>
-                        :<button onClick={onSignup} className="w-full mx-auto py-3 px-10 bg-black text-white font-medium tracking-wide border border-gray-300 rounded-lg focus:outline-none hover:border-slate-950 transition-colors duration-300 mt-9 mb-4">Зареєструватися</button>}
-                    
-                        <div className="w-full h-fit text-[15px] flex gap-1 justify-center items-center mt-5 mb-7 max-[1255px]:flex-col"><p>Маєте акакунт?</p><TransitionLink type="left" href="/login" className="font-semibold">Увійти зараз</TransitionLink></div>
-                    </div>
-                </>)}
-            </div>
-          </div>
+      <AuthShell
+        title="Підтвердьте e-mail"
+        description={`Ми надіслали лист на ${confirmSentTo}. Відкрийте посилання з нього, щоб завершити реєстрацію.`}
+        footer={
+          <>
+            Уже підтвердили?{" "}
+            <Link href="/login" className="font-semibold text-brand hover:text-brand-deep focus-visible:outline-none focus-visible:underline">
+              Увійти
+            </Link>
+          </>
+        }
+      >
+        <div className="space-y-3 text-base leading-6 text-brand-ink">
+          <p>З цієї адреси вже робили замовлення без реєстрації, тому ми маємо переконатися, що скринька ваша. Після підтвердження ці замовлення будуть у вашому обліковому записі.</p>
+          <p className="text-brand-muted">Посилання діє 24 години. Якщо листа немає, перевірте папку «Спам».</p>
         </div>
-        <div className="relative w-4/5 h-full flex justify-center items-center overflow-hidden max-[1010px]:flex-col max-[1010px]:w-full max-[1010px]:rounded-none" style={{ backgroundImage: `url(/assets/loginbackground.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-          <h1 className="text-[56px] text-center font-medium bg-black text-white py-2 px-5 max-[1010px]:text-[48px] max-[1010px]:w-full max-[390px]:text-[40px]">{Store.name}</h1>
-          <div className="w-full text-white justify-center items-center px-28 py-5 overflow-y-auto min-[1010px]:hidden max-[600px]:px-16 max-[455px]:px-12 max-[360px]:px-10 max-[340px]:px-7 bg-black/45">
-            <div className="w-full h-fit flex flex-col flex-1 mb-10">
-            {wasSended
-                 ?
-                 <div>
-                     <h1 className="w-full text-heading1-semibold text-center text-slate-200 font-[550] mt-5 mb-1">Лист Відправлено!</h1>
-                     <p className="w-full text-slate-200 text-center mb-8">Перевірте вашу електронну адресу на наявність листа! <br/>Не забудьте подиввитися у папці &quot;Спам&quot;!</p>
-                      <Image src="/assets/mail-white.svg" width={100} height={100} alt="" className="mx-auto my-10"></Image>
-                 </div>
-                 :
-                (<>
-                  <h3 className="text-heading1-semibold text-slate-200 font-[550] mt-5 mb-1">Sign up</h3>
-                  <p className="text-slate-200 mb-8">Продовжте з Google, або введіть дані самостійно.</p>
-                  <GoogleSignIn className="bg-glass text-white border-white bg-opacity-5" label="Sign up with Google"/>
-                  <div className="relative w-full h-7 flex gap-1 shrink-0 items-center justify-between my-12">
-                    <div className="w-[47%] h-[2px] bg-stone-100"></div>
-                    <p className="w-10 bg-glass text-center rounded-2xl px-3">or</p>
-                    <div className="w-[47%] h-[2px] bg-stone-100"></div>
-                  </div>
-                  <div className="flex flex-col text-center">
-                    <label htmlFor="username"></label>
-                    <input 
-                        className="bg-transparent appearance-none rounded-none border-b-2 border-stone-200 font-medium focus:outline-none focus:border-white text-slate-200 placeholder-slate-300 p-2 mb-4"
-                        id="username"
-                        type="text"
-                        value={user.username}
-                        onChange={(e) => setUser({...user, username: e.target.value})}
-                        placeholder="Name"
-                    />
-                    <label htmlFor="email"></label>
-                    <input 
-                      className="bg-transparent appearance-none rounded-none border-b-2 border-stone-200 font-medium focus:outline-none focus:border-white text-slate-200 placeholder-slate-300 p-2 mb-4"
-                        id="email"
-                        type="text"
-                        value={user.email}
-                        onChange={(e) => setUser({...user, email: e.target.value})}
-                        placeholder="Email"
-                    />
-                    <label htmlFor="password"></label>
-                    <input 
-                        className="bg-transparent appearance-none rounded-none border-b-2 border-stone-200 font-medium focus:outline-none focus:border-white text-slate-200 placeholder-slate-300 p-2 mb-4"
-                        id="password"
-                        type="password"
-                        value={user.password}
-                        onChange={(e) => setUser({...user, password: e.target.value})}
-                        placeholder="Password"
-                    />  
-                    {error && (
-                      <div className="w-full bg-red-500 text-white text-small-regular py-1 px-3 rounded-md mt-2 mb-3">
-                        {error}
-                      </div>
-                    )} 
-                    {disabled ? <button className="w-full mx-auto py-3 px-10 font-medium tracking-wide border bg-gray-50 border-gray-300 text-gray-300 rounded-lg pointer-events-none mt-9 mb-4">Зареєструватися</button>
-                      :<button onClick={onSignup} className="w-full mx-auto py-3 px-10 text-white font-medium tracking-wide border border-gray-300 rounded-lg focus:outline-none hover:border-slate-950 transition-colors duration-300 mt-9 mb-4">Зареєструватися</button>}
-                  
-                  <div className="w-full h-fit text-[15px] flex gap-1 justify-center items-center my-5 mb-3"><p>Маєте акакунт?</p><TransitionLink href="/login" className="font-semibold">Увійти зараз</TransitionLink></div>
-                  </div>
-                </>)} 
-            </div>
-          </div>
-        </div>
-      </main>
+        <button type="button" onClick={() => setConfirmSentTo("")} className="btn-secondary mt-6 w-full">
+          Вказати іншу адресу
+        </button>
+      </AuthShell>
     )
+  }
 
+  return (
+    <AuthShell
+      title="Реєстрація"
+      description="Після реєстрації надішлемо на пошту промокод на −10% для першого замовлення."
+      footer={
+        <>
+          Уже маєте обліковий запис?{" "}
+          <Link href="/login" className="font-semibold text-brand hover:text-brand-deep focus-visible:outline-none focus-visible:underline">
+            Увійти
+          </Link>
+        </>
+      }
+    >
+      <GoogleSignIn label="Продовжити з Google" />
+      <Divider>або</Divider>
+
+      <form onSubmit={onSignup} className="space-y-4 short:space-y-3">
+        <FormError>{error}</FormError>
+        <TextField label="Ім’я" autoComplete="given-name" required value={user.username} onChange={(event) => setUser({ ...user, username: event.target.value })} disabled={loading} />
+        <TextField label="E-mail" type="email" autoComplete="email" inputMode="email" required value={user.email} onChange={(event) => setUser({ ...user, email: event.target.value })} disabled={loading} />
+        <TextField
+          label="Пароль"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={MIN_PASSWORD_LENGTH}
+          hint={`Щонайменше ${MIN_PASSWORD_LENGTH} символів`}
+          value={user.password}
+          onChange={(event) => setUser({ ...user, password: event.target.value })}
+          disabled={loading}
+        />
+        <button type="submit" disabled={loading || !complete} className="btn-blue w-full short:h-11">
+          {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : "Зареєструватися"}
+        </button>
+        <p className="text-sm leading-6 text-brand-muted">
+          Реєструючись, ви погоджуєтеся з{" "}
+          <Link href="/info/public-offer" className="link-quiet">
+            публічною офертою
+          </Link>{" "}
+          та{" "}
+          <Link href="/info/conf-policy" className="link-quiet">
+            політикою конфіденційності
+          </Link>
+          .
+        </p>
+      </form>
+    </AuthShell>
+  )
 }

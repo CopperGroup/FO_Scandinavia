@@ -1,4 +1,4 @@
-"use server"
+// Server-only module (unused contact form mail). Not a server action on purpose.
 
 import nodemailer from "nodemailer"
 

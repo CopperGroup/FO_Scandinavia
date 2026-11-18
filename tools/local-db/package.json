@@ -1,0 +1,14 @@
+{
+  "name": "nordiva-local-db",
+  "private": true,
+  "type": "module",
+  "description": "Local MongoDB for development. Seeds from production with read-only operations.",
+  "scripts": {
+    "start": "node start.mjs",
+    "seed": "node seed-from-prod.mjs"
+  },
+  "dependencies": {
+    "mongodb": "^6.12.0",
+    "mongodb-memory-server-core": "^10.1.4"
+  }
+}

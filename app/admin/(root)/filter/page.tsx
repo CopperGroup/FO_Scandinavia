@@ -1,135 +1,96 @@
-"use client";
+import type { Metadata } from "next"
+import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
+import { EmptyState, Panel, SplitView, StatTile, adminButton } from "@/components/admin/ui"
+import FilterCategoryNav from "@/components/admin-components/filter/FilterCategoryNav"
+import FilterDelayForm from "@/components/admin-components/filter/FilterDelayForm"
+import FilterParamsForm from "@/components/admin-components/filter/FilterParamsForm"
+import { getFilterCategory, getFilterOverview } from "@/lib/admin/categories"
+import { isObjectIdLike, productsWord } from "@/lib/admin/catalog-shared"
 
-import { useEffect, useState, useRef } from "react";
-import FilterCategoryList from "@/components/admin-components/Filter/FilterCategoryList";
-import { fetchRawCategoriesForFilterConfig } from "@/lib/actions/categories.actions";
-import { fetchFilter } from "@/lib/actions/filter.actions";
-import { mergeFilterAndCategories } from "@/lib/utils";
-import AdminLoading from "@/components/shared/AdminLoading";
+export const metadata: Metadata = { title: "Фільтр каталогу" }
+export const dynamic = "force-dynamic"
 
-interface RawCategoryFromDB {
-  _id: string;
-  name: string;
-  products?: { params?: { name: string }[] }[];
-  [key: string]: any;
-}
+/**
+ * Filter of the storefront catalog: categories on the left, the chosen
+ * category's characteristics on the right (?id=…). Without a choice the right
+ * pane holds the general settings.
+ */
+export default async function FilterPage({ searchParams }: { searchParams: { id?: string } }) {
+  const id = isObjectIdLike(searchParams.id) ? searchParams.id.toLowerCase() : ""
+  const [overview, detail] = await Promise.all([getFilterOverview({ query: "", page: 1, show: "all", pageSize: 100000 }), id ? getFilterCategory(id) : null])
 
-interface CategoriesParams {
-  [categoryId: string]: {
-    name: string;
-    totalProducts: number;
-    params: { name: string; totalProducts: number; type: string }[];
-  };
-}
+  const list = <FilterCategoryNav rows={overview.rows.map((row) => ({ id: row.id, name: row.name, products: row.products, configured: row.configured.length }))} selected={id} />
 
-const MAX_CATEGORIES_PER_WORKER_FILTER = 50; // Example, adjust as needed
+  const back = (
+    <div className="border-b border-neutral-200 px-4 py-3 lg:hidden">
+      <Link href="/admin/filter" className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-black">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Усі категорії
+      </Link>
+    </div>
+  )
 
-const Page = () => {
-  const [stringifiedCategories, setStringifiedCategories] = useState("{}");
-  const [filterDelayState, setFilterDelayState] = useState(250);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const workersRef = useRef<Worker[]>([]);
-
-  useEffect(() => {
-    async function loadAndProcessData() {
-      setIsLoading(true);
-      setError(null);
-      setStringifiedCategories("{}");
-
-      try {
-        const filterData = await fetchFilter();
-        setFilterDelayState(filterData?.delay || 250);
-
-        const rawCategoriesJson = await fetchRawCategoriesForFilterConfig();
-        const allRawCategories: RawCategoryFromDB[] = JSON.parse(rawCategoriesJson);
-
-        if (!allRawCategories || allRawCategories.length === 0) {
-          if (filterData) {
-             const emptyParamsForFilter = {};
-             setStringifiedCategories(JSON.stringify(mergeFilterAndCategories(filterData, emptyParamsForFilter)));
-          } else {
-             setStringifiedCategories("{}");
-          }
-          setIsLoading(false);
-          return;
-        }
-        
-        workersRef.current.forEach(worker => worker.terminate());
-        workersRef.current = [];
-
-        const numChunks = Math.ceil(allRawCategories.length / MAX_CATEGORIES_PER_WORKER_FILTER);
-        const promises: Promise<CategoriesParams>[] = [];
-        
-        for (let i = 0; i < numChunks; i++) {
-          const chunkStart = i * MAX_CATEGORIES_PER_WORKER_FILTER;
-          const chunkEnd = chunkStart + MAX_CATEGORIES_PER_WORKER_FILTER;
-          const categoryChunk = allRawCategories.slice(chunkStart, chunkEnd);
-
-          const promise = new Promise<CategoriesParams>((resolve, reject) => {
-            const worker = new Worker(new URL('@/workers/filterCategoryProcessor.worker.ts', import.meta.url), {
-              type: 'module'
-            });
-            workersRef.current.push(worker);
-
-            worker.onmessage = (event: MessageEvent<CategoriesParams>) => {
-              resolve(event.data);
-              worker.terminate();
-            };
-            worker.onerror = (errEvent) => {
-              console.error("Filter category worker error:", errEvent);
-              reject(new Error(`Worker failed: ${errEvent.message}`));
-              worker.terminate();
-            };
-            worker.postMessage(categoryChunk);
-          });
-          promises.push(promise);
-        }
-
-        const partialParamsResults = await Promise.all(promises);
-        const aggregatedCategoriesParams: CategoriesParams = Object.assign({}, ...partialParamsResults);
-        
-        let finalDataForList: CategoriesParams | ReturnType<typeof mergeFilterAndCategories>;
-        if (filterData) {
-          finalDataForList = mergeFilterAndCategories(filterData, aggregatedCategoriesParams);
-        } else {
-          finalDataForList = aggregatedCategoriesParams;
-        }
-
-        setStringifiedCategories(JSON.stringify(finalDataForList));
-
-      } catch (err: any) {
-        console.error("Failed to load or process filter configuration data:", err);
-        setError(err.message || "An unknown error occurred.");
-      } finally {
-        setIsLoading(false);
-        workersRef.current.forEach(worker => worker.terminate()); // Ensure cleanup
-        workersRef.current = [];
-      }
-    }
-
-    loadAndProcessData();
-
-    return () => {
-      workersRef.current.forEach(worker => worker.terminate());
-      workersRef.current = [];
-    };
-  }, []);
-
-  if (isLoading) {
-    return (
-        <section className="relative flex justify-center items-center px-10 py-20 w-full h-screen max-[360px]:px-4"> 
-          <AdminLoading/>
-        </section>
-      );
+  let pane: React.ReactNode
+  if (id && !detail) {
+    pane = (
+      <div className="p-6">
+        {back}
+        <EmptyState title="Такої категорії немає" text="Можливо, її видалили. Оберіть іншу ліворуч." />
+      </div>
+    )
+  } else if (detail) {
+    pane = (
+      <div>
+        {back}
+        <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-4 pt-4 sm:px-6">
+          <div className="min-w-0">
+            <h1 className="break-words font-display text-xl font-semibold tracking-[-0.02em]">{detail.name}</h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              {detail.products} {productsWord(detail.products)}. Позначте характеристики, які покупці зможуть обирати у фільтрі цієї категорії.
+            </p>
+          </div>
+          <Link href={`/admin/categories?id=${detail.id}`} className={adminButton.secondary}>
+            Відкрити категорію
+          </Link>
+        </div>
+        {detail.params.length === 0 ? (
+          <div className="px-4 pb-4 sm:px-6">
+            <EmptyState
+              title="У товарів немає характеристик"
+              text="Додайте товарам цієї категорії характеристики (розмір, колір тощо), і їх можна буде вивести у фільтр."
+              action={
+                <Link href={`/admin/products?category=${detail.id}`} className={adminButton.secondary}>
+                  Товари категорії
+                </Link>
+              }
+            />
+          </div>
+        ) : (
+          <div className="border-t border-neutral-200">
+            <FilterParamsForm key={detail.id} categoryId={detail.id} params={detail.params} products={detail.products} />
+          </div>
+        )}
+      </div>
+    )
+  } else {
+    pane = (
+      <div className="space-y-4 p-4 sm:p-6 lg:p-8">
+        <div>
+          <h1 className="font-display text-xl font-semibold tracking-[-0.02em]">Фільтр каталогу</h1>
+          <p className="mt-1 text-sm text-neutral-500">Які характеристики покупці можуть обирати у фільтрі кожної категорії. Оберіть категорію ліворуч.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatTile label="Категорій з товарами" value={overview.counts.all} />
+          <StatTile label="Фільтр налаштовано" value={overview.counts.configured} />
+          <StatTile label="Без фільтра" value={overview.counts.empty} />
+        </div>
+        <Panel title="Швидкість оновлення" description="Скільки каталог чекає після кліку у фільтрі, перш ніж оновити товари. Коротша затримка — швидша відповідь, довша — менше зайвих оновлень, коли покупець ставить кілька позначок поспіль.">
+          <FilterDelayForm delay={overview.delay} />
+        </Panel>
+      </div>
+    )
   }
 
-  return (
-    <section className="px-10 py-20 w-full max-[360px]:px-4">
-      <h1 className="text-heading1-bold drop-shadow-text-blue">Налаштування фільтру</h1>
-      <FilterCategoryList stringifiedCategories={stringifiedCategories} filterDelay={filterDelayState} />
-    </section>
-  );
-};
-
-export default Page;
+  return <SplitView listLabel="Категорії фільтра" list={list} detail={pane} showDetailOnMobile={Boolean(id)} />
+}

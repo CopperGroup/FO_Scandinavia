@@ -1,16 +1,20 @@
-import TikTokPixelManager from "@/components/admin-components/pixel/TikTokPixelManager";
-import MetaPixelManager from "@/components/admin-components/pixel/MetaPixelManager";
+import type { Metadata } from "next"
+import { AdminPage } from "@/components/admin/ui"
+import PixelsManager from "@/components/admin-components/pixel/PixelsManager"
+import { listPixels } from "@/lib/pixels/server"
 
-const Page = () => {
-    return (
-      <section className="w-full px-4 sm:px-6 md:px-8 lg:px-10 py-20 sm:py-16 md:py-20"> 
-        <h1 className="w-full text-heading1-bold drop-shadow-text-blue">Pixels</h1>
-        <div className="w-full grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mt-9">
-          <MetaPixelManager />
-          <TikTokPixelManager />
-        </div>
-      </section>
-    )
+export const metadata: Metadata = { title: "Пікселі реклами" }
+export const dynamic = "force-dynamic"
+
+export default async function PixelPage({ searchParams }: { searchParams: { id?: string } }) {
+  const pixels = await listPixels()
+
+  return (
+    <AdminPage
+      title="Пікселі реклами"
+      description="Піксель повідомляє рекламному кабінету, що покупці роблять у магазині. Так видно, яка реклама приносить замовлення."
+    >
+      <PixelsManager pixels={pixels} initialId={searchParams.id ?? null} />
+    </AdminPage>
+  )
 }
-
-export default Page;

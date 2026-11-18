@@ -1,185 +1,208 @@
 "use server";
 
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import User from "../models/user.model"
 import { connectToDB } from "@/lib/mongoose"
 import clearCache from "./cache";
 import { UserType } from "../types/types";
 import { generateLongPassword } from "../utils";
-import { redirect } from "next/navigation";
 import { hasPermission } from "../roles";
-import bcrypt from "bcryptjs";
 import { generatePromoCode } from "./promocode.actions";
+import { EMAIL_COLLATION, looksLikeEmail, normalizeEmail } from "../auth/email";
+import { AccessDenied, getSessionIdentity, getSessionUser, isStaffRole, requireAdmin, requireUser } from "../auth/guards";
 
-type CreateUserParams = {
-    username: string, 
-    email: string,
-    password: string,
-    phoneNumber: string,
-    promoCode: string
+/*
+ * Every export here is a public endpoint. Each one checks who is calling:
+ * staff for other people's records, the account holder for their own.
+ * Nothing returns a password hash or a reset/verification token.
+ */
+
+/** The fields any caller of a profile ever reads. */
+const PROFILE_FIELDS = "_id email name surname username phoneNumber role selfCreated";
+
+type Profile = {
+  _id: string;
+  email: string;
+  name?: string;
+  surname?: string;
+  username?: string;
+  phoneNumber?: string;
+  role: string;
+  selfCreated?: boolean;
+};
+
+function toProfile(user: any): Profile | null {
+  if (!user) return null;
+  return {
+    _id: String(user._id),
+    email: String(user.email ?? ""),
+    name: user.name ?? "",
+    surname: user.surname ?? "",
+    username: user.username ?? "",
+    phoneNumber: user.phoneNumber ?? "",
+    role: String(user.role ?? "User"),
+    selfCreated: Boolean(user.selfCreated),
+  };
 }
 
-export async function createUser({ username, email, password, phoneNumber, promoCode }: CreateUserParams) {
-    try {
-        const newUser = await User.create({
-            username,
-            email,
-            password,
-            phoneNumber,
-            discounts: [promoCode],
-            selfCreated: false
-        })
-
-        clearCache("createUser", undefined)
-
-        return newUser
-    } catch (error: any) {
-        throw new Error(`Error creating new user: ${error.message}`)
-    }
+function findByEmail(email: string) {
+  return User.findOne({ email: normalizeEmail(email) }).collation(EMAIL_COLLATION);
 }
 
-export async function createuserByMyself(params: { name: string, email: string, surname?: string, phoneNumber?: string, role: "Admin" | "User", currentUserEmail: string | null }): Promise<UserType>;
-export async function createuserByMyself(params: { name: string, email: string, surname?: string, phoneNumber?: string, role: "Admin" | "User", currentUserEmail: string | null }, type: 'json'): Promise<string>;
+type ManagedUserParams = {
+  name: string;
+  email: string;
+  surname?: string;
+  phoneNumber?: string;
+  role: "Admin" | "User";
+  /** Ignored: the caller is taken from the session. Kept so older callers still type-check. */
+  currentUserEmail?: string | null;
+};
 
-export async function createuserByMyself(params: { name: string, email: string, surname?: string, phoneNumber?: string, role: "Admin" | "User", currentUserEmail: string | null }, type?: 'json') {
+type ManageResult = { ok: true; user: Profile } | { ok: false; error: string; field?: "email" | "role" | "name" };
 
-    if(!params.currentUserEmail) {
-        redirect('/login')
-    }
+/**
+ * Creates a customer record from the admin panel. Only the owner may create
+ * an administrator.
+ */
+export async function createuserByMyself(params: ManagedUserParams): Promise<ManageResult>;
+export async function createuserByMyself(params: ManagedUserParams, type: 'json'): Promise<string>;
 
-    const currentUser = await User.findOne({email: { $regex: `^${params.email}$`, $options: 'i' }});
-    
-    const permission = hasPermission("/clients", "create", params.role.toLowerCase() as "admin" | 'user', currentUser.role); 
-
-    if(!permission) {
-        return
-    }
-
-    try {
-        const newUser = await User.create({
-            name: params.name,
-            email: params.email,
-            password: generateLongPassword(),
-            surname: params.surname || "",
-            phoneNumber: params.phoneNumber || "",
-            selfCreated: true,
-            role: params.role
-        })
-
-        clearCache("createUser", undefined)
-
-        if(type === 'json'){
-            return JSON.stringify(newUser)
-        } else {
-            return newUser
-        }
-
-    } catch (error: any) {
-        throw new Error(`Error adding new user from admin ${error.message}`)
-    }
+export async function createuserByMyself(params: ManagedUserParams, type?: 'json') {
+    const result = await createManagedUser(params);
+    return type === "json" ? JSON.stringify(result) : result;
 }
 
-export async function editUser(params: { userId: string, name: string, email: string, surname?: string, phoneNumber?: string, role: "Admin" | "User", currentUserEmail: string | null }): Promise<UserType>;
-export async function editUser(params: { userId: string, name: string, email: string, surname?: string, phoneNumber?: string, role: "Admin" | "User", currentUserEmail: string | null }, type: 'json'): Promise<string>;
+async function createManagedUser(params: ManagedUserParams): Promise<ManageResult> {
+    const current = await requireAdmin();
+    const role = params.role === "Admin" ? "Admin" : "User";
 
-export async function editUser(params: { userId: string, name: string, email: string, surname?: string, phoneNumber?: string, role: "Admin" | "User", currentUserEmail: string | null }, type?: 'json') {
-
-    if(!params.currentUserEmail) {
-        redirect('/login')
+    if (!hasPermission("/clients", "create", role.toLowerCase() as "admin" | "user", current.role)) {
+        return { ok: false, field: "role", error: "Призначити роль адміністратора може лише власник магазину." };
     }
 
-    const currentUser = await User.findOne({email: { $regex: `^${params.email}$`, $options: 'i' }});
-    
-    const permission = hasPermission("/clients", "create", params.role.toLowerCase() as "admin" | 'user', currentUser.role); 
+    const email = normalizeEmail(params.email);
+    const name = String(params.name ?? "").trim();
+    if (!name) return { ok: false, field: "name", error: "Вкажіть ім’я." };
+    if (!looksLikeEmail(email)) return { ok: false, field: "email", error: "Перевірте адресу e-mail." };
 
-    if(!permission) {
-        return
+    await connectToDB();
+    if (await findByEmail(email).select("_id").lean()) {
+        return { ok: false, field: "email", error: "Клієнт із цією адресою вже існує." };
     }
 
-    try {
-        const editedUser = await User.findOneAndUpdate(      
-            { _id: params.userId },
-            {
-              name: params.name,
-              email: params.email,
-              surname: params.surname || "",
-              phoneNumber: params.phoneNumber || "",
-              role: params.role,
+    const created = await User.create({
+        name,
+        email,
+        password: await bcrypt.hash(generateLongPassword(), 10),
+        surname: String(params.surname ?? "").trim(),
+        phoneNumber: String(params.phoneNumber ?? "").trim(),
+        selfCreated: true,
+        role,
+    });
+
+    await clearCache("createUser", undefined);
+    return { ok: true, user: toProfile(created)! };
+}
+
+/**
+ * Edits a customer's contact data and role.
+ * Only the owner may grant or remove the administrator role, and the owner's
+ * own record cannot be changed from here.
+ */
+export async function editUser(params: ManagedUserParams & { userId: string }): Promise<ManageResult>;
+export async function editUser(params: ManagedUserParams & { userId: string }, type: 'json'): Promise<string>;
+
+export async function editUser(params: ManagedUserParams & { userId: string }, type?: 'json') {
+    const result = await editManagedUser(params);
+    return type === "json" ? JSON.stringify(result) : result;
+}
+
+async function editManagedUser(params: ManagedUserParams & { userId: string }): Promise<ManageResult> {
+    const current = await requireAdmin();
+    if (!mongoose.isValidObjectId(params.userId)) return { ok: false, error: "Клієнта не знайдено." };
+
+    await connectToDB();
+    const target = await User.findById(params.userId).select("_id role").lean<{ _id: unknown; role?: string }>();
+    if (!target) return { ok: false, error: "Клієнта не знайдено." };
+    if (target.role === "Owner") return { ok: false, field: "role", error: "Дані власника магазину тут не змінюються." };
+
+    const role = params.role === "Admin" ? "Admin" : "User";
+    const touchesAdmin = role === "Admin" || target.role === "Admin";
+    // Permission is checked for the person making the change (it used to be checked against the edited record).
+    if (touchesAdmin && !hasPermission("/clients", "edit", "admin", current.role)) {
+        return { ok: false, field: "role", error: "Змінювати адміністраторів може лише власник магазину." };
+    }
+
+    const email = normalizeEmail(params.email);
+    const name = String(params.name ?? "").trim();
+    if (!name) return { ok: false, field: "name", error: "Вкажіть ім’я." };
+    if (!looksLikeEmail(email)) return { ok: false, field: "email", error: "Перевірте адресу e-mail." };
+
+    const clash = await findByEmail(email).select("_id").lean<{ _id: unknown }>();
+    if (clash && String(clash._id) !== String(target._id)) {
+        return { ok: false, field: "email", error: "Ця адреса вже належить іншому клієнту." };
+    }
+
+    const edited = await User.findByIdAndUpdate(
+        target._id,
+        {
+            $set: {
+                name,
+                email,
+                surname: String(params.surname ?? "").trim(),
+                phoneNumber: String(params.phoneNumber ?? "").trim(),
+                role,
             },
-            { new: true, runValidators: true }
-        )
+        },
+        { new: true, runValidators: true },
+    )
+        .select(PROFILE_FIELDS)
+        .lean();
 
-        clearCache("createUser", undefined)
-
-        if(type === 'json'){
-            return JSON.stringify(editedUser)
-        } else {
-            return editedUser
-        }
-
-    } catch (error: any) {
-        throw new Error(`Error adding new user from admin ${error.message}`)
-    }
+    await clearCache("createUser", undefined);
+    return { ok: true, user: toProfile(edited)! };
 }
 
-export async function populateSelfCreatedUser(params: CreateUserParams): Promise<UserType>;
-export async function populateSelfCreatedUser(params: CreateUserParams, type: 'json'): Promise<string>;
-
-export async function populateSelfCreatedUser(params: CreateUserParams, type?: 'json') {
-   try {
-
-    const existingUser = await User.findOneAndUpdate(
-        {email: { $regex: `^${params.email}$`, $options: 'i' }},
-        { $set: { username: params.username, password: params.password, phoneNumber: params.phoneNumber, discounts: [params.promoCode], selfCreated: false } },
-        { new: true, runValidators: true }
-    ).select("-password");
-
-    clearCache("createUser", undefined)
-    if(type === 'json'){
-      return JSON.stringify(existingUser)
-    } else {
-      return existingUser
-    }
-   } catch (error: any) {
-     throw new Error(`${error.message}`)
-   }
-}
 type FetchUserByEmailparams = {
    email: string
 }
 
+/**
+ * The profile behind an e-mail address.
+ *
+ * Runs on every page view (layouts resolve the signed-in user with it), so it
+ * is one indexed lookup. The full profile goes only to the account holder and
+ * to staff; anyone else (the login form asks before signing in) learns only
+ * whether the address belongs to a guest-checkout record.
+ */
 export async function fetchUserByEmail(params: FetchUserByEmailparams): Promise<UserType>;
 export async function fetchUserByEmail(params: FetchUserByEmailparams, type: 'json'): Promise<string>;
 
 export async function fetchUserByEmail(params: FetchUserByEmailparams, type?: 'json') {
    try {
-        connectToDB()
-        const currentUser = await User.findOne({
-          email: { $regex: `^${params.email}$`, $options: 'i' }
-        }).select('-password');
-        
+        const email = normalizeEmail(params?.email);
+        let result: Partial<Profile> | null = null;
 
-    if(type === 'json'){
-      return JSON.stringify(currentUser)
-    } else {
-      return currentUser
-    }
+        if (email) {
+            await connectToDB();
+            const identity = await getSessionIdentity();
+            const ownRecord = identity?.email === email;
+            const allowed = ownRecord || isStaffRole((await getSessionUser())?.role);
+
+            if (allowed) {
+                result = toProfile(await findByEmail(email).select(PROFILE_FIELDS).lean());
+            } else {
+                const found = await findByEmail(email).select("selfCreated").lean<{ selfCreated?: boolean }>();
+                result = found ? { selfCreated: Boolean(found.selfCreated) } : null;
+            }
+        }
+
+        return type === 'json' ? JSON.stringify(result) : result;
    } catch (error: any) {
      throw new Error(`${error.message}`)
    }
-}
-
-export async function checkForAdmin(email: string){
-    try {
-        connectToDB();
-
-        const currentUser = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }});
-
-        if(currentUser.isAdmin){
-            return true
-        } else return false
-    } catch (error: any) {
-        throw new Error(`Error determining, whether the user is admin ${error.message}`)
-    }
 }
 
 export async function fetchUserById({ userId }: { userId: string }): Promise<UserType>;
@@ -187,51 +210,24 @@ export async function fetchUserById({ userId }: { userId: string }, type: 'json'
 
 export async function fetchUserById({ userId }: { userId: string }, type?: 'json') {
    try {
+    const current = await requireUser();
+    if (current.id !== String(userId) && !isStaffRole(current.role)) throw new AccessDenied();
 
     await connectToDB()
-    const currentUser = await User.findById(userId).select("-password");
-      
-    if(type === 'json'){
-      return JSON.stringify(currentUser)
-    } else {
-      return currentUser
-    }
+    const user = mongoose.isValidObjectId(userId) ? toProfile(await User.findById(userId).select(PROFILE_FIELDS).lean()) : null;
+
+    return type === 'json' ? JSON.stringify(user) : user;
    } catch (error: any) {
      throw new Error(`Error fetching user by id: ${error.message}`)
    }
 }
 
-export async function fetchUsers(type?: "json") {
-    try {
-        connectToDB();
-
-        const users = await User.find().select("-password");
-
-        const fetchedUsers = [];
-
-        for(const user of users) {
-            if(user.role !== 'Owner') {
-                fetchedUsers.push({ _id: user._id, email: user.email, name: user.name, username: user.username, orders: user.orders.length, role: user.role})
-            }
-        }
-        
-        return fetchedUsers;
-    } catch (error: any) {
-        throw new Error(`Error fetching users: ${error.message}`)
-    }
-}
-
+/** The role of the signed-in user. Other people's roles are not disclosed. */
 export async function fetchUserRole({ email }: { email: string }) {
   try {
-    connectToDB();
-
-    const user = await User.findOne({email: { $regex: `^${email}$`, $options: 'i' }});
-
-    if(!user) {
-        return
-    }
-
-    return user.role
+    const user = await getSessionUser();
+    if (!user || user.email.toLowerCase() !== normalizeEmail(email)) return undefined;
+    return user.role;
   } catch (error: any) {
     throw new Error(`${error.message}`)
   }
@@ -245,41 +241,44 @@ export async function resetPassword({
     newPassword: string;
   }) {
     try {
+      if (typeof token !== "string" || !token) throw new Error("Invalid or expired token.");
+      if (typeof newPassword !== "string" || newPassword.length < 8) throw new Error("Password is too short.");
+
       await connectToDB();
-      
+
       const user = await User.findOne({
         forgotPasswordToken: token,
         forgotPasswordTokenExpiry: { $gt: new Date() },
-      });
-  
+      }).select("_id");
+
       if (!user) {
         throw new Error("Invalid or expired token.");
       }
-  
+
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-  
-      user.password = hashedPassword;
-      user.forgotPasswordToken = undefined;
-      user.forgotPasswordTokenExpiry = undefined;
-      await user.save();
+
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { password: hashedPassword }, $unset: { forgotPasswordToken: "", forgotPasswordTokenExpiry: "" } },
+      );
     } catch (error: any) {
         throw new Error(`Error reseting password: ${error.message}`)
     }
 }
 
+/**
+ * Gives the signed-in customer a one-time 5% code (the reward for a review).
+ * Only for the caller's own account: the ids in the arguments are checked
+ * against the session.
+ */
 export async function addPromo(params: { userId: string, email: string }): Promise<string> {
-    
   try {
-    await connectToDB()
-    
-    const promoCode = await generatePromoCode({ email: params.email, validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""), reusabilityTimes: 1, discountPercentage: 5 })
+    const current = await getSessionUser()
+    if (!current || current.id !== String(params.userId)) return ""
 
-    const user = await User.findByIdAndUpdate(
-        params.userId,
-        {
-            $push: { discounts: promoCode }
-        }
-    )
+    const promoCode = await generatePromoCode({ email: current.email, validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""), reusabilityTimes: 1, discountPercentage: 5 })
+
+    await User.updateOne({ _id: current.id }, { $push: { discounts: promoCode } })
 
     return promoCode
   } catch (error: any) {

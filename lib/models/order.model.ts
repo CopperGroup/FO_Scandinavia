@@ -130,13 +130,33 @@ const orderSchema = new mongoose.Schema({
         type: String
     },
 
+    // Waybill bookkeeping for the "Доставка" admin page.
+    invoiceCreatedAt: Date,
+    /** Last tracking status text from Nova Poshta, and when it was read. */
+    invoiceStatus: String,
+    invoiceStatusCode: String,
+    invoiceCheckedAt: Date,
+
     isFreeDelivery: {
         type: Boolean,
         default: false
     }
 });
 
-orderSchema.index({ id: 1 })
+// The public order number. Unique: createOrder retries on a clash.
+orderSchema.index({ id: 1 }, { unique: true })
+// Dashboard and order lists read by date and by status.
+orderSchema.index({ data: -1 })
+orderSchema.index({ paymentStatus: 1, deliveryStatus: 1, data: -1 })
+// Payments tabs: one payment status, newest first.
+orderSchema.index({ paymentStatus: 1, data: -1 })
+// Orders tabs and the "new orders" badge counted on every admin navigation.
+orderSchema.index({ deliveryStatus: 1, data: -1 })
+// A customer's orders (profile pages, "my orders").
+orderSchema.index({ user: 1, data: -1 })
+// Dashboard "new customers": earlier orders of the same address, any letter case.
+orderSchema.index({ email: 1, data: 1 }, { name: "email_ci_data", collation: { locale: "en", strength: 2 } })
+orderSchema.index({ "products.product": 1 })
 
 type OrderType = InferSchemaType<typeof orderSchema> & { _id: string };
 

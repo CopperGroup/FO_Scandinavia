@@ -1,25 +1,25 @@
-// Приклад InfoPageLayout.tsx (Спрощений)
-"use client"
-import React from 'react';
-import ReactMarkdown from 'react-markdown'; // Потрібно встановити: npm install react-markdown
+import ReactMarkdown from "react-markdown"
+import Breadcrumbs from "@/components/storefront/Breadcrumbs"
 
 interface InfoPageLayoutProps {
-  title: string;
-  markdownContent: string;
+  title: string
+  markdownContent: string
+  /** Marks the text for the page editor's preview (data-edit). */
+  edit?: string
 }
 
-const InfoPageLayout: React.FC<InfoPageLayoutProps> = ({ title, markdownContent }) => {
+/** Long-form legal pages written in Markdown (public offer, privacy policy). */
+export default function InfoPageLayout({ title, markdownContent, edit }: InfoPageLayoutProps) {
+  // The page already has its title; the document's own first heading would repeat it.
+  const body = markdownContent.replace(/^\s*#\s+.*\r?\n/, "")
+
   return (
-    <div className="container mx-auto px-4 py-8 lg:py-16">
-      <h1 className="text-3xl lg:text-4xl font-bold mb-8 text-[#006AA7]">{title}</h1>
-      <div className="prose max-w-none text-gray-700">
-        <ReactMarkdown>{markdownContent}</ReactMarkdown>
-        {/* Або використання dangerouslySetInnerHTML, якщо ви використовуєте інший парсер:
-        <div dangerouslySetInnerHTML={{ __html: your_html_content_from_parser }} />
-        */}
+    <div className="shell pt-4 lg:pt-6">
+      <Breadcrumbs crumbs={[{ label: title }]} />
+      <h1 className="heading-display mt-3 text-2xl sm:text-3xl">{title}</h1>
+      <div data-edit={edit} className="rich-text mt-6 max-w-[72ch]">
+        <ReactMarkdown>{body}</ReactMarkdown>
       </div>
     </div>
-  );
-};
-
-export default InfoPageLayout;
+  )
+}

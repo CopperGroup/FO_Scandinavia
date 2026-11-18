@@ -1,22 +1,34 @@
-import EditProduct from "@/components/forms/product-forms/EditProduct";
-import { getCategoriesNamesAndIds } from "@/lib/actions/categories.actions";
-import { fetchProductById } from "@/lib/actions/product.actions";
+import type { Metadata } from "next"
+import Link from "next/link"
+import { AdminPage, EmptyState, adminButton } from "@/components/admin/ui"
+import ProductForm from "@/components/forms/product-forms/ProductForm"
+import { loadCategoryOptionsWithPath } from "@/lib/admin/categories"
+import { loadBrandNames } from "@/lib/admin/brands"
+import { getProductForEdit, loadParamSuggestions, loadProductVariants } from "@/lib/admin/products"
 
-const Page = async ({ params }: { params: { id: string } }) => {
-    if(!params.id) return null;
-    
-    const stringifiedProduct = await fetchProductById(params.id, "json")
-    const categories = await getCategoriesNamesAndIds();
-    const stringifiedCategories = ""
+export const metadata: Metadata = { title: "Редагування товару" }
+export const dynamic = "force-dynamic"
 
+export default async function EditProductPage({ params, searchParams }: { params: { id: string }; searchParams: { created?: string } }) {
+  const [categories, paramSuggestions, brands, variants] = await Promise.all([loadCategoryOptionsWithPath(), loadParamSuggestions(), loadBrandNames(), loadProductVariants(params.id)])
+  const product = await getProductForEdit(params.id, categories)
+
+  if (!product) {
     return (
-      <section className="px-10 py-20">
-        <h1 className="w-full text-heading1-bold drop-shadow-text-blue max-[440px]:text-center">Редагувати товар</h1>
-        <div className="mt-16">
-          <EditProduct stringifiedProduct={stringifiedProduct} categories={categories} stringifiedCategories={stringifiedCategories}/>
-        </div>
-      </section>
+      <AdminPage title="Товар не знайдено" back={{ href: "/admin/products", label: "Товари" }} width="narrow">
+        <EmptyState
+          title="Такого товару немає"
+          text="Можливо, його видалили або посилання неповне. Знайдіть товар у списку за назвою чи артикулом."
+          action={
+            <Link href="/admin/products" className={adminButton.secondary}>
+              До списку товарів
+            </Link>
+          }
+        />
+      </AdminPage>
     )
   }
-  
-  export default Page;
+
+  // The form renders the page frame itself: its header shows the live status and the bottom bar the save.
+  return <ProductForm product={product} categories={categories} paramSuggestions={paramSuggestions} brands={brands} variants={variants} justCreated={searchParams.created === "1"} />
+}

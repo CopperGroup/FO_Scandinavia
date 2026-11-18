@@ -1,39 +1,31 @@
 import { connectToDB } from "@/lib/mongoose";
 import { NextRequest, NextResponse } from "next/server";
-import bcryptjs from "bcryptjs";
 import User from "@/lib/models/user.model";
 import { sendEmail } from "@/helpers/mailer";
+import { EMAIL_COLLATION, looksLikeEmail, normalizeEmail } from "@/lib/auth/email";
 
 export async function POST(request: NextRequest) {
-    try {
-        await connectToDB();
+  try {
+    await connectToDB();
 
-        // Parse the request body as JSON
-        const { email } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const email = normalizeEmail(body?.email);
 
-        if (!email) {
-            return NextResponse.json({ error: 'Email is required' }, { status: 400 });
-        }
-
-        const savedUser = await User.findOne({ email: { $regex: `^${email}$`, $options: 'i' }}).select('_id');
-
-        if (!savedUser) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-    
-
-        // Send verify token
-        await sendEmail({ email, emailType: "RESET", userId: savedUser._id });
-
-        return NextResponse.json({
-            message: "Password reset email sent successfully",
-            success: true,
-            savedUser
-        });
-
-    } catch (error: any) {
-        console.error(error); // Логування помилки
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!email || !looksLikeEmail(email)) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
+
+    const savedUser = await User.findOne({ email }).collation(EMAIL_COLLATION).select("_id email").lean<{ _id: unknown; email: string }>();
+
+    if (!savedUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    await sendEmail({ email: savedUser.email, emailType: "RESET", userId: savedUser._id });
+
+    return NextResponse.json({ message: "Password reset email sent successfully", success: true });
+  } catch (error: any) {
+    console.error("[resetPass]", error?.message ?? error);
+    return NextResponse.json({ error: "Could not send the e-mail" }, { status: 500 });
+  }
 }

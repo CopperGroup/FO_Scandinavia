@@ -1,25 +1,17 @@
-import React from 'react'
-import CreateOrder from '@/components/forms/CreateOrder'
-import { getSession } from '@/lib/getServerSession'
-import { fetchUserByEmail } from '@/lib/actions/user.actions'
-import { redirect } from 'next/navigation'
-import { Metadata } from 'next';
+import type { Metadata } from "next"
+import Checkout from "@/components/storefront/checkout/Checkout"
+import { getCheckoutProfile } from "@/lib/storefront/session"
 
 export const metadata: Metadata = {
-  title: "Checkout"
+  title: "Оформлення замовлення",
+  robots: { index: false, follow: false },
 }
 
 const Page = async () => {
+  // Only what the form pre-fills; the account record itself never reaches the browser.
+  const profile = await getCheckoutProfile()
 
-    const email = await getSession();
-
-    const user = await fetchUserByEmail({email}, "json");
-
-  return (
-    <section className="flex flex-row w-full justify-between max-lg:flex-col max-[425px]:-mt-24">
-        <CreateOrder stringifiedUser={user} email={email}/>
-    </section>
-  )
+  return <Checkout profile={profile ? { id: profile.id, name: profile.name, surname: profile.surname, phoneNumber: profile.phoneNumber } : null} email={profile?.email ?? ""} />
 }
 
-export default Page;
+export default Page

@@ -1,13 +1,10 @@
 import { createUploadthing, type FileRouter } from "uploadthing/server";
 import { UploadThingError } from "uploadthing/server";
+import { currentAdmin } from "@/lib/import/admin";
 
 const f = createUploadthing();
 
-// Fake auth (replace with real auth later)
-const auth = async (req: Request) => {
-  return { id: "fakeId" };
-};
-
+// Uploads spend the store's UploadThing quota: only a signed-in Admin/Owner may upload.
 export const ourFileRouter = {
   imageUploader: f({
     image: {
@@ -15,19 +12,19 @@ export const ourFileRouter = {
       maxFileCount: 10,
     },
   })
-    .middleware(async ({ req }) => {
-      const user = await auth(req);
+    .middleware(async () => {
+      const admin = await currentAdmin();
 
-      if (!user) {
+      if (!admin) {
         throw new UploadThingError("Unauthorized");
       }
 
-      return { userId: user.id };
+      return { userId: admin.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
       return {
         uploadedBy: metadata.userId,
-        url: file.ufsUrl, // ✅ useful on client
+        url: file.ufsUrl,
       };
     }),
 } satisfies FileRouter;

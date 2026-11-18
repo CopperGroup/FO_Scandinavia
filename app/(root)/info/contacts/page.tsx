@@ -1,99 +1,100 @@
-import { fetchPageDataByNameCache } from "@/lib/actions/cache"
-import { transformPageDataInputs } from "@/lib/utils"
-import { Mail, Phone } from "lucide-react"
 import type { Metadata } from "next"
+import { Clock, Mail, MapPin, Phone } from "lucide-react"
+import { FaTelegramPlane, FaViber } from "react-icons/fa"
+import Breadcrumbs from "@/components/storefront/Breadcrumbs"
+import { getStoreContacts } from "@/lib/storefront/session"
 
 export const metadata: Metadata = {
   title: "Контакти",
-  description: "Зв'яжіться з нашою командою",
+  description: "Телефон, месенджери та e-mail магазину.",
+  alternates: { canonical: "/info/contacts" },
 }
 
+const digits = (value: string) => value.replace(/[^+\d]/g, "")
+
 export default async function ContactsPage() {
+  const { phone, email, hours, telegram, viber, address } = await getStoreContacts()
 
-  const result = await fetchPageDataByNameCache("Contacts");
+  const handle = telegram.replace(/^@/, "")
+  const telegramHref = /^\+?\d[\d\s()-]+$/.test(handle)
+    ? `https://t.me/${digits(handle).startsWith("+") ? digits(handle) : `+${digits(handle)}`}`
+    : `https://t.me/${handle}`
 
-  const data = transformPageDataInputs(JSON.parse(result).dataInputs)
+  const rowClass = "flex items-center gap-4 py-5"
+  const linkClass = "text-lg font-semibold text-brand-ink hover:text-brand focus-visible:outline-none focus-visible:underline"
 
   return (
-    <div className="min-h-screen relative">
-      {/* Background elements */}
-      <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-400 rounded-full opacity-20 blur-3xl"></div>
-      <div className="absolute top-1/2 -right-24 w-96 h-96 bg-yellow-400 rounded-full opacity-20 blur-3xl"></div>
+    <div className="shell pt-4 lg:pt-6">
+      <Breadcrumbs crumbs={[{ label: "Контакти" }]} />
+      <h1 className="heading-display mt-3 text-2xl sm:text-3xl">Контакти</h1>
+      <p className="mt-3 max-w-[60ch] text-base leading-6 text-brand-muted">
+        Виникли питання? Найшвидше відповідаємо в месенджерах.
+      </p>
 
-      <div className="container mx-auto px-6 py-24 relative z-10">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center mb-16">
-            <div className="h-0.5 w-8 bg-blue-500 rounded-full mr-4 opacity-70"></div>
-            <h1 className="text-5xl font-bold text-gray-900 tracking-tight">Контакти</h1>
-            <div className="h-0.5 w-8 bg-yellow-500 rounded-full ml-4 opacity-70"></div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-10">
-            <div className="group">
-              <div className="backdrop-blur-lg bg-white/60 rounded-2xl overflow-hidden border border-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 group-hover:shadow-[0_8px_30px_rgba(0,105,255,0.1)] group-hover:-translate-y-1">
-                <div className="h-1 bg-gradient-to-r from-blue-400/80 to-blue-600/80 backdrop-blur-sm"></div>
-                <div className="p-10 relative">
-                  {/* Glass highlight effect */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-70"></div>
-
-                  <div className="flex items-center gap-5 mb-6">
-                    <div className="bg-blue-500/10 backdrop-blur-sm p-4 rounded-xl border border-blue-500/20">
-                      <Mail className="h-7 w-7 text-blue-600" />
-                    </div>
-                    <h2 className="text-2xl font-semibold text-gray-800">Електронна пошта</h2>
-                  </div>
-
-                  <a
-                    href={`mailto:${data["Email"]}`}
-                    className="text-xl text-blue-600 hover:text-blue-700 font-medium block mt-2 transition-colors"
-                  >
-                    {data["Email"]}
-                  </a>
-
-                  <div className="mt-8 pt-6 border-t border-gray-200/50">
-                    <p className="text-gray-600 text-sm">Ми відповідаємо на всі запити протягом 24 годин</p>
-                  </div>
-                </div>
-              </div>
+      <ul className="mt-6 max-w-xl divide-y divide-brand-line border-y border-brand-line">
+        {telegram && (
+          <li className={rowClass}>
+            <FaTelegramPlane className="h-6 w-6 shrink-0 text-[#229ED9]" aria-hidden="true" />
+            <div>
+              <p className="text-sm text-brand-muted">Telegram</p>
+              <a href={telegramHref} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                Написати в Telegram
+              </a>
             </div>
-
-            <div className="group">
-              <div className="backdrop-blur-lg bg-white/60 rounded-2xl overflow-hidden border border-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 group-hover:shadow-[0_8px_30px_rgba(255,186,0,0.1)] group-hover:-translate-y-1">
-                <div className="h-1 bg-gradient-to-r from-yellow-400/80 to-yellow-500/80 backdrop-blur-sm"></div>
-                <div className="p-10 relative">
-                  {/* Glass highlight effect */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-70"></div>
-
-                  <div className="flex items-center gap-5 mb-6">
-                    <div className="bg-yellow-500/10 backdrop-blur-sm p-4 rounded-xl border border-yellow-500/20">
-                      <Phone className="h-7 w-7 text-yellow-600" />
-                    </div>
-                    <h2 className="text-2xl font-semibold text-gray-800">Телефон</h2>
-                  </div>
-
-                  <a
-                    href={`tel:${data["Телефон"]}`}
-                    className="text-xl text-yellow-600 hover:text-yellow-700 font-medium block mt-2 transition-colors"
-                  >
-                    {data["Телефон"]}
-                  </a>
-
-                  <div className="mt-8 pt-6 border-t border-gray-200/50">
-                    <p className="text-gray-600 text-sm">Працюємо з {data["Працюємо з"]}</p>
-                  </div>
-                </div>
-              </div>
+          </li>
+        )}
+        {viber && (
+          <li className={rowClass}>
+            <FaViber className="h-6 w-6 shrink-0 text-[#7360F2]" aria-hidden="true" />
+            <div>
+              <p className="text-sm text-brand-muted">Viber</p>
+              <a href={`viber://chat?number=${encodeURIComponent(digits(viber))}`} className={`${linkClass} tabular-nums`}>
+                {viber}
+              </a>
             </div>
-          </div>
-
-          <div className="mt-20 text-center">
-            <div className="inline-block backdrop-blur-md bg-white/40 px-8 py-4 rounded-full border border-white/60 shadow-sm">
-              <p className="text-gray-700 font-medium">Ми завжди раді допомогти вам з будь-якими питаннями</p>
+          </li>
+        )}
+        {phone && (
+          <li className={rowClass}>
+            <Phone className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+            <div>
+              <p className="text-sm text-brand-muted">Телефон</p>
+              <a href={`tel:${digits(phone)}`} className={`${linkClass} tabular-nums`}>
+                {phone}
+              </a>
             </div>
-          </div>
-        </div>
-      </div>
+          </li>
+        )}
+        {email && (
+          <li className={rowClass}>
+            <Mail className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm text-brand-muted">E-mail</p>
+              <a href={`mailto:${email}`} className={`${linkClass} break-all`}>
+                {email}
+              </a>
+            </div>
+          </li>
+        )}
+        {hours && (
+          <li className={rowClass}>
+            <Clock className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+            <div>
+              <p className="text-sm text-brand-muted">Працюємо з</p>
+              <p className="text-lg font-semibold tabular-nums text-brand-ink">{hours}</p>
+            </div>
+          </li>
+        )}
+        {address && (
+          <li className={rowClass}>
+            <MapPin className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+            <div>
+              <p className="text-sm text-brand-muted">Адреса</p>
+              <p className="text-lg font-semibold text-brand-ink">{address}</p>
+            </div>
+          </li>
+        )}
+      </ul>
     </div>
   )
 }
-

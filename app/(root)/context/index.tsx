@@ -1,53 +1,68 @@
-'use client'
+"use client"
 
-import { createContext, useState, useContext, useEffect, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 
+const AppContext = createContext<any>(undefined)
 
-
-const AppContext = createContext<any>(undefined);
-
+/**
+ * Storefront state shared across pages: the cart (persisted in localStorage)
+ * and which overlay (cart drawer, category menu) is open.
+ */
 export function AppWrapper({ children }: { children: ReactNode }) {
-    const [catalogData, setCatalogData] = useState({
-        pNumber: 1,
-        sort: 'default',
-        search: ''
-    });
+  const [catalogData, setCatalogData] = useState({
+    pNumber: 1,
+    sort: "default",
+    search: "",
+  })
 
-    const [cartData, setCartData] = useState<any[]>([]);
-    const [isClient, setIsClient] = useState(false);
-    const [priceToPay, setPriceToPay] = useState<any[]>([]);
-    
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const savedCartData = localStorage.getItem("cartData");
-            if (savedCartData) {
-                setCartData(JSON.parse(savedCartData));
-            }
-            setIsClient(true);
-        }
-    }, []);
+  const [cartData, setCartData] = useState<any[]>([])
+  const [isClient, setIsClient] = useState(false)
+  const [priceToPay, setPriceToPay] = useState<any[]>([])
+  const [cartOpen, setCartOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
-    useEffect(() => {
-        if (isClient) {
-            localStorage.setItem("cartData", JSON.stringify(cartData));
-        }
-    }, [cartData, isClient]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cartData")
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) setCartData(parsed)
+      }
+    } catch {
+      // A corrupted or unavailable store just means an empty cart.
+    }
+    setIsClient(true)
+  }, [])
 
-    return (
-        <AppContext.Provider value={{
-            catalogData,
-            setCatalogData,
-            cartData,
-            setCartData,
-            priceToPay,
-            setPriceToPay,
-        }}>
-            {children}
-        </AppContext.Provider>
-    );
+  useEffect(() => {
+    if (!isClient) return
+    try {
+      localStorage.setItem("cartData", JSON.stringify(cartData))
+    } catch {
+      // Private mode or a full quota: the cart still works for this visit.
+    }
+  }, [cartData, isClient])
+
+  const value = useMemo(
+    () => ({
+      catalogData,
+      setCatalogData,
+      cartData,
+      setCartData,
+      cartReady: isClient,
+      priceToPay,
+      setPriceToPay,
+      cartOpen,
+      setCartOpen,
+      menuOpen,
+      setMenuOpen,
+    }),
+    [catalogData, cartData, isClient, priceToPay, cartOpen, menuOpen],
+  )
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }
 
-
-export function useAppContext(){
-    return useContext(AppContext)
+export function useAppContext() {
+  return useContext(AppContext)
 }

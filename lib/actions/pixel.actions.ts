@@ -1,188 +1,135 @@
-"use server";
+"use server"
 
-import { revalidatePath } from "next/cache";
-import Pixel from "../models/pixel.model";
-import { connectToDB } from "../mongoose";
-import { PixelData } from "../types/types";
-import clearCache from "./cache";
+import mongoose from "mongoose"
+import { revalidatePath, revalidateTag } from "next/cache"
+import Pixel from "../models/pixel.model"
+import { connectToDB } from "../mongoose"
+import { AccessDenied, requireAdmin } from "@/lib/auth/guards"
+import { PIXELS_TAG, decodePixelId, encodePixelId } from "@/lib/pixels/server"
+import { ALL_EVENTS_ON, checkPixelId, normalizeEvents, type PixelType } from "@/lib/pixels/shared"
 
-export async function createPixel({ type, name, id }: { type: "Meta" | "TikTok", name: string, id: string }) {
+/**
+ * Changes to advertising pixels. Every export here is a public endpoint, so
+ * each one checks that an administrator is signed in before touching anything.
+ * The storefront does not call these: it gets the active pixels from the
+ * server-rendered layout (lib/pixels/server.ts).
+ */
+
+type Result<T = {}> = ({ ok: true } & T) | { ok: false; error: string }
+
+function failure(error: unknown): { ok: false; error: string } {
+  if (error instanceof AccessDenied) return { ok: false, error: "Керувати пікселями може лише адміністратор. Увійдіть під обліковим записом адміністратора." }
+  console.error("[pixels]", error instanceof Error ? error.message : error)
+  return { ok: false, error: "Не вдалося зберегти зміни через помилку на сервері. Спробуйте ще раз." }
+}
+
+function changed() {
+  revalidateTag(PIXELS_TAG)
+  revalidatePath("/admin/pixel")
+}
+
+const asType = (value: unknown): PixelType => (value === "TikTok" ? "TikTok" : "Meta")
+
+export async function createPixel(input: { type: PixelType; name: string; id: string }): Promise<Result<{ _id: string }>> {
   try {
-    connectToDB();
+    await requireAdmin()
+    const type = asType(input?.type)
+    const name = String(input?.name ?? "").trim().slice(0, 80)
+    if (!name) return { ok: false, error: "Дайте пікселю назву, щоб відрізняти його від інших. Наприклад: «Основний рекламний кабінет»." }
+    const checked = checkPixelId(type, input?.id)
+    if (!checked.ok) return checked
 
-    //console.log("Creating pixel");
+    await connectToDB()
+    const sameType = await Pixel.find({ type }).select("id").lean<{ id?: string }[]>()
+    if (sameType.some((row) => decodePixelId(row.id) === checked.id)) {
+      return { ok: false, error: "Піксель із таким ID уже додано. Знайдіть його у списку." }
+    }
 
-    const createdPixel = await Pixel.create({
-        type: type,
-        name: name,
-        id: id,
-        status: "Deactivated",
-        createdAt: Date.now(),
-        events: {
-          pageView: true,
-          viewContent: true,
-          addToCart: true,
-          addToWishlist: true,
-          initiateCheckout: true,
-          addPaymentInfo: true,
-          purchase: true,
-          search: true,
-          lead: true,
-          completeRegistration: true,
-      }
+    const created = await Pixel.create({
+      type,
+      name,
+      id: encodePixelId(checked.id),
+      status: "Deactivated",
+      createdAt: new Date(),
+      events: { ...ALL_EVENTS_ON },
     })
-    
-    //console.log(createdPixel);
-
-    clearCache("createPixel", undefined)
-  } catch (error: any) {
-    throw new Error(`Error creating pixel: ${error.message}`)
+    changed()
+    return { ok: true, _id: String(created._id) }
+  } catch (error) {
+    return failure(error)
   }
 }
 
-export async function fetchPixels(type: "Meta" | "TikTok") {
+/** Switches a pixel on or off. Only one pixel of a kind works at a time: switching one on switches the other off. */
+export async function setPixelActive(input: { _id: string; active: boolean }): Promise<Result<{ replaced: string | null }>> {
   try {
-    connectToDB();
+    await requireAdmin()
+    if (!mongoose.isValidObjectId(input?._id)) return { ok: false, error: "Цей піксель уже видалено. Оновіть сторінку." }
+    await connectToDB()
 
-    const pixels = await Pixel.find({ type: type });
+    const pixel = await Pixel.findById(input._id).select("_id type status").lean<{ _id: unknown; type?: string; status?: string }>()
+    if (!pixel) return { ok: false, error: "Цей піксель уже видалено. Оновіть сторінку." }
+    const now = new Date()
 
-    return pixels;
-
-  } catch (error: any) {
-    throw new Error(`Error fetching pixels: ${error.message}`)
-  }
-}
-
-export async function deletePixel({ _id }: { _id: string }) {
-  try {
-    connectToDB();
-
-    const deletedPixel = await Pixel.findByIdAndDelete(_id);
-
-    revalidatePath("/admin/pixel");
-
-    clearCache("deletePixel", undefined)
-  } catch (error: any) {
-    throw new Error(`Error deleting pixel: ${error.message}`)
-  }
-}
-
-export async function activatePixel({ _id, type }: { _id: string, type: PixelData["type"] }) {
-  try {
-    connectToDB();
-
-    const pixel = await Pixel.findById({ _id: _id });
-    const currentlyActivePixel = await Pixel.findOne({ status: "Active", type: type});
-
-    if(!currentlyActivePixel) {
-        pixel.status = "Active";
-        pixel.activatedAt = Date.now();
-
-        await pixel.save()
-    }else if(pixel._id != currentlyActivePixel._id ) {
-        currentlyActivePixel.status = "Deactivated";
-        currentlyActivePixel.deactivatedAt = Date.now();
-
-        await currentlyActivePixel.save();
-
-        pixel.status = "Active";
-        pixel.activatedAt = Date.now();
-
-        await pixel.save();
-    } else {
-        pixel.status = "Deactivated";
-        pixel.deactivatedAt = Date.now();
-
-        await pixel.save();
+    if (!input.active) {
+      await Pixel.updateOne({ _id: pixel._id }, { $set: { status: "Deactivated", deactivatedAt: now } })
+      changed()
+      return { ok: true, replaced: null }
     }
 
-    clearCache("updatePixel", undefined)
-} catch (error: any) {
-    throw new Error(`Error activating/disactivating pixel: ${error.message}`)
+    const type = asType(pixel.type)
+    // Records made before the type existed count as Meta.
+    const sameType = type === "TikTok" ? { type: "TikTok" } : { type: { $ne: "TikTok" } }
+    const previous = await Pixel.findOne({ ...sameType, status: "Active", _id: { $ne: pixel._id } })
+      .select("name")
+      .lean<{ name?: string }>()
+    await Pixel.updateMany({ ...sameType, status: "Active", _id: { $ne: pixel._id } }, { $set: { status: "Deactivated", deactivatedAt: now } })
+    await Pixel.updateOne({ _id: pixel._id }, { $set: { status: "Active", activatedAt: now } })
+    changed()
+    return { ok: true, replaced: previous ? String(previous.name ?? "") || "інший піксель" : null }
+  } catch (error) {
+    return failure(error)
   }
 }
 
-export async function activePixelID() {
+export async function updatePixelEvents(input: { _id: string; events: Record<string, boolean> }): Promise<Result> {
   try {
-    connectToDB();
-
-    const activePixel = await Pixel.findOne({ status: "Active"});
-
-    if(!activePixel) {
-      return ""
-    }
-
-    return activePixel.id
-  } catch (error: any) {
-    throw new Error(`Error fetching active pixel's id: ${error.message}`)
+    await requireAdmin()
+    if (!mongoose.isValidObjectId(input?._id)) return { ok: false, error: "Цей піксель уже видалено. Оновіть сторінку." }
+    await connectToDB()
+    const result = await Pixel.updateOne({ _id: input._id }, { $set: { events: normalizeEvents(input.events) } })
+    if (result.matchedCount === 0) return { ok: false, error: "Цей піксель уже видалено. Оновіть сторінку." }
+    changed()
+    return { ok: true }
+  } catch (error) {
+    return failure(error)
   }
 }
 
-export async function fetchActivePixelEvents(type?: "json") {
+export async function renamePixel(input: { _id: string; name: string }): Promise<Result> {
   try {
-    connectToDB();
-
-    const activePixel = await Pixel.findOne({ status: "Active" });
-
-    if(!activePixel) {
-      return null
-    }
-
-    if(type == "json") {
-      return JSON.stringify(activePixel.events);
-    } else {
-      return activePixel.events
-    }
-  } catch (error: any) {
-    throw new Error(`Error fetching active events: ${error.message}`)
+    await requireAdmin()
+    const name = String(input?.name ?? "").trim().slice(0, 80)
+    if (!name) return { ok: false, error: "Назва не може бути порожньою." }
+    if (!mongoose.isValidObjectId(input?._id)) return { ok: false, error: "Цей піксель уже видалено. Оновіть сторінку." }
+    await connectToDB()
+    await Pixel.updateOne({ _id: input._id }, { $set: { name } })
+    changed()
+    return { ok: true }
+  } catch (error) {
+    return failure(error)
   }
 }
 
-export async function fetchPixel({ _id }: { _id: string }) {
+export async function deletePixel(input: { _id: string }): Promise<Result> {
   try {
-    connectToDB();
-
-    const pixel = await Pixel.findById(_id);
-
-    return pixel;
-  } catch (error: any) {
-    throw new Error(`Error fetching pixel: ${error.message}`)
-  }
-}
-
-export async function updatePixelEvents({ _id, events }: { _id: string, events: Record<string, boolean>}): Promise<{ success: boolean; message?: string }> {
-  try {
-    connectToDB();
-    
-    const pixel = await Pixel.findByIdAndUpdate(_id, { events: events });
-
-    if (!pixel) {
-      return { success: false, message: "Update failed, pixel not found" };
-    }
-    
-    clearCache("updatePixel", undefined)
-    return { success: true, message: "Pixel events updated successfully." };
-  } catch (error: any) {
-
-    throw new Error(`Error updating pixel events: ${error.message}`)
-  }
-}
-
-export async function fetchActivePixel(type: "json") {
-  try {
-    const activePixel = await Pixel.findOne({ status: "Active" });
-
-
-    if (!activePixel) {
-      return { id: "", events: [] }
-    }
-
-    if (type == "json") {
-      return JSON.stringify(activePixel);
-    }
-
-    return activePixel;
-  } catch (error: any) {
-    throw new Error(`${error.message}`)
+    await requireAdmin()
+    if (!mongoose.isValidObjectId(input?._id)) return { ok: true }
+    await connectToDB()
+    await Pixel.deleteOne({ _id: input._id })
+    changed()
+    return { ok: true }
+  } catch (error) {
+    return failure(error)
   }
 }

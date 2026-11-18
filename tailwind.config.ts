@@ -16,37 +16,40 @@ module.exports = {
   		}
   	},
   	fontSize: {
+		// xs–3xl read CSS variables. The fallbacks are Tailwind's own sizes, used by
+		// the storefront. The admin sets the variables on its <html> (app/globals.css,
+		// "Admin proportions"): 14px body, each step 1.2 times the last, lines on a 4px grid.
 		'xs': [
-			'0.75rem', // 12px
-			{ lineHeight: '1.333' } // calc(1 / 0.75)
+			'var(--text-xs, 0.75rem)', // 12px
+			{ lineHeight: 'var(--leading-xs, 1rem)' } // 16px
 		],
 		'sm': [
-			'0.875rem', // 14px
-			{ lineHeight: '1.428' } // calc(1.25 / 0.875)
+			'var(--text-sm, 0.875rem)', // 14px
+			{ lineHeight: 'var(--leading-sm, 1.25rem)' } // 20px
 		],
 		'base': [
-			'1rem', // 16px
-			{ lineHeight: '1.5' } // calc(1.5 / 1)
+			'var(--text-base, 1rem)', // 16px
+			{ lineHeight: 'var(--leading-base, 1.5rem)' } // 24px
 		],
 		'lg': [
-			'1.125rem', // 18px
-			{ lineHeight: '1.556' } // calc(1.75 / 1.125)
+			'var(--text-lg, 1.125rem)', // 18px
+			{ lineHeight: 'var(--leading-lg, 1.75rem)' } // 28px
 		],
 		'xl': [
-			'1.25rem', // 20px
-			{ lineHeight: '1.4' } // calc(1.75 / 1.25)
+			'var(--text-xl, 1.25rem)', // 20px
+			{ lineHeight: 'var(--leading-xl, 1.75rem)' } // 28px
 		],
 		'2xl': [
-			'1.5rem', // 24px
-			{ lineHeight: '1.333' } // calc(2 / 1.5)
+			'var(--text-2xl, 1.5rem)', // 24px
+			{ lineHeight: 'var(--leading-2xl, 2rem)' } // 32px
 		],
 		'3xl': [
-			'1.875rem', // 30px
-			{ lineHeight: '1.2' } // calc(2.25 / 1.875)
+			'var(--text-3xl, 1.875rem)', // 30px
+			{ lineHeight: 'var(--leading-3xl, 2.25rem)' } // 36px
 		],
 		'4xl': [
 			'2.25rem', // 36px
-			{ lineHeight: '1.111' } // calc(2.5 / 2.25)
+			{ lineHeight: '2.5rem' } // 40px
 		],
 		'5xl': [
 			'3rem', // 48px
@@ -236,9 +239,53 @@ module.exports = {
   			}
   		]
   	},
+  	// Same idea as fontSize: the fallbacks are Tailwind's defaults (storefront),
+  	// the admin pins 4 / 6 / 8 / 12 / 16px through variables.
+  	borderRadius: {
+  		none: '0px',
+  		sm: 'var(--radius-sm, 0.125rem)',
+  		DEFAULT: 'var(--radius-default, 0.25rem)',
+  		md: 'var(--radius-md, 0.375rem)',
+  		lg: 'var(--radius-lg, 0.5rem)',
+  		xl: 'var(--radius-xl, 0.75rem)',
+  		'2xl': 'var(--radius-2xl, 1rem)',
+  		'3xl': 'var(--radius-3xl, 1.5rem)',
+  		full: '9999px'
+  	},
   	extend: {
+  		// Heights of the admin controls (h-control, min-w-control, …): 36 and 28px,
+  		// 44 and 36px on a touch screen. Set in app/globals.css, "Admin proportions".
+  		spacing: {
+  			control: 'var(--control, 2.5rem)',
+  			'control-sm': 'var(--control-sm, 2rem)'
+  		},
+  		fontFamily: {
+  			sans: ['var(--font-text)', 'system-ui', 'sans-serif'],
+  			display: ['var(--font-display)', 'var(--font-text)', 'system-ui', 'sans-serif']
+  		},
   		colors: {
   			'theme-3': 'rgb(254, 204, 2)',
+  			brand: {
+  				DEFAULT: '#006AA7',
+  				dark: '#005a8e',
+  				deep: '#004d7a',
+  				tint: '#e8f2f9',
+  				// Dark surface of the header and footer.
+  				navy: '#0b2e4a',
+  				// Sale prices, discount tags and errors (Falu red).
+  				sale: '#b23a2e',
+  				'sale-tint': '#fbeeec',
+  				// Positive states: in stock, paid, free delivery reached.
+  				ok: '#1f7a55',
+  				'ok-tint': '#e8f4ee',
+  				sun: '#FECC02',
+  				'sun-dark': '#e6b800',
+  				tile: '#f3f4f2',
+  				ink: '#10222e',
+  				mist: '#f2f5f8',
+  				line: '#dce3ea',
+  				muted: '#586874'
+  			},
   			'primary': '#171717',
 			'primary-foreground': "#ffffff",
   			'secondary-500': '#FFB620',
@@ -295,6 +342,10 @@ module.exports = {
   			xx: '1670px'
   		},
   		keyframes: {
+  			'admin-progress': {
+  				'0%': { transform: 'translateX(-100%)' },
+  				'100%': { transform: 'translateX(300%)' }
+  			},
   			'accordion-down': {
   				from: {
   					height: 0
@@ -327,6 +378,10 @@ module.exports = {
   					transform: 'rotate(-3deg)'
   				}
   			},
+  			'sheet-up': {
+  				from: { transform: 'translateY(8px)', opacity: 0 },
+  				to: { transform: 'translateY(0)', opacity: 1 }
+  			},
   			'construction-2': {
   				'0%, 100%': {
   					transform: 'rotate(0deg)',
@@ -345,6 +400,7 @@ module.exports = {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'sheet-up': 'sheet-up 0.16s ease-out',
   			spin: 'spin 1s linear infinite',
   			'construction-1': 'construction-1 2s ease-in-out infinite',
   			'construction-2': 'construction-2 2s ease-in-out infinite'
@@ -353,6 +409,10 @@ module.exports = {
   },
   plugins: [
 	require("tailwindcss-animate"), 
-	require('@tailwindcss/container-queries')
+	require('@tailwindcss/container-queries'),
+	// `short:` targets laptop-height windows, where a screen must fit without scrolling.
+	function ({ addVariant }: { addVariant: (name: string, definition: string) => void }) {
+		addVariant('short', '@media (max-height: 760px)')
+	}
   ],
 };
