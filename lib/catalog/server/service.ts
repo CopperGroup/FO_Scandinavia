@@ -3,6 +3,7 @@ import { parseCatalogQuery, runCatalogQuery, type CatalogResult } from "../query
 import { SNAPSHOT_VERSION, buildCatalogSnapshot } from "../snapshot";
 import type { CatalogSnapshot, ProductVariants } from "../types";
 import { buildVariantIndex, getProductVariants, type VariantIndex } from "../variants";
+import type { SnapshotInput } from "../snapshot";
 import { getKeyValueStore, type KeyValueStore } from "./kv";
 import { loadSnapshotInput } from "./repository";
 
@@ -16,14 +17,25 @@ import { loadSnapshotInput } from "./repository";
  *       and published by flipping a single pointer key, so readers never see
  *       a half-written catalog
  *
- * Writers call `invalidateCatalog()`; the next read rebuilds. Concurrent
- * rebuilds in one process collapse into a single build.
+ * Writers call `invalidateCatalog()`. Shoppers never wait for the rebuild that
+ * follows: the snapshot they were being served stays in use until the new one
+ * is ready (a few seconds), then it is swapped in one step. Only a process
+ * with nothing to serve at all (a first start with an empty cache) builds
+ * while a visitor waits. Concurrent rebuilds in one process collapse into one.
+ *
+ * Staleness is tracked twice: `epoch` inside the process, and an "edition"
+ * token in the key-value store that every invalidation replaces. A published
+ * snapshot records the edition it was built for, so a process that starts
+ * later, or another instance, can tell that the cached snapshot predates the
+ * last change and refresh it.
  */
 
 export const CATALOG_TAG = "catalog-data";
 
 const KEY_PREFIX = `catalog:v${SNAPSHOT_VERSION}`;
 const POINTER_KEY = `${KEY_PREFIX}:current`;
+/** Replaced by every invalidation; a snapshot built for an older value is stale. */
+const EDITION_KEY = `${KEY_PREFIX}:edition`;
 const CHUNK_CHARS = 512 * 1024;
 const GENERATION_TTL_SECONDS = 7 * 24 * 60 * 60;
 /** How long a process trusts its snapshot before re-checking the shared pointer. */
@@ -31,8 +43,10 @@ const POINTER_RECHECK_MS = Number(process.env.CATALOG_POINTER_RECHECK_MS ?? 1500
 const MAX_BUILD_ATTEMPTS = 3;
 /** After the cache fails, serve from memory this long before asking it again. */
 const CACHE_BACKOFF_MS = 60_000;
+/** After a background rebuild fails, keep serving the previous snapshot this long before trying again. */
+const REFRESH_RETRY_MS = Number(process.env.CATALOG_REFRESH_RETRY_MS ?? 10_000);
 
-type Pointer = { generation: string; chunks: number; builtAt: string };
+type Pointer = { generation: string; chunks: number; builtAt: string; edition?: string };
 
 export type CatalogRuntime = {
   generation: string;
@@ -42,23 +56,35 @@ export type CatalogRuntime = {
 
 type ServiceState = {
   runtime: CatalogRuntime | null;
+  /** `epoch` at the moment the build behind `runtime` started reading; lower than `epoch` means stale. */
+  runtimeEpoch: number;
   checkedAt: number;
   /** Incremented by every invalidation; a build that started earlier is stale. */
   epoch: number;
   resolving: Promise<CatalogRuntime> | null;
   building: Promise<CatalogRuntime> | null;
   lastBuildMs: number | null;
+  /** When the last background rebuild failed. */
+  refreshFailedAt: number;
 };
 
 const globalForCatalog = globalThis as unknown as { __catalogService?: ServiceState };
 const state: ServiceState = (globalForCatalog.__catalogService ??= {
   runtime: null,
+  runtimeEpoch: 0,
   checkedAt: 0,
   epoch: 0,
   resolving: null,
   building: null,
   lastBuildMs: null,
+  refreshFailedAt: 0,
 });
+// A state object kept across a hot reload may predate these fields.
+state.runtimeEpoch ??= state.epoch;
+state.refreshFailedAt ??= 0;
+
+/** What a build reads. Tests put their own reader here. */
+const source: { load: () => Promise<SnapshotInput> } = { load: loadSnapshotInput };
 
 function toRuntime(generation: string, snapshot: CatalogSnapshot): CatalogRuntime {
   return { generation, snapshot, variants: buildVariantIndex(snapshot.groups) };
@@ -92,7 +118,7 @@ async function readGeneration(store: KeyValueStore, pointer: Pointer): Promise<C
   }
 }
 
-async function publishGeneration(store: KeyValueStore, generation: string, snapshot: CatalogSnapshot): Promise<void> {
+async function publishGeneration(store: KeyValueStore, generation: string, snapshot: CatalogSnapshot, edition: string): Promise<void> {
   const json = JSON.stringify(snapshot);
   const chunks = Math.max(1, Math.ceil(json.length / CHUNK_CHARS));
 
@@ -108,7 +134,7 @@ async function publishGeneration(store: KeyValueStore, generation: string, snaps
 
   // Every chunk is in place: flip the pointer, then drop the generation it replaced.
   const previous = parsePointer(await store.get(POINTER_KEY).catch(() => null));
-  const pointer: Pointer = { generation, chunks, builtAt: snapshot.builtAt };
+  const pointer: Pointer = { generation, chunks, builtAt: snapshot.builtAt, edition };
   await store.set(POINTER_KEY, JSON.stringify(pointer), GENERATION_TTL_SECONDS);
 
   if (previous && previous.generation !== generation) {
@@ -118,31 +144,49 @@ async function publishGeneration(store: KeyValueStore, generation: string, snaps
   }
 }
 
+/** The edition the shared cache is at; "" when none was ever set or the cache cannot be read. */
+async function readEdition(store: KeyValueStore): Promise<string> {
+  try {
+    return (await store.get(EDITION_KEY)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 async function build(): Promise<CatalogRuntime> {
+  const store = getKeyValueStore();
   for (let attempt = 1; ; attempt++) {
     const epoch = state.epoch;
+    // Read before the database: a change made while this build is reading leaves it marked as stale.
+    const edition = await readEdition(store);
     const startedAt = Date.now();
 
-    const snapshot = buildCatalogSnapshot(await loadSnapshotInput());
+    const input = await source.load();
+    const readMs = Date.now() - startedAt;
+    const snapshot = buildCatalogSnapshot(input);
     const generation = `${startedAt.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const runtime = toRuntime(generation, snapshot);
 
     // An invalidation landed while this build was reading: its data may predate the write.
     if (state.epoch !== epoch && attempt < MAX_BUILD_ATTEMPTS) continue;
 
-    state.runtime = runtime;
-    state.checkedAt = Date.now();
-    state.lastBuildMs = Date.now() - startedAt;
-
+    // Published first, taken into use second: a read that looks at the cache in between
+    // must not find the previous snapshot there and put it back in place of this one.
     try {
-      await publishGeneration(getKeyValueStore(), generation, snapshot);
+      await publishGeneration(store, generation, snapshot, edition);
     } catch (error) {
       // The process keeps serving from memory; other instances rebuild on their own.
       console.error("[catalog] could not publish snapshot to the cache:", error instanceof Error ? error.message : error);
     }
 
+    state.runtime = runtime;
+    state.runtimeEpoch = epoch;
+    state.checkedAt = Date.now();
+    state.refreshFailedAt = 0;
+    state.lastBuildMs = Date.now() - startedAt;
+
     console.info(
-      `[catalog] built ${snapshot.stats.listings} listings from ${snapshot.stats.products} products in ${state.lastBuildMs}ms`,
+      `[catalog] built ${snapshot.stats.listings} listings from ${snapshot.stats.products} products in ${state.lastBuildMs}ms (database ${readMs}ms)`,
     );
     return runtime;
   }
@@ -158,17 +202,40 @@ export function rebuildCatalog(): Promise<CatalogRuntime> {
   return state.building;
 }
 
+/**
+ * Starts a rebuild nobody waits for, when the snapshot in use predates the
+ * last change. The snapshot keeps being served until the new one replaces it.
+ */
+function refreshIfStale(): void {
+  if (!state.runtime || state.runtimeEpoch >= state.epoch || state.building) return;
+  if (Date.now() - state.refreshFailedAt < REFRESH_RETRY_MS) return;
+
+  rebuildCatalog()
+    .then(() => {
+      // A change that landed too late for that build: go again.
+      refreshIfStale();
+    })
+    .catch((error) => {
+      state.refreshFailedAt = Date.now();
+      console.error("[catalog] background rebuild failed, still serving the previous snapshot:", error instanceof Error ? error.message : error);
+    });
+}
+
 async function resolve(): Promise<CatalogRuntime> {
   const store = getKeyValueStore();
 
   let pointer: Pointer | null = null;
+  let edition = "";
   try {
-    pointer = parsePointer(await store.get(POINTER_KEY));
+    const [pointerRaw, editionRaw] = await Promise.all([store.get(POINTER_KEY), store.get(EDITION_KEY)]);
+    pointer = parsePointer(pointerRaw);
+    edition = editionRaw ?? "";
   } catch (error) {
     console.error("[catalog] cache unavailable:", error instanceof Error ? error.message : error);
     // Serve what we have rather than hammering a failing cache; otherwise build from the database.
     if (state.runtime) {
       state.checkedAt = Date.now() + CACHE_BACKOFF_MS - POINTER_RECHECK_MS;
+      refreshIfStale();
       return state.runtime;
     }
     const rebuilt = await rebuildCatalog();
@@ -176,26 +243,39 @@ async function resolve(): Promise<CatalogRuntime> {
     return rebuilt;
   }
 
-  if (pointer && state.runtime?.generation === pointer.generation) {
-    state.checkedAt = Date.now();
-    return state.runtime;
-  }
+  // The snapshot the cache points at was built before the last change (made here or by another instance).
+  const pointerIsStale = pointer !== null && (pointer.edition ?? "") !== edition;
 
-  if (pointer) {
+  if (pointer && state.runtime?.generation === pointer.generation) {
+    if (pointerIsStale) state.runtimeEpoch = Math.min(state.runtimeEpoch, state.epoch - 1);
+  } else if (pointer) {
+    const held = state.runtime;
     const snapshot = await readGeneration(store, pointer).catch(() => null);
-    if (snapshot) {
+    // A rebuild that finished during that read is newer than what the read fetched.
+    if (snapshot && state.runtime === held) {
       state.runtime = toRuntime(pointer.generation, snapshot);
-      state.checkedAt = Date.now();
-      return state.runtime;
+      state.runtimeEpoch = pointerIsStale ? state.epoch - 1 : state.epoch;
     }
   }
 
+  if (state.runtime) {
+    state.checkedAt = Date.now();
+    refreshIfStale();
+    return state.runtime;
+  }
+
+  // Nothing to serve at all: a first start with an empty cache.
   return rebuildCatalog();
 }
 
-/** The current catalog, from memory when fresh, else from the cache, else rebuilt. */
+/**
+ * The catalog to serve: from memory, else from the cache, else built now.
+ * After a change it is the previous snapshot for the few seconds the new one
+ * takes to build.
+ */
 export function getCatalogRuntime(): Promise<CatalogRuntime> {
   if (state.runtime && Date.now() - state.checkedAt < POINTER_RECHECK_MS) {
+    refreshIfStale();
     return Promise.resolve(state.runtime);
   }
   if (!state.resolving) {
@@ -207,24 +287,19 @@ export function getCatalogRuntime(): Promise<CatalogRuntime> {
 }
 
 /**
- * Marks the catalog stale. Call after any write that changes what shoppers
- * see: products, categories, filter settings.
+ * Marks the catalog stale and starts rebuilding it. Call after any write that
+ * changes what shoppers see: products, categories, filter settings. It does
+ * not wait for the rebuild: the change shows in the shop a few seconds later,
+ * and until then pages are served from the previous snapshot without delay.
  */
 export async function invalidateCatalog(): Promise<void> {
   state.epoch += 1;
-  state.runtime = null;
-  state.checkedAt = 0;
 
-  const store = getKeyValueStore();
   try {
-    const previous = parsePointer(await store.get(POINTER_KEY));
-    const keys = [POINTER_KEY];
-    if (previous) {
-      for (let index = 0; index < previous.chunks; index++) keys.push(chunkKey(previous.generation, index));
-    }
-    await store.del(keys);
+    // Tells other instances, and this one after a restart, that the cached snapshot is out of date.
+    await getKeyValueStore().set(EDITION_KEY, `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
   } catch (error) {
-    console.error("[catalog] could not clear the cached snapshot:", error instanceof Error ? error.message : error);
+    console.error("[catalog] could not mark the cached snapshot as stale:", error instanceof Error ? error.message : error);
   }
 
   try {
@@ -232,6 +307,18 @@ export async function invalidateCatalog(): Promise<void> {
   } catch {
     // Outside a request scope (scripts, workers) there is no Next.js cache to revalidate.
   }
+
+  refreshIfStale();
+}
+
+/** Tests only: a build reads from `load` instead of the database. */
+export function setCatalogSourceForTests(load: () => Promise<SnapshotInput>): void {
+  source.load = load;
+}
+
+/** Tests only: drops everything this process holds, as a restart would. The shared cache is left as it is. */
+export function forgetCatalogForTests(): void {
+  Object.assign(state, { runtime: null, runtimeEpoch: 0, checkedAt: 0, epoch: 0, resolving: null, building: null, lastBuildMs: null, refreshFailedAt: 0 });
 }
 
 /* -------------------------------------------------------------------------- */

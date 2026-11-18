@@ -1,0 +1,26 @@
+# The shop's Caddy configuration, as installed in /etc/caddy/Caddyfile on the server.
+# After changing it there:  caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+# (a reload does not drop connections).
+
+nordiva.com.ua, www.nordiva.com.ua {
+	# Resizing photos (/_next/image) is the heaviest thing the app does. These requests get
+	# their own narrow lane to it: at most two at a time, the rest wait in line here.
+	# A page of photos nobody has asked for yet is then resized two by two instead of all
+	# at once, and pages keep answering while that happens.
+	@photos path /_next/image
+	handle @photos {
+		reverse_proxy localhost:3000 {
+			transport http {
+				max_conns_per_host 2
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy localhost:3000
+	}
+}
+
+assets.nordiva.com.ua {
+	reverse_proxy localhost:9000
+}

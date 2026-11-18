@@ -354,10 +354,15 @@ checkout on the server:
 
 ```bash
 git pull
+docker tag fo_scandinavia_app:latest fo_scandinavia_app:previous   # the way back, see below
 docker-compose --env-file .env.local build app      # the live site keeps running while this builds
-docker-compose --env-file .env.local down           # never "down -v": the volume holds every product photo
-docker-compose --env-file .env.local up -d          # about a minute without the site between these two
+docker-compose --env-file .env.local rm -sf app     # only the app stops: Redis keeps the catalog, MinIO keeps serving photos
+docker-compose --env-file .env.local up -d          # a few seconds without the site between these two
 ```
+
+When `docker-compose.yaml` changed for Redis or MinIO as well, restart everything instead:
+`down`, then `up -d` (about a minute without the site). Never `down -v` and never prune
+volumes: `minio_data` holds every product photo.
 
 `--env-file .env.local` is needed every time: the build reads the server's `.env.local`, and
 Compose takes the MinIO sign-in (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`) from the same file.
@@ -371,7 +376,27 @@ SSH tunnel: `ssh -L 9001:127.0.0.1:9001 root@<server>`, then `http://localhost:9
 
 To go back to the version before a release, the previous image is kept under the tag
 `fo_scandinavia_app:previous`: `docker tag fo_scandinavia_app:previous fo_scandinavia_app:latest`,
-then `down` and `up -d` as above (tag the current image as `previous` before each build).
+then `rm -sf app` and `up -d` as above.
+
+### What keeps the shop fast
+
+- **The catalog is served from a ready-made snapshot** (in the app's memory and in Redis).
+  Saving a product, a category or a filter marks it stale and starts a rebuild at once; the
+  rebuild takes a few seconds, and until it is done every page is served from the previous
+  snapshot without waiting. So a change shows in the shop a few seconds after the save, and a
+  save never makes shoppers wait (`lib/catalog/server/service.ts`). The app log says how long
+  each rebuild took: `docker-compose logs app | grep "\[catalog\]"`.
+- **Resized photos are kept in the Docker volume `next_images`** (`/app/.next/cache/images`),
+  so a release does not throw them away. The app resizes a photo the first time a size of it is
+  asked for; everything in the volume can be deleted, it is made again on request.
+- **Resizing has its own narrow lane in Caddy**: `/_next/image` requests reach the app at most
+  two at a time (`tools/server/Caddyfile` is a copy of the server's `/etc/caddy/Caddyfile`).
+  Without it one visitor opening a page of new photos keeps the app busy and pages stall for
+  everybody.
+- `bash tools/image-cache/warm.sh` resizes the catalog's photos ahead of visitors, one at a
+  time. Run it on the server after the volume was emptied (a new server, a deleted volume).
+- `bash tools/image-cache/install-prune.sh` (once, as root) installs a weekly clean-up that
+  removes resized copies older than 60 days, because the app never deletes them by itself.
 
 ### Nightly database backup (`tools/backup`)
 

@@ -22,6 +22,11 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    volumes:
+      # Photos the shop has already resized (/_next/image). Kept outside the container, so a release
+      # does not throw them away and make visitors wait while every photo is resized again.
+      # Safe to delete: anything missing is made again on the next request.
+      - next_images:/app/.next/cache/images
     mem_limit: 3g
     cpus: 1.5
 
@@ -60,3 +65,4 @@ services:
 
 volumes:
   minio_data:
+  next_images:
