@@ -33,6 +33,7 @@ export const PROMO_KIND_KEYS = PROMO_KINDS.map((kind) => kind.key) as readonly P
 export const PROMO_PAGE_SIZE = 25;
 
 export type PromoOwner = { id: string; name: string; email: string };
+export type PromoOwnerOption = PromoOwner & { phone: string };
 
 export type PromoListRow = PromoRecord & {
   status: PromoStatus;
@@ -220,15 +221,16 @@ export async function getPromoOwner(id: string): Promise<PromoOwner | null> {
   return user ? { id: String(user._id), name: personName(user), email: String(user.email ?? "") } : null;
 }
 
-/** Customers matching what was typed (name, e-mail or phone), for choosing whose code it is. */
-export async function searchPromoOwners(text: string): Promise<PromoOwner[]> {
-  const query = text.trim();
-  if (query.length < 2) return [];
+/** How many customers the "whose code" list loads at most; past that the admin narrows it by typing. */
+const OWNER_OPTIONS_MAX = 5000;
+
+/** Every customer, for the searchable "whose code" select: name, e-mail and phone to search by. */
+export async function listPromoOwners(): Promise<PromoOwnerOption[]> {
   await connectToDB();
-  const pattern = new RegExp(escapeRegExp(query), "i");
-  const users = await User.find({ $or: [{ email: pattern }, { name: pattern }, { surname: pattern }, { phoneNumber: pattern }] })
-    .select("_id name surname username email")
-    .limit(8)
-    .lean<{ _id: unknown; name?: string; surname?: string; username?: string; email?: string }[]>();
-  return users.map((user) => ({ id: String(user._id), name: personName(user), email: String(user.email ?? "") }));
+  const users = await User.find({})
+    .select("_id name surname username email phoneNumber")
+    .sort({ name: 1, surname: 1, email: 1 })
+    .limit(OWNER_OPTIONS_MAX)
+    .lean<{ _id: unknown; name?: string; surname?: string; username?: string; email?: string; phoneNumber?: string }[]>();
+  return users.map((user) => ({ id: String(user._id), name: personName(user), email: String(user.email ?? ""), phone: String(user.phoneNumber ?? "").trim() }));
 }

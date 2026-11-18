@@ -9,7 +9,6 @@ import { sendPromoCodeEmail } from "@/lib/email/promo-code";
 import PromoCode from "@/lib/models/promocode.model";
 import User from "@/lib/models/user.model";
 import { connectToDB } from "@/lib/mongoose";
-import { searchPromoOwners, type PromoOwner } from "@/lib/promo/admin";
 import { PROMO_REWARDS_KEY, cleanPromoInput, cleanPromoRewards, type PromoErrors, type PromoRewardErrors, type PromoRewards } from "@/lib/promo/rules";
 import type { PromoRow } from "@/lib/promo/server";
 
@@ -152,16 +151,6 @@ export async function emailPromoCode(id: string): Promise<PromoActionResult> {
     return { ok: true };
   } catch (error) {
     return failure(error, "letter");
-  }
-}
-
-/** Customers matching what was typed, for choosing whose code it is. */
-export async function findPromoOwners(text: string): Promise<PromoOwner[]> {
-  try {
-    await requireAdmin();
-    return await searchPromoOwners(String(text ?? "").slice(0, 80));
-  } catch {
-    return [];
   }
 }
 

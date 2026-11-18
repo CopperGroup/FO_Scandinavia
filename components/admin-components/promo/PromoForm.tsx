@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation"
 import { Check, Copy, Loader2, Mail, Shuffle, Trash2 } from "lucide-react"
 import { AdminPage, AsideCard, Field, FormLayout, Panel, Pill, SaveBar, adminButton, adminButtonSm, adminInput } from "@/components/admin/ui"
 import AdminDialog from "@/components/admin-components/modals/AdminDialog"
+import Select, { type SelectOption } from "@/components/admin/Select"
 import { deletePromoCode, emailPromoCode, savePromoCode, setPromoCodeActive } from "@/lib/actions/promo-admin.actions"
-import type { PromoOwner } from "@/lib/promo/admin"
+import type { PromoOwner, PromoOwnerOption } from "@/lib/promo/admin"
 import {
   PROMO_NOTE_MAX,
   PROMO_PERCENT_MAX,
@@ -27,7 +28,6 @@ import {
 import { formatPrice, plural } from "@/lib/storefront/format"
 import { cn } from "@/lib/utils"
 import { SOURCE_LABEL, STATUS_TONE, describePromo, statusTip, usageText } from "./format"
-import { OwnerPicker } from "./OwnerPicker"
 import { Switch } from "./Switch"
 
 /** The form keeps what is typed, as text: an empty field means "no limit". */
@@ -121,47 +121,13 @@ export type PromoFormDetail = {
   createdBy: string
 }
 
-/** A choice of two, drawn as cards: «Для всіх покупців» or «Для одного покупця». */
-function KindChoice({ personal, onChange, locked }: { personal: boolean; onChange: (personal: boolean) => void; locked: boolean }) {
-  const options = [
-    { value: false, title: "Для всіх покупців", text: "Ним може скористатися кожен, хто знає код. Для акцій, соцмереж і розсилок." },
-    { value: true, title: "Для одного покупця", text: "Діє лише в акаунті цього покупця. Іншим код не підійде, навіть якщо вони його дізнаються." },
-  ]
-  return (
-    <div role="radiogroup" aria-labelledby="promo-kind-label" className="grid gap-2 sm:grid-cols-2">
-      {options.map((option) => {
-        const checked = option.value === personal
-        return (
-          <label
-            key={String(option.value)}
-            className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-md border bg-white p-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black has-[:focus-visible]:ring-offset-1",
-              checked ? "border-black" : "border-neutral-300 hover:border-neutral-500",
-              locked && "cursor-not-allowed opacity-60 hover:border-neutral-300",
-            )}
-          >
-            <input
-              type="radio"
-              name="promo-kind"
-              id={option.value ? "promo-kind-personal" : "promo-kind-shared"}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-black"
-              checked={checked}
-              disabled={locked}
-              onChange={() => onChange(option.value)}
-            />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-neutral-900">{option.title}</span>
-              <span className="mt-0.5 block text-xs text-neutral-500">{option.text}</span>
-            </span>
-          </label>
-        )
-      })}
-    </div>
-  )
-}
+const KIND_OPTIONS: SelectOption[] = [
+  { value: "shared", label: "Усі покупці", hint: "Будь-хто, хто знає код" },
+  { value: "personal", label: "Один покупець", hint: "Лише в акаунті цього покупця" },
+]
 
-/** A number field with its unit after it: "15 %", "1 000 ₴". */
-function NumberInput({
+/** A number field with its unit inside it, like the price of a product: "15 %", "1000 ₴". */
+function UnitInput({
   id,
   value,
   onChange,
@@ -169,8 +135,6 @@ function NumberInput({
   invalid,
   maxLength,
   placeholder,
-  describedBy,
-  width = "w-24",
 }: {
   id: string
   value: string
@@ -179,11 +143,9 @@ function NumberInput({
   invalid?: boolean
   maxLength: number
   placeholder?: string
-  describedBy?: string
-  width?: string
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative">
       <input
         id={id}
         inputMode="numeric"
@@ -192,11 +154,14 @@ function NumberInput({
         placeholder={placeholder}
         value={value}
         aria-invalid={invalid || undefined}
-        aria-describedby={describedBy}
         onChange={(event) => onChange(event.target.value)}
-        className={cn(adminInput, width, "text-right tabular-nums", invalid && "border-red-600")}
+        className={cn(adminInput, "tabular-nums", unit && "pr-8", invalid && "border-red-600")}
       />
-      {unit && <span className="text-sm text-neutral-600">{unit}</span>}
+      {unit && (
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-500" aria-hidden="true">
+          {unit}
+        </span>
+      )}
     </div>
   )
 }
@@ -215,9 +180,12 @@ export function PromoForm({
   justCreated = false,
   stats,
   uses,
+  customers,
 }: {
   record: PromoRecord | null
   owner: PromoOwner | null
+  /** Everybody the code can be given to, for the searchable «Покупець» select. */
+  customers: PromoOwnerOption[]
   /** The page was opened for a customer (?owner=) that is not in the database. */
   ownerMissing?: boolean
   /** Today in Kyiv, "YYYY-MM-DD", from the server. */
@@ -264,7 +232,7 @@ export function PromoForm({
   const live = useMemo(() => {
     const checked = cleanPromoInput(input)
     const errors: PromoErrors = { ...checked.errors }
-    if (values.personal && !values.owner) errors.ownerId = "Оберіть покупця: почніть вводити його ім’я, e-mail або телефон."
+    if (values.personal && !values.owner) errors.ownerId = "Оберіть покупця зі списку."
     return { value: checked.value, errors }
   }, [input, values.personal, values.owner])
 
@@ -547,8 +515,32 @@ export function PromoForm({
     "Оберіть, для кого код і яку знижку він дає. Решту можна залишити як є: тоді код діє без обмежень у часі."
   )
 
+  // The chosen customer is always in the list, even one past the list's limit.
+  const ownerOptions: SelectOption[] = useMemo(() => {
+    const rows = values.owner && !customers.some((customer) => customer.id === values.owner?.id) ? [{ ...values.owner, phone: "" }, ...customers] : customers
+    return rows.map((customer) => ({
+      value: customer.id,
+      label: customer.name || customer.email || "Покупець без імені",
+      hint: [customer.name ? customer.email : "", customer.phone].filter(Boolean).join(", ") || undefined,
+      // "+380 67 430 1588" is also found by "0674301588".
+      keywords: customer.phone.replace(/\D/g, "") || undefined,
+    }))
+  }, [customers, values.owner])
+
+  const chooseOwner = (id: string) => {
+    const found = customers.find((customer) => customer.id === id)
+    set("owner", found ? { id: found.id, name: found.name, email: found.email } : null)
+  }
+
+  const nothingYet = !values.code && !values.percent
+
   return (
-    <AdminPage title={record ? saved.code : "Новий промокод"} description={description} back={{ href: "/admin/promocodes", label: "Промокоди" }} actions={headerActions} width="narrow">
+    <AdminPage
+      title={record ? saved.code : "Новий промокод"}
+      description={record && detail ? description : "Вкажіть код і знижку. Решту можна залишити як є: тоді код діє для всіх і без обмежень у часі."}
+      back={{ href: "/admin/promocodes", label: "Промокоди" }}
+      actions={headerActions}
+    >
       <form ref={formRef} onSubmit={submit} noValidate className="space-y-4">
         {notice && (
           <p
@@ -564,13 +556,23 @@ export function PromoForm({
         <FormLayout
           aside={
             <AsideCard title="Як діятиме код">
-              <div aria-live="polite" className="space-y-2 rounded-md bg-neutral-50 px-3 py-2 text-sm text-neutral-900">
-                {summary.map((sentence) => (
-                  <p key={sentence}>{sentence}</p>
-                ))}
-              </div>
-              {todo.length > 0 && (
-                <div className="text-sm">
+              {nothingYet ? (
+                <p className="text-sm text-neutral-500">Тут буде видно, як діятиме код: для кого, яка знижка і до якого дня.</p>
+              ) : (
+                <>
+                  <div className="rounded-md border border-dashed border-neutral-300 px-3 py-3 text-center">
+                    <p className="break-all font-mono text-base font-semibold tracking-wide text-neutral-900">{values.code || "Код ще не вказано"}</p>
+                    <p className="mt-0.5 text-sm text-neutral-600">{live.errors.percent ? "Знижку ще не вказано" : `Знижка ${live.value.percent}%`}</p>
+                  </div>
+                  <div aria-live="polite" className="space-y-2 text-sm text-neutral-900">
+                    {summary.map((sentence) => (
+                      <p key={sentence}>{sentence}</p>
+                    ))}
+                  </div>
+                </>
+              )}
+              {todo.length > 0 && (showErrors || !nothingYet) && (
+                <div className="border-t border-neutral-100 pt-3 text-sm">
                   <p className="font-medium text-neutral-900">{editing ? "Щоб зберегти, виправте:" : "Щоб створити код, ще потрібно:"}</p>
                   <ul className="mt-1 list-disc space-y-1 pl-5 text-neutral-700">
                     {todo.map((text) => (
@@ -590,41 +592,14 @@ export function PromoForm({
             </AsideCard>
           }
         >
-          <Panel title="Для кого">
-            <div className="space-y-4">
-              <div>
-                <p id="promo-kind-label" className="sr-only">
-                  Для кого код
-                </p>
-                <KindChoice personal={values.personal} onChange={(personal) => set("personal", personal)} locked={locked} />
-                {locked && <p className="mt-1 text-xs text-neutral-500">Цим кодом уже скористалися, тому змінити, для кого він, не можна.</p>}
-              </div>
-              {values.personal && (
-                <Field
-                  label="Покупець"
-                  htmlFor={values.owner ? undefined : "promo-owner"}
-                  error={shown.ownerId}
-                  hint={values.owner ? undefined : "Почніть вводити ім’я, e-mail або телефон і оберіть покупця зі списку."}
-                  tip="Код з’явиться в акаунті покупця, на сторінці «Мої промокоди». Скористатися ним можна, лише увійшовши в цей акаунт."
-                >
-                  <OwnerPicker id="promo-owner" owner={values.owner} onChange={(owner) => set("owner", owner)} locked={locked} invalid={Boolean(shown.ownerId)} />
-                </Field>
-              )}
-            </div>
-          </Panel>
-
-          <Panel title="Код і знижка">
-            <div className="space-y-4">
+          <Panel title="Основне">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="Код"
                 htmlFor="promo-code"
                 error={shown.code}
-                hint={
-                  locked
-                    ? "Цим кодом уже скористалися, тому його текст змінити не можна: він записаний у замовленнях. Потрібен інший — створіть новий код."
-                    : "Латинські літери, цифри й дефіс, від 3 до 32 символів. Наприклад: ZYMA15."
-                }
-                tip="Покупець вводить код під час оформлення замовлення. Великі й малі літери не розрізняються, пробіли не враховуються."
+                hint={locked ? "Кодом уже скористалися, тому його текст не змінити: він записаний у замовленнях." : "Латинські літери, цифри й дефіс. Наприклад: ZYMA15."}
+                tip="Покупець вводить код під час оформлення замовлення. Великі й малі літери не розрізняються, пробіли не враховуються. Від 3 до 32 символів."
               >
                 <div className="flex gap-2">
                   <input
@@ -652,19 +627,82 @@ export function PromoForm({
                   )}
                 </div>
               </Field>
-              <Field
-                label="Знижка, %"
-                htmlFor="promo-percent"
-                error={shown.percent}
-                hint={`Від ${PROMO_PERCENT_MIN} до ${PROMO_PERCENT_MAX}.`}
-                tip="Знижка рахується від вартості товарів у замовленні, без доставки."
-              >
-                <NumberInput id="promo-percent" value={values.percent} onChange={(value) => set("percent", value)} unit="%" maxLength={3} placeholder="15" invalid={Boolean(shown.percent)} width="w-20" />
+              <Field label="Знижка" htmlFor="promo-percent" error={shown.percent} hint={`Від ${PROMO_PERCENT_MIN} до ${PROMO_PERCENT_MAX} %.`} tip="Знижка рахується від вартості товарів у замовленні, без доставки.">
+                <UnitInput id="promo-percent" value={values.percent} onChange={(value) => set("percent", value)} unit="%" maxLength={3} placeholder="15" invalid={Boolean(shown.percent)} />
               </Field>
+              <Field
+                label="Для кого"
+                htmlFor="promo-kind"
+                hint={locked ? "Кодом уже скористалися, тому це не змінити." : undefined}
+                tip="Код для всіх підходить кожному, хто його знає: для акцій, соцмереж і розсилок. Код для одного покупця діє лише в його акаунті, і покупець бачить його на сторінці «Мої промокоди»."
+              >
+                <Select id="promo-kind" options={KIND_OPTIONS} value={values.personal ? "personal" : "shared"} onChange={(value) => set("personal", value === "personal")} searchable={false} disabled={locked} />
+              </Field>
+              {values.personal && (
+                <Field
+                  label="Покупець"
+                  htmlFor="promo-owner"
+                  error={shown.ownerId}
+                  hint={
+                    values.owner ? (
+                      <Link href={`/admin/clients/${values.owner.id}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-black">
+                        Відкрити картку покупця
+                      </Link>
+                    ) : (
+                      "Шукайте за ім’ям, e-mail або телефоном."
+                    )
+                  }
+                  tip="Скористатися кодом можна, лише увійшовши в акаунт цього покупця."
+                >
+                  <Select
+                    id="promo-owner"
+                    options={ownerOptions}
+                    value={values.owner?.id ?? ""}
+                    onChange={chooseOwner}
+                    searchable
+                    placeholder="Оберіть покупця"
+                    searchPlaceholder="Ім’я, e-mail або телефон"
+                    emptyText="Нікого не знайдено"
+                    disabled={locked}
+                    invalid={Boolean(shown.ownerId)}
+                  />
+                </Field>
+              )}
+              <Field
+                label="Нотатка для себе"
+                htmlFor="promo-note"
+                optional
+                error={shown.note}
+                className="sm:col-span-2"
+                hint="Покупці її не бачать."
+                tip={`Навіщо цей код і де ви його поширили. Видно лише в адмінці, у списку промокодів. До ${PROMO_NOTE_MAX} символів.`}
+              >
+                <input
+                  id="promo-note"
+                  autoComplete="off"
+                  maxLength={PROMO_NOTE_MAX}
+                  placeholder="Наприклад: розіграш в Instagram, листопад"
+                  value={values.note}
+                  aria-invalid={shown.note ? true : undefined}
+                  onChange={(event) => set("note", event.target.value)}
+                  className={cn(adminInput, shown.note && "border-red-600")}
+                />
+              </Field>
+              {!editing && (
+                <div className="sm:col-span-2">
+                  <Switch
+                    id="promo-active"
+                    checked={values.active}
+                    onChange={(next) => set("active", next)}
+                    label="Код діє"
+                    hint={values.active ? "Покупці зможуть застосувати код одразу після створення, у межах дат і обмежень." : "Код буде вимкнено: ним не можна скористатися, доки ви його не ввімкнете."}
+                  />
+                </div>
+              )}
             </div>
           </Panel>
 
-          <Panel title="Коли діє" description="Обидва дні включно, за київським часом. Порожнє поле — без обмеження з цього боку.">
+          <Panel title="Строк дії" description="Обидва дні включно, за київським часом.">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Діє з" htmlFor="promo-start" optional error={shown.startDay} hint="Порожньо — діє одразу.">
                 <input
@@ -715,75 +753,44 @@ export function PromoForm({
           </Panel>
 
           <Panel title="Обмеження" description="Порожнє поле — без обмеження.">
-            <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field
-                label="Мінімальна сума замовлення"
+                label="Мінімальна сума"
                 htmlFor="promo-min"
                 optional
                 error={shown.minOrder}
-                hint="Порожньо — на будь-яке замовлення."
+                hint="Товарів у кошику, до знижки."
                 tip="Рахується вартість товарів у кошику до знижки, без доставки. Якщо менше — покупець побачить, що код діє від цієї суми."
               >
-                <NumberInput id="promo-min" value={values.minOrder} onChange={(value) => set("minOrder", value)} unit="₴" maxLength={9} placeholder="1000" invalid={Boolean(shown.minOrder)} width="w-32" />
+                <UnitInput id="promo-min" value={values.minOrder} onChange={(value) => set("minOrder", value)} unit="₴" maxLength={9} placeholder="1000" invalid={Boolean(shown.minOrder)} />
               </Field>
               {!values.personal && (
                 <Field
-                  label="Скільки замовлень загалом"
+                  label="Замовлень загалом"
                   htmlFor="promo-max"
                   optional
                   error={shown.maxUses}
-                  hint="Порожньо — без обмеження."
+                  hint="Від усіх покупців разом."
                   tip="Коли стільки замовлень оформлять з кодом, він перестане діяти для всіх. Скасоване замовлення повертає використання."
                 >
-                  <NumberInput id="promo-max" value={values.maxUses} onChange={(value) => set("maxUses", value)} maxLength={7} placeholder="500" invalid={Boolean(shown.maxUses)} width="w-32" />
+                  <UnitInput id="promo-max" value={values.maxUses} onChange={(value) => set("maxUses", value)} maxLength={7} placeholder="500" invalid={Boolean(shown.maxUses)} />
                 </Field>
               )}
               <Field
-                label="Скільки замовлень на одного покупця"
+                label={values.personal ? "Скільки разів" : "Разів на одного покупця"}
                 htmlFor="promo-per"
                 error={shown.perCustomer}
                 hint={
                   values.personal
-                    ? "Для особистого коду це і є кількість разів, які ним можна скористатися."
+                    ? "Скільки замовлень покупець може оформити з кодом."
                     : Number.isInteger(perCustomer) && perCustomer > 1
-                      ? `Кожен покупець може скористатися кодом ${perCustomer} ${plural(perCustomer, ["раз", "рази", "разів"])}.`
+                      ? `Кожен покупець — ${perCustomer} ${plural(perCustomer, ["раз", "рази", "разів"])}.`
                       : "Зазвичай 1: кожен покупець — один раз."
                 }
                 tip="Покупця впізнають за акаунтом, а під час оформлення без входу — за адресою e-mail."
               >
-                <NumberInput id="promo-per" value={values.perCustomer} onChange={(value) => set("perCustomer", value)} maxLength={3} invalid={Boolean(shown.perCustomer)} />
+                <UnitInput id="promo-per" value={values.perCustomer} onChange={(value) => set("perCustomer", value)} maxLength={3} invalid={Boolean(shown.perCustomer)} />
               </Field>
-            </div>
-          </Panel>
-
-          <Panel title="Нотатка і стан">
-            <div className="space-y-4">
-              <Field
-                label="Нотатка для себе"
-                htmlFor="promo-note"
-                optional
-                error={shown.note}
-                hint={`Покупці її ніколи не бачать. ${values.note.length} з ${PROMO_NOTE_MAX} символів.`}
-                tip="Навіщо цей код і де ви його поширили. Видно лише в адмінці, у списку промокодів."
-              >
-                <input
-                  id="promo-note"
-                  autoComplete="off"
-                  maxLength={PROMO_NOTE_MAX}
-                  placeholder="Наприклад: розіграш в Instagram, листопад"
-                  value={values.note}
-                  aria-invalid={shown.note ? true : undefined}
-                  onChange={(event) => set("note", event.target.value)}
-                  className={cn(adminInput, shown.note && "border-red-600")}
-                />
-              </Field>
-              <Switch
-                id="promo-active"
-                checked={values.active}
-                onChange={(next) => set("active", next)}
-                label="Код діє"
-                hint={values.active ? "Покупці можуть застосувати код у межах дат і обмежень." : "Код вимкнено: ним не можна скористатися, доки ви його не ввімкнете."}
-              />
             </div>
           </Panel>
         </FormLayout>

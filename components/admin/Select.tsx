@@ -13,6 +13,8 @@ export type SelectOption = {
   /** Options with the same group are listed together under this heading. */
   group?: string
   disabled?: boolean
+  /** More text the search matches but nobody sees: a phone number as digits only, another spelling. */
+  keywords?: string
 }
 
 type Props = {
@@ -122,7 +124,9 @@ export default function Select({
   const matches = useMemo(() => {
     const term = normalise(query)
     if (!term) return options
-    return options.filter((option) => normalise(option.label).includes(term) || (option.hint && normalise(option.hint).includes(term)))
+    return options.filter(
+      (option) => normalise(option.label).includes(term) || (option.hint && normalise(option.hint).includes(term)) || (option.keywords && normalise(option.keywords).includes(term)),
+    )
   }, [options, query])
   const shown = matches.slice(0, MAX_RENDERED)
   const newText = query.trim().replace(/\s+/g, " ")
