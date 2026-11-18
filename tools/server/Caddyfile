@@ -4,14 +4,19 @@
 
 nordiva.com.ua, www.nordiva.com.ua {
 	# Resizing photos (/_next/image) is the heaviest thing the app does. These requests get
-	# their own narrow lane to it: at most two at a time, the rest wait in line here.
-	# A page of photos nobody has asked for yet is then resized two by two instead of all
-	# at once, and pages keep answering while that happens.
+	# their own lane to it: one at a time, the rest wait in line here. The app may use 1.5
+	# processor cores (docker-compose.yaml); one resize takes a whole core, so with two at
+	# once the thread that builds pages is starved. Measured on 2026-11-18 while a page of
+	# 24 new photos was being resized: pages took 7-9.5 s with no lane, 2-4 s with a lane
+	# of two, and their usual 0.4 s with a lane of one.
+	# The price: a photo that is already resized waits in the same line while new ones are
+	# being made. That is why the store of resized photos is kept (the next_images volume)
+	# and filled ahead of visitors (tools/image-cache/warm.sh).
 	@photos path /_next/image
 	handle @photos {
 		reverse_proxy localhost:3000 {
 			transport http {
-				max_conns_per_host 2
+				max_conns_per_host 1
 			}
 		}
 	}

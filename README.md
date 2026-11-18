@@ -389,12 +389,17 @@ then `rm -sf app` and `up -d` as above.
 - **Resized photos are kept in the Docker volume `next_images`** (`/app/.next/cache/images`),
   so a release does not throw them away. The app resizes a photo the first time a size of it is
   asked for; everything in the volume can be deleted, it is made again on request.
-- **Resizing has its own narrow lane in Caddy**: `/_next/image` requests reach the app at most
-  two at a time (`tools/server/Caddyfile` is a copy of the server's `/etc/caddy/Caddyfile`).
-  Without it one visitor opening a page of new photos keeps the app busy and pages stall for
-  everybody.
-- `bash tools/image-cache/warm.sh` resizes the catalog's photos ahead of visitors, one at a
-  time. Run it on the server after the volume was emptied (a new server, a deleted volume).
+- **Resizing has its own lane in Caddy**: `/_next/image` requests reach the app one at a time
+  (`tools/server/Caddyfile` is a copy of the server's `/etc/caddy/Caddyfile`). Resizing one
+  photo takes a whole processor core and the app may use 1.5, so without the lane one visitor
+  (or a crawler) opening a page of new photos starved the thread that builds pages: pages took
+  7-9.5 s for everybody while that lasted, and take their usual 0.4 s with the lane. The price
+  is that an already-resized photo waits in the same line while new ones are being made, which
+  is why the volume above is kept and filled ahead of visitors.
+- `bash tools/image-cache/warm.sh` resizes the catalog's photos at the sizes browsers ask for,
+  one at a time, through the same lane, so it can run while the shop is open. Run it
+  after the volume was emptied (a new server, a deleted volume); new products need nothing,
+  their photos are resized when first opened.
 - `bash tools/image-cache/install-prune.sh` (once, as root) installs a weekly clean-up that
   removes resized copies older than 60 days, because the app never deletes them by itself.
 
