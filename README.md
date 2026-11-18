@@ -347,13 +347,27 @@ be opened by a local run of a database copy.
 
 ## Deploy and backups
 
-The shop runs on its server from `docker-compose.yaml` (the app, a Redis cache, MinIO); the
-database is in MongoDB Atlas. The image is built on the server from the checkout
-(`docker compose --env-file .env.local up -d --build`), and the build reads the server's
-`.env.local`. The same file holds the MinIO sign-in (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`):
-Compose takes it from there for the MinIO service, and it is never written in the repository. The code
-works without any database migration; the scripts under "Data maintenance" are optional
-clean-ups.
+The shop runs on its server from `docker-compose.yaml` (the app, a Redis cache, MinIO for
+product photos) behind Caddy; the database is in MongoDB Atlas. The server has the old
+`docker-compose` (1.29), so the commands are spelled with a hyphen. A release, in the
+checkout on the server:
+
+```bash
+git pull
+docker-compose --env-file .env.local build app      # the live site keeps running while this builds
+docker-compose --env-file .env.local down           # never "down -v": the volume holds every product photo
+docker-compose --env-file .env.local up -d          # about a minute without the site between these two
+```
+
+`--env-file .env.local` is needed every time: the build reads the server's `.env.local`, and
+Compose takes the MinIO sign-in (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`) from the same file.
+That sign-in is never written in the repository or in the code. The code works without any
+database migration; the scripts under "Data maintenance" were run on production on
+2026-11-18 and report "nothing to do" since.
+
+To go back to the version before a release, the previous image is kept under the tag
+`fo_scandinavia_app:previous`: `docker tag fo_scandinavia_app:previous fo_scandinavia_app:latest`,
+then `down` and `up -d` as above (tag the current image as `previous` before each build).
 
 ### Nightly database backup (`tools/backup`)
 
