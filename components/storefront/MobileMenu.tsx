@@ -127,6 +127,11 @@ export default function MobileMenu({ data, activeDepartment }: { data: HeaderDat
                   Обране
                 </Link>
               </li>
+              <li>
+                <Link href="/promocodes" className={rowClass}>
+                  Мої промокоди
+                </Link>
+              </li>
               {user.isAdmin && (
                 <li>
                   <Link href="/admin/dashboard" className={rowClass}>

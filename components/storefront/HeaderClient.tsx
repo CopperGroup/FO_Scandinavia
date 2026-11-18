@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { signOut } from "next-auth/react"
-import { ChevronDown, Heart, LogOut, Menu, Package, Settings, ShoppingBag, User } from "lucide-react"
+import { ChevronDown, Heart, LogOut, Menu, Package, Settings, ShoppingBag, TicketPercent, User } from "lucide-react"
 import { useAppContext } from "@/app/(root)/context"
 import {
   DropdownMenu,
@@ -86,6 +86,12 @@ function AccountMenu({ user }: { user: NonNullable<HeaderData["user"]> }) {
           <Link href={`/liked/${user.id}`}>
             <Heart className="h-4 w-4 text-brand-muted" aria-hidden="true" />
             Обране
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer gap-3 rounded-sm px-3 py-3 text-sm focus:bg-brand-mist">
+          <Link href="/promocodes">
+            <TicketPercent className="h-4 w-4 text-brand-muted" aria-hidden="true" />
+            Мої промокоди
           </Link>
         </DropdownMenuItem>
         {user.isAdmin && (

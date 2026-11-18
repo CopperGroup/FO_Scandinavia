@@ -147,7 +147,10 @@ function promoDiscount(code: string): number | null {
 
 export type CheckoutProfile = { id: string; name: string; surname: string; phoneNumber: string }
 
-export default function Checkout({ profile, email }: { profile: CheckoutProfile | null; email: string }) {
+/** A code of the signed-in customer that still works: offered under the promo field, one tap to apply. */
+export type CheckoutPromo = { code: string; percent: number | null }
+
+export default function Checkout({ profile, email, promoCodes = [] }: { profile: CheckoutProfile | null; email: string; promoCodes?: CheckoutPromo[] }) {
   const router = useRouter()
   const cart = useCart()
 
@@ -203,21 +206,22 @@ export default function Checkout({ profile, email }: { profile: CheckoutProfile 
   const { freeDelivery: freeFrom } = useShopSettings()
   const freeDelivery = freeFrom > 0 && toPay >= freeFrom
 
-  async function applyPromocode() {
+  async function applyPromocode(typed: string = promocode) {
     if (!email) {
       setAuthOpen(true)
       return
     }
+    const code = typed.trim()
     setIsApplyingPromo(true)
     setPromoError("")
     try {
-      const result = await validatePromoCode({ promoCode: promocode.trim(), email })
+      const result = await validatePromoCode({ promoCode: code, email })
       setPromoResult(result)
       const discount = result === "UNVALID" ? null : promoDiscount(result)
       if (discount === null) {
         setPromoError("Цей промокод не діє. Перевірте написання та термін дії.")
       } else {
-        setAppliedPromo({ code: promocode.trim().toUpperCase(), discount })
+        setAppliedPromo({ code: code.toUpperCase(), discount })
       }
     } catch {
       setPromoError("Не вдалося перевірити промокод. Спробуйте ще раз за хвилину.")
@@ -569,7 +573,7 @@ export default function Checkout({ profile, email }: { profile: CheckoutProfile 
                     />
                     <button
                       type="button"
-                      onClick={applyPromocode}
+                      onClick={() => applyPromocode()}
                       disabled={!promocode.trim() || isApplyingPromo || isSubmitting}
                       className="btn-secondary h-11 shrink-0 px-4 text-sm"
                     >
@@ -580,6 +584,30 @@ export default function Checkout({ profile, email }: { profile: CheckoutProfile 
                     <p role="alert" className="mt-2 text-sm text-brand-sale">
                       {promoError}
                     </p>
+                  )}
+                  {email && promoCodes.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm text-brand-muted">{promoCodes.length === 1 ? "Ваш промокод:" : "Ваші промокоди:"}</p>
+                      <ul className="mt-2 flex flex-col gap-2">
+                        {promoCodes.map((own) => (
+                          <li key={own.code}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPromocode(own.code)
+                                applyPromocode(own.code)
+                              }}
+                              disabled={isApplyingPromo || isSubmitting}
+                              className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-brand-line bg-white px-4 py-2 text-left text-sm transition-colors hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {/* The code stays on one line; on a narrow screen the action drops under it. */}
+                              <span className="max-w-full break-all font-mono font-semibold text-brand-ink">{own.code}</span>
+                              <span className="shrink-0 font-semibold text-brand">{own.percent !== null ? `Застосувати −${own.percent}%` : "Застосувати"}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                   {!email && (
                     <p className="mt-2 text-sm text-brand-muted">
