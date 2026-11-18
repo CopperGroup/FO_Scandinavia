@@ -6,8 +6,9 @@ const minioClient = new Minio.Client({
   endPoint: process.env.MINIO_ENDPOINT || "minio",
   port: parseInt(process.env.MINIO_PORT || "9000"),
   useSSL: process.env.MINIO_USE_SSL === "true",
-  accessKey: process.env.MINIO_ROOT_USER || "nordiva_admin",
-  secretKey: process.env.MINIO_ROOT_PASSWORD || "nordiva_password123",
+  // The sign-in comes only from the server's env file; no password is ever written in the code.
+  accessKey: process.env.MINIO_ROOT_USER ?? "",
+  secretKey: process.env.MINIO_ROOT_PASSWORD ?? "",
 });
 
 const MAX_BYTES = 15 * 1024 * 1024;

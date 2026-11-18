@@ -1,6 +1,14 @@
+# Container logs are kept small: without a limit the app's log once grew to 5.7 GB on a 40 GB disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   app:
     build: .
+    logging: *logging
     ports:
       - "3000:3000"
     env_file:
@@ -20,6 +28,7 @@ services:
   # No "ports" on purpose: Redis must not be reachable from the internet.
   redis:
     image: redis:7-alpine
+    logging: *logging
     command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
     restart: always
     mem_limit: 192m
@@ -32,6 +41,7 @@ services:
 
   minio:
     image: minio/minio
+    logging: *logging
     ports:
       - "9000:9000"
       - "9001:9001"
