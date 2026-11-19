@@ -101,11 +101,11 @@ try {
   const promocodes = db.collection("promocodes");
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
-  // The orders an old code was used on: same customer, same code. The last character of an old
+  // The orders an old code was used on: same customer, same code, not a test order. The last character of an old
   // code is its uses left and changes when the code is used, so codes are compared without it.
   const stemOf = (code) => String(code ?? "").replace(/\s+/g, "").toUpperCase().slice(0, -1);
   const ordersByKey = new Map();
-  const orders = await db.collection("orders").find({ promocode: /^\s*DV-/i, user: { $ne: null } }, { projection: { id: 1, user: 1, promocode: 1, data: 1, createdAt: 1 } }).toArray();
+  const orders = await db.collection("orders").find({ promocode: /^\s*DV-/i, user: { $ne: null }, isTest: { $ne: true } }, { projection: { id: 1, user: 1, promocode: 1, data: 1, createdAt: 1 } }).toArray();
   for (const order of orders) {
     if (!order.id) continue;
     const key = `${order.user}|${stemOf(order.promocode)}`;
