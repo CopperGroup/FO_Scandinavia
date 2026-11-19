@@ -8,8 +8,16 @@
 # resized, and with several visitors the line grew until photos took 20 s. It was removed the
 # same hour.
 
-nordiva.com.ua, www.nordiva.com.ua {
+nordiva.com.ua {
 	reverse_proxy localhost:3000
+}
+
+# One address for the shop: www goes to the main one (the canonical of every page), path and
+# query kept. Google sign-in returns to www (NEXTAUTH_URL on the server); without this a
+# sign-in started on nordiva.com.ua lost its state cookie on the way back and failed
+# ("State cookie was missing"). Since 2026-11-19.
+www.nordiva.com.ua {
+	redir https://nordiva.com.ua{uri} permanent
 }
 
 assets.nordiva.com.ua {
