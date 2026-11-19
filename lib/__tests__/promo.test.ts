@@ -9,7 +9,9 @@ import {
   cleanPromoRewards,
   customerPromo,
   daysBetween,
+  deletablePromoFilter,
   kyivDay,
+  promoDeleteBlock,
   legacyPromo,
   normalizePromoCode,
   promoStatus,
@@ -229,5 +231,23 @@ describe("promo codes issued in the old format", () => {
   it("text that is not such a code is left out", () => {
     assert.equal(legacyPromo("WELCOME", OWNER), null);
     assert.equal(legacyPromo("", OWNER), null);
+  });
+});
+
+describe("which codes may be deleted", () => {
+  const today = "2026-11-19";
+  it("an unused code that has not expired may be deleted", () => {
+    assert.equal(promoDeleteBlock({ usedCount: 0, endDay: null }, today), null);
+    assert.equal(promoDeleteBlock({ usedCount: 0, endDay: today }, today), null, "its last day is today: still running");
+  });
+  it("a used code stays", () => {
+    assert.match(promoDeleteBlock({ usedCount: 1, endDay: null }, today) ?? "", /скористалися/);
+  });
+  it("an expired code stays, used or not", () => {
+    assert.match(promoDeleteBlock({ usedCount: 0, endDay: "2026-11-18" }, today) ?? "", /Термін дії коду минув/);
+    assert.ok(promoDeleteBlock({ usedCount: 2, endDay: "2026-01-01" }, today));
+  });
+  it("the database filter keeps to the same rule", () => {
+    assert.deepEqual(deletablePromoFilter(today), { usedCount: { $lte: 0 }, $or: [{ endDay: null }, { endDay: { $gte: today } }] });
   });
 });

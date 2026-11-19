@@ -177,19 +177,19 @@ function Actions({ row, actions }: { row: PromoListRow; actions: ReturnType<type
       >
         {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
       </button>
-      {row.usedCount === 0 ? (
+      {row.deleteBlock === null ? (
         <button
           type="button"
           className={cn(adminButtonSm.icon, "hover:bg-red-50 hover:text-red-700")}
           onClick={() => actions.askRemove(row)}
           disabled={actions.busy !== null}
           aria-label={`Видалити код ${row.code}`}
-          data-tip="Видалити код. Можна, доки ним ніхто не скористався."
+          data-tip="Видалити код. Можна, доки ним ніхто не скористався і поки не минув його термін."
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
         </button>
       ) : (
-        // A used code stays as the record of its orders; the empty square keeps the columns in line.
+        // A used or expired code stays as a record (lib/promo/rules.ts promoDeleteBlock); the empty square keeps the columns in line.
         <span className="h-control-sm w-control-sm shrink-0" aria-hidden="true" />
       )}
     </div>

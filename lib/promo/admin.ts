@@ -4,7 +4,7 @@ import PromoCode from "@/lib/models/promocode.model";
 import User from "@/lib/models/user.model";
 import { connectToDB } from "@/lib/mongoose";
 import { escapeRegExp } from "@/lib/catalog/text";
-import { kyivDay, promoStatus, usesLeft, type PromoRecord, type PromoStatus } from "./rules";
+import { kyivDay, promoDeleteBlock, promoStatus, usesLeft, type PromoRecord, type PromoStatus } from "./rules";
 import { toPromoRecord, type PromoRow } from "./server";
 
 /**
@@ -40,6 +40,8 @@ export type PromoListRow = PromoRecord & {
   status: PromoStatus;
   /** Orders the code can still be used on; null: no limit. */
   left: number | null;
+  /** Why the code may not be deleted (used or expired); null: it may. */
+  deleteBlock: string | null;
   owner: PromoOwner | null;
   createdAt: string | null;
 };
@@ -130,6 +132,7 @@ export async function listPromoCodes(input: { tab: PromoTab; kind: PromoKind; qu
         ...record,
         status: promoStatus(record, today),
         left: usesLeft(record),
+        deleteBlock: promoDeleteBlock(record, today),
         owner: record.ownerId ? owners.get(record.ownerId) ?? { id: record.ownerId, name: "", email: "" } : null,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
       };
@@ -157,6 +160,7 @@ export type PromoDetail = {
   record: PromoRecord;
   status: PromoStatus;
   left: number | null;
+  deleteBlock: string | null;
   owner: PromoOwner | null;
   createdAt: string | null;
   createdBy: string;
@@ -209,6 +213,7 @@ export async function getPromoDetail(id: string): Promise<PromoDetail | null> {
     record,
     status: promoStatus(record, kyivDay()),
     left: usesLeft(record),
+    deleteBlock: promoDeleteBlock(record, kyivDay()),
     owner: record.ownerId ? owners.get(record.ownerId) ?? { id: record.ownerId, name: "", email: "" } : null,
     createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
     createdBy: row.createdBy ?? "",

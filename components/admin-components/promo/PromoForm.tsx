@@ -117,6 +117,8 @@ const ownerText = (owner: PromoOwner | null) => (owner ? [owner.name, owner.emai
 export type PromoFormDetail = {
   status: PromoStatus
   left: number | null
+  /** Why the code may not be deleted (used or expired); null: it may. */
+  deleteBlock: string | null
   createdAt: string | null
   createdBy: string
 }
@@ -798,13 +800,14 @@ export function PromoForm({
         {uses}
 
         {record &&
-          (usedCount === 0 ? (
+          detail &&
+          (detail.deleteBlock === null ? (
             <section aria-labelledby="promo-delete-heading" className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-lg border border-neutral-200 bg-white px-4 py-3">
               <div className="min-w-0">
                 <h2 id="promo-delete-heading" className="text-sm font-semibold text-neutral-900">
                   Видалити промокод
                 </h2>
-                <p className="mt-0.5 text-sm text-neutral-500">Ним ще ніхто не скористався, тож його можна видалити назавжди.</p>
+                <p className="mt-0.5 text-sm text-neutral-500">Ним ще ніхто не скористався і його термін не минув, тож його можна видалити назавжди.</p>
               </div>
               <button type="button" className={adminButton.danger} onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -813,7 +816,7 @@ export function PromoForm({
             </section>
           ) : (
             <p className="text-sm text-neutral-500">
-              Видалити цей код не можна: ним уже скористалися, і він записаний у замовленнях. Якщо він більше не потрібен, вимкніть його кнопкою «Вимкнути код» угорі.
+              {detail.deleteBlock} Вимкнути його можна кнопкою «Вимкнути код» угорі.
             </p>
           ))}
 

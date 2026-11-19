@@ -24,7 +24,7 @@ const Page = async ({ params, searchParams }: { params: { id: string }; searchPa
       owner={detail.owner}
       today={kyivDay()}
       customers={customers}
-      detail={{ status: detail.status, left: detail.left, createdAt: detail.createdAt, createdBy: detail.createdBy }}
+      detail={{ status: detail.status, left: detail.left, deleteBlock: detail.deleteBlock, createdAt: detail.createdAt, createdBy: detail.createdBy }}
       justCreated={searchParams.created === "1"}
       stats={<PromoStats totals={detail.totals} />}
       uses={<PromoUses uses={detail.uses} usedCount={detail.record.usedCount} shown={detail.uses.length} />}

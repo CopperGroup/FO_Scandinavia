@@ -9,7 +9,7 @@ import { sendPromoCodeEmail } from "@/lib/email/promo-code";
 import PromoCode from "@/lib/models/promocode.model";
 import User from "@/lib/models/user.model";
 import { connectToDB } from "@/lib/mongoose";
-import { PROMO_REWARDS_KEY, cleanPromoInput, cleanPromoRewards, type PromoErrors, type PromoRewardErrors, type PromoRewards } from "@/lib/promo/rules";
+import { PROMO_REWARDS_KEY, cleanPromoInput, cleanPromoRewards, deletablePromoFilter, kyivDay, promoDeleteBlock, type PromoErrors, type PromoRewardErrors, type PromoRewards } from "@/lib/promo/rules";
 import type { PromoRow } from "@/lib/promo/server";
 
 /*
@@ -119,10 +119,13 @@ export async function deletePromoCode(id: string): Promise<PromoActionResult> {
     await requireAdmin();
     if (!mongoose.isValidObjectId(id)) return { ok: false, error: "Цей промокод не знайдено." };
     await connectToDB();
-    const result = await PromoCode.deleteOne({ _id: id, usedCount: { $lte: 0 } });
+    const today = kyivDay();
+    const result = await PromoCode.deleteOne({ _id: id, ...deletablePromoFilter(today) });
     if (result.deletedCount === 0) {
-      const exists = await PromoCode.exists({ _id: id });
-      return { ok: false, error: exists ? "Цим кодом уже скористалися, тому видалити його не можна. Вимкніть його, і він перестане діяти." : "Цей промокод уже видалено." };
+      const row = await PromoCode.findById(id).select("usedCount endDay").lean<{ usedCount?: number; endDay?: string | null }>();
+      if (!row) return { ok: false, error: "Цей промокод уже видалено." };
+      const block = promoDeleteBlock({ usedCount: row.usedCount ?? 0, endDay: row.endDay ?? null }, today);
+      return { ok: false, error: block ? `${block} Його можна вимкнути.` : "Не вдалося видалити промокод. Спробуйте ще раз." };
     }
     revalidatePath(LIST);
     return { ok: true };

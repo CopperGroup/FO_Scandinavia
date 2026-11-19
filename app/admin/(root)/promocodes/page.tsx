@@ -21,7 +21,11 @@ type SearchParams = { view?: string; tab?: string; kind?: string; q?: string; pa
 
 const BASE = "/admin/promocodes"
 const VIEWS = ["list", "rewards"] as const
-const DEFAULTS = { view: "list", tab: "all", kind: "any" }
+/**
+ * The list opens on «Діють»: the codes that matter today. A search without a chosen tab looks
+ * through all codes, so a customer's used and expired codes are found too.
+ */
+const defaultTab = (query: string): PromoTab => (query ? "all" : "active")
 
 const KIND_HINT: Record<PromoKind, string> = {
   any: "Усі коди",
@@ -48,9 +52,9 @@ async function RewardsView() {
 
 const Page = async ({ searchParams }: { searchParams: SearchParams }) => {
   const view = parseChoice(searchParams.view, VIEWS, "list")
-  const tab = parseChoice(searchParams.tab, PROMO_TAB_KEYS, "all")
   const kind = parseChoice(searchParams.kind, PROMO_KIND_KEYS, "any")
   const query = parseQuery(searchParams.q)
+  const tab = parseChoice(searchParams.tab, PROMO_TAB_KEYS, defaultTab(query))
 
   const viewTabs = (
     <Tabs
@@ -60,7 +64,7 @@ const Page = async ({ searchParams }: { searchParams: SearchParams }) => {
         {
           key: "rewards",
           label: "Автоматичні промокоди",
-          href: listHref(BASE, { view: "rewards" }, {}, DEFAULTS),
+          href: listHref(BASE, { view: "rewards" }, {}, { view: "list" }),
           active: view === "rewards",
           tip: "Коди, які магазин видає сам: за реєстрацію і за відгук",
         },
@@ -80,8 +84,10 @@ const Page = async ({ searchParams }: { searchParams: SearchParams }) => {
   const { rows, total, page, pageCount, counts } = await listPromoCodes({ tab, kind, query, page: parsePage(searchParams.page) })
 
   const current = { view, tab, kind, q: query, page: String(page) }
-  const href = (changes: Record<string, string | undefined>) => listHref(BASE, current, changes, DEFAULTS)
-  const keep = { tab: tab === "all" ? undefined : tab, kind: kind === "any" ? undefined : kind, q: query || undefined }
+  const defaults = { view: "list", tab: defaultTab(query), kind: "any" }
+  const href = (changes: Record<string, string | undefined>) => listHref(BASE, current, changes, defaults)
+  // A new search starts on all codes unless a tab other than the opening one was chosen.
+  const keep = { tab: tab === "all" || tab === "active" ? undefined : tab, kind: kind === "any" ? undefined : kind, q: query || undefined }
 
   const kindLabel = kind === "shared" ? "Спільних" : kind === "personal" ? "Особистих" : ""
   const description = query

@@ -105,6 +105,22 @@ export function promoStatus(record: PromoRecord, today: string): PromoStatus {
   return "active";
 }
 
+/**
+ * Whether the shop may delete a code. A used one is the record of its orders, and an expired
+ * one is the record of what a customer was given: both stay (they can be switched off).
+ * Null when it may be deleted, otherwise the reason, in the admin's words.
+ */
+export function promoDeleteBlock(record: { usedCount: number; endDay: string | null }, today: string): string | null {
+  if (record.usedCount > 0) return "Цим кодом уже скористалися, тому видалити його не можна: він записаний у замовленнях.";
+  if (record.endDay && record.endDay < today) return "Термін дії коду минув, тому видалити його не можна: він лишається в історії того, що отримали покупці.";
+  return null;
+}
+
+/** The same rule as a database filter, for the delete itself (so two admins cannot race past it). */
+export function deletablePromoFilter(today: string) {
+  return { usedCount: { $lte: 0 }, $or: [{ endDay: null }, { endDay: { $gte: today } }] };
+}
+
 export const PROMO_STATUS_LABEL: Record<PromoStatus, string> = {
   active: "Діє",
   scheduled: "Ще не почав діяти",
