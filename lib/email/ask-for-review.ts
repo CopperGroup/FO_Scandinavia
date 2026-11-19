@@ -24,6 +24,8 @@ export async function sendAskForReviewEmail(orderId: string) {
   const order = await Order.findById(orderId).populate('products.product');
 
   if (!order) throw new Error('Order not found.');
+  // A test order has no real customer to ask.
+  if (order.isTest) return
   if(order.email.askForReview) return
 
   const emailHtml = `

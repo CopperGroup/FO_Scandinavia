@@ -370,7 +370,7 @@ export async function fetchUsersOrders({ userId }: { userId: string }){
         if (!mongoose.isValidObjectId(userId)) return [];
 
         await connectToDB();
-        return await Order.find({ user: userId })
+        return await Order.find({ user: userId, isTest: { $ne: true } })
           .sort({ data: -1 })
           .limit(200)
           .select("id products value paymentStatus deliveryStatus data user")
@@ -386,14 +386,15 @@ async function removeOrder(filter: { _id: string } | { id: string }) {
   await requireAdmin();
   await connectToDB();
 
-  const order = await Order.findOne(filter).select("_id id user deliveryStatus").lean<{ _id: mongoose.Types.ObjectId; id?: string; user?: mongoose.Types.ObjectId; deliveryStatus?: string }>();
+  const order = await Order.findOne(filter).select("_id id user deliveryStatus isTest").lean<{ _id: mongoose.Types.ObjectId; id?: string; user?: mongoose.Types.ObjectId; deliveryStatus?: string; isTest?: boolean }>();
   if (!order) return false;
 
   await Order.deleteOne({ _id: order._id });
   // A deleted order is not a sale: its promo code can be used again (a cancelled one already gave it back).
-  if (order.id && order.deliveryStatus !== "Canceled") await releasePromoForOrder(String(order.id)).catch((error) => console.error("[order] promo release:", error?.message ?? error));
+  if (order.id && order.deliveryStatus !== "Canceled" && !order.isTest) await releasePromoForOrder(String(order.id)).catch((error) => console.error("[order] promo release:", error?.message ?? error));
   await Promise.all([
-    order.user ? User.updateOne({ _id: order.user, "orders.order": order._id }, { $pull: { orders: { order: order._id } }, $inc: { totalOrders: -1 } }) : null,
+    // A test order was already taken off the customer's count when it was marked.
+    order.user ? User.updateOne({ _id: order.user, "orders.order": order._id }, { $pull: { orders: { order: order._id } }, ...(order.isTest ? {} : { $inc: { totalOrders: -1 } }) }) : null,
     Product.updateMany({ orderedBy: order._id }, { $pull: { orderedBy: order._id } }),
   ]);
   await clearCache("updateOrder", undefined);
@@ -416,6 +417,47 @@ export async function deleteOrder(id: string, path?: string) {
     } catch (error: any) {
         throw new Error(`Error deleting order: ${error.message}`)
     }
+}
+
+/**
+ * Marks an order as a test one, or takes the mark off. A test order stays in the database but is
+ * left out of every list, count and statistic (REAL_ORDER), the customer's account and the
+ * bestseller order; its promo code use is given back. Taking the mark off puts all that back.
+ */
+export async function setOrderTest(orderNumber: string, isTest: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await requireAdmin();
+    await connectToDB();
+    const id = String(orderNumber);
+    const before = await Order.findOneAndUpdate({ id }, { $set: { isTest: Boolean(isTest) } })
+      .select("_id isTest deliveryStatus promocode user products.product")
+      .lean<{ _id: mongoose.Types.ObjectId; isTest?: boolean; deliveryStatus?: string; promocode?: string; user?: mongoose.Types.ObjectId; products?: { product?: mongoose.Types.ObjectId }[] }>();
+    if (!before) return { ok: false, error: "Такого замовлення немає: можливо, його видалили." };
+    if (Boolean(before.isTest) === Boolean(isTest)) return { ok: true };
+
+    const productIds = (before.products ?? []).map((line) => line.product).filter(Boolean);
+    const promoError = (error: any) => console.error("[order] promo:", error?.message ?? error);
+    if (isTest) {
+      // A cancelled order has already given its code back.
+      if (before.deliveryStatus !== "Canceled") await releasePromoForOrder(id).catch(promoError);
+      await Promise.all([
+        productIds.length ? Product.updateMany({ _id: { $in: productIds } }, { $pull: { orderedBy: before._id } }) : null,
+        before.user ? User.updateOne({ _id: before.user, "orders.order": before._id }, { $inc: { totalOrders: -1 } }) : null,
+      ]);
+    } else {
+      if (before.deliveryStatus !== "Canceled") await restorePromoForOrder(id, before.promocode, before.user ? String(before.user) : undefined).catch(promoError);
+      await Promise.all([
+        productIds.length ? Product.updateMany({ _id: { $in: productIds } }, { $addToSet: { orderedBy: before._id } }) : null,
+        before.user ? User.updateOne({ _id: before.user, "orders.order": before._id }, { $inc: { totalOrders: 1 } }) : null,
+      ]);
+    }
+    await clearCache("updateOrder", undefined);
+    return { ok: true };
+  } catch (error: any) {
+    if (error instanceof AccessDenied) return { ok: false, error: "Немає доступу." };
+    console.error("[order] test mark:", error?.message ?? error);
+    return { ok: false, error: "Не вдалося змінити позначку. Спробуйте ще раз." };
+  }
 }
 
 export async function changePaymentStatus(id: string, status: string, path?: string) {
@@ -441,13 +483,14 @@ export async function changedeliveryStatus(id: string, status: string, path?: st
         await connectToDB();
 
         const before = await Order.findOneAndUpdate({ id: String(id) }, { $set: { deliveryStatus: status } })
-          .select("deliveryStatus promocode user")
-          .lean<{ deliveryStatus?: string; promocode?: string; user?: mongoose.Types.ObjectId }>();
+          .select("deliveryStatus promocode user isTest")
+          .lean<{ deliveryStatus?: string; promocode?: string; user?: mongoose.Types.ObjectId; isTest?: boolean }>();
         if (!before) throw new Error("Order not found");
         // A cancelled order gives its promo code back to the customer; un-cancelling takes it again.
         const promoError = (error: any) => console.error("[order] promo:", error?.message ?? error);
         if (status === "Canceled" && before.deliveryStatus !== "Canceled") await releasePromoForOrder(String(id)).catch(promoError);
-        if (status !== "Canceled" && before.deliveryStatus === "Canceled") await restorePromoForOrder(String(id), before.promocode, before.user ? String(before.user) : undefined).catch(promoError);
+        // A test order holds no use, cancelled or not.
+        if (status !== "Canceled" && before.deliveryStatus === "Canceled" && !before.isTest) await restorePromoForOrder(String(id), before.promocode, before.user ? String(before.user) : undefined).catch(promoError);
 
         await clearCache("updateOrder", undefined);
         return status;

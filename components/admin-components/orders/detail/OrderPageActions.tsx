@@ -2,17 +2,54 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Printer } from "lucide-react"
+import { FlaskConical, Printer } from "lucide-react"
 import toast from "react-hot-toast"
 import { Field, adminButton, adminInput } from "@/components/admin/ui"
 import { AdminDialog } from "@/components/admin-components/AdminDialog"
-import { deleteOrder } from "@/lib/actions/order.actions"
+import { deleteOrder, setOrderTest } from "@/lib/actions/order.actions"
 
 export function PrintOrderButton() {
   return (
     <button type="button" onClick={() => window.print()} className={adminButton.secondary}>
       <Printer className="h-4 w-4" aria-hidden="true" />
       Друкувати
+    </button>
+  )
+}
+
+/**
+ * «Позначити як тестове» / «Це справжнє замовлення»: takes effect at once and can be undone,
+ * so it asks nothing. A test order leaves every list and count but is kept.
+ */
+export function TestOrderButton({ orderId, isTest }: { orderId: string; isTest: boolean }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+
+  const toggle = () =>
+    startTransition(async () => {
+      const result = await setOrderTest(orderId, !isTest).catch(() => ({ ok: false as const, error: "Немає зв’язку із сервером. Спробуйте ще раз." }))
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(isTest ? `Замовлення №${orderId} знову рахується` : `Замовлення №${orderId} позначено як тестове`)
+      router.refresh()
+    })
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      className={adminButton.secondary}
+      data-tip={
+        isTest
+          ? "Замовлення знову з’явиться в списках, статистиці, у клієнта й у підрахунку продажів товарів."
+          : "Для замовлень, які ви робили, щоб перевірити магазин. Воно зникне зі списків, статистики, акаунта клієнта й підрахунку продажів, але не видалиться: його можна знайти у вкладці «Тестові» й повернути."
+      }
+    >
+      <FlaskConical className="h-4 w-4" aria-hidden="true" />
+      {pending ? "Зберігаємо…" : isTest ? "Це справжнє замовлення" : "Позначити як тестове"}
     </button>
   )
 }

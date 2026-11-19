@@ -7,7 +7,7 @@ import { fetchUserByEmail } from "@/lib/actions/user.actions"
 import { getVariables } from "@/lib/content/server"
 import { CONTACT_VARIABLES } from "@/lib/content/variables"
 import { getSession } from "@/lib/getServerSession"
-import Order from "@/lib/models/order.model"
+import Order, { REAL_ORDER } from "@/lib/models/order.model"
 import { connectToDB } from "@/lib/mongoose"
 import Provider from "../../Provider"
 
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
 async function countOpenOrders(): Promise<number> {
   try {
     await connectToDB()
-    return await Order.countDocuments({ deliveryStatus: "Proceeding" })
+    return await Order.countDocuments({ deliveryStatus: "Proceeding", ...REAL_ORDER })
   } catch {
     // A badge is not worth failing the whole panel for.
     return 0

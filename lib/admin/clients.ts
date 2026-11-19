@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { escapeRegExp } from "@/lib/catalog/text";
-import Order from "@/lib/models/order.model";
+import Order, { REAL_ORDER } from "@/lib/models/order.model";
 import Product from "@/lib/models/product.model";
 import User from "@/lib/models/user.model";
 import { connectToDB } from "@/lib/mongoose";
@@ -60,7 +60,7 @@ function displayName(user: { name?: string; surname?: string; username?: string 
 async function orderStats(userIds: mongoose.Types.ObjectId[]) {
   if (userIds.length === 0) return new Map<string, { orders: number; paid: number; last: Date | null }>();
   const rows = await Order.aggregate<{ _id: mongoose.Types.ObjectId; orders: number; paid: number; last: Date | null }>([
-    { $match: { user: { $in: userIds } } },
+    { $match: { user: { $in: userIds }, ...REAL_ORDER } },
     { $group: { _id: "$user", orders: { $sum: 1 }, paid: { $sum: { $cond: [PAID, { $ifNull: ["$value", 0] }, 0] } }, last: { $max: "$data" } } },
   ]);
   return new Map(rows.map((row) => [String(row._id), row]));
@@ -165,7 +165,7 @@ export async function getClientDetail(userId: string, ordersPage = 1): Promise<C
     User.findById(objectId)
       .select("_id name surname username email phoneNumber role selfCreated discounts region city postalCode street likes")
       .lean<any>(),
-    Order.find({ user: objectId })
+    Order.find({ user: objectId, ...REAL_ORDER })
       .sort({ data: -1 })
       .skip((Math.max(1, Math.floor(ordersPage) || 1) - 1) * CLIENT_ORDERS_PAGE_SIZE)
       .limit(CLIENT_ORDERS_PAGE_SIZE)
@@ -173,7 +173,7 @@ export async function getClientDetail(userId: string, ordersPage = 1): Promise<C
       .populate({ path: "products.product", model: Product, select: { images: { $slice: 1 } } })
       .lean<any[]>(),
     Order.aggregate<{ orders: number; paidOrders: number; paid: number; canceled: number; first: Date | null; last: Date | null }>([
-      { $match: { user: objectId } },
+      { $match: { user: objectId, ...REAL_ORDER } },
       {
         $group: {
           _id: null,

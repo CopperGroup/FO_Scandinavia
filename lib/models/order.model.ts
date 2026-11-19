@@ -140,6 +140,16 @@ const orderSchema = new mongoose.Schema({
     isFreeDelivery: {
         type: Boolean,
         default: false
+    },
+
+    /**
+     * A test order (the shop trying its own checkout). Kept, but left out of every list,
+     * count and statistic, the customer's account and the bestseller order; the admin
+     * finds it under «Тестові» on the orders page and can take the mark off.
+     */
+    isTest: {
+        type: Boolean,
+        default: false
     }
 });
 
@@ -157,6 +167,9 @@ orderSchema.index({ user: 1, data: -1 })
 // Dashboard "new customers": earlier orders of the same address, any letter case.
 orderSchema.index({ email: 1, data: 1 }, { name: "email_ci_data", collation: { locale: "en", strength: 2 } })
 orderSchema.index({ "products.product": 1 })
+
+/** Add to every order query that lists or counts real orders. Old orders have no field at all. */
+export const REAL_ORDER = { isTest: { $ne: true } } as const;
 
 type OrderType = InferSchemaType<typeof orderSchema> & { _id: string };
 

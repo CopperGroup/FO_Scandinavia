@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { getCatalogRuntime, getCatalogStatus } from "@/lib/catalog/server/service";
-import Order from "@/lib/models/order.model";
+import Order, { REAL_ORDER } from "@/lib/models/order.model";
 import { connectToDB } from "@/lib/mongoose";
 import { fillSeries, rankTopProducts } from "./series";
 import type { DashboardOverview, DashboardRange, Metric } from "./types";
@@ -61,7 +61,7 @@ function breakdownFacet(field: string) {
 
 async function windowFacet(previousFrom: Date, from: Date, to: Date, unit: "day" | "week" | "month"): Promise<WindowFacet> {
   const [row] = await Order.aggregate<WindowFacet>([
-    { $match: { data: { $gte: previousFrom, $lt: to } } },
+    { $match: { data: { $gte: previousFrom, $lt: to }, ...REAL_ORDER } },
     {
       $project: {
         data: 1,
@@ -127,7 +127,7 @@ async function windowFacet(previousFrom: Date, from: Date, to: Date, unit: "day"
 async function newCustomers(emails: string[], previousFrom: Date, from: Date): Promise<{ current: number; previous: number }> {
   if (emails.length === 0) return { current: 0, previous: 0 };
   const [row] = await Order.aggregate<{ current: number; previous: number }>([
-    { $match: { email: { $in: emails } } },
+    { $match: { email: { $in: emails }, ...REAL_ORDER } },
     { $group: { _id: { $toLower: "$email" }, first: { $min: "$data" } } },
     {
       $group: {
@@ -144,7 +144,7 @@ async function openOrders(): Promise<DashboardOverview["pipeline"]> {
   const sumOf = (match: object) => [{ $match: match }, { $group: { _id: null, count: { $sum: 1 }, value: { $sum: { $ifNull: ["$value", 0] } } } }];
   const [row] = await Order.aggregate([
     // Each branch of the $or can use an index; the $facet then only sees open orders.
-    { $match: { $or: [{ deliveryStatus: { $in: ["Proceeding", "Indelivery"] } }, { paymentStatus: "Pending" }] } },
+    { $match: { $or: [{ deliveryStatus: { $in: ["Proceeding", "Indelivery"] } }, { paymentStatus: "Pending" }], ...REAL_ORDER } },
     { $project: { value: 1, deliveryStatus: 1, paymentStatus: 1 } },
     {
       $facet: {
@@ -162,7 +162,7 @@ async function openOrders(): Promise<DashboardOverview["pipeline"]> {
 }
 
 async function recentOrders(limit = 8): Promise<DashboardOverview["recentOrders"]> {
-  const rows = await Order.find({})
+  const rows = await Order.find(REAL_ORDER)
     .sort({ data: -1 })
     .limit(limit)
     .select("id name surname value paymentStatus deliveryStatus data products.amount")

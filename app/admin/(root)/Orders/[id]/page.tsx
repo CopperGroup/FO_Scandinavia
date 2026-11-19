@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { AdminPage, FormLayout } from "@/components/admin/ui"
+import { AdminPage, FormLayout, Pill } from "@/components/admin/ui"
 import { OrderCustomerPanel } from "@/components/admin-components/orders/detail/OrderCustomerPanel"
 import { OrderDeliveryPanel } from "@/components/admin-components/orders/detail/OrderDeliveryPanel"
 import { OrderItemsPanel } from "@/components/admin-components/orders/detail/OrderItemsPanel"
-import { DeleteOrderButton, PrintOrderButton } from "@/components/admin-components/orders/detail/OrderPageActions"
+import { DeleteOrderButton, PrintOrderButton, TestOrderButton } from "@/components/admin-components/orders/detail/OrderPageActions"
 import { OrderStatusControls } from "@/components/admin-components/orders/detail/OrderStatusControls"
 import { DeliveryPill, PaymentPill } from "@/components/admin-components/orders/StatusPills"
 import { deliveryProblems, getDeliverySettings } from "@/lib/admin/delivery"
@@ -36,10 +36,22 @@ const Page = async ({ params }: { params: { id: string } }) => {
           </span>
           <DeliveryPill status={order.deliveryStatus} />
           <PaymentPill status={order.paymentStatus} />
+          {order.isTest && <Pill tone="strong" tip="Не рахується ніде: ні в списках, ні в статистиці, ні в продажах товарів">Тестове</Pill>}
         </span>
       }
-      actions={<PrintOrderButton />}
+      actions={
+        <>
+          <TestOrderButton orderId={order.id} isTest={order.isTest} />
+          <PrintOrderButton />
+        </>
+      }
     >
+      {order.isTest && (
+        <p role="status" className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-800 print:hidden">
+          Це тестове замовлення. Його немає в списках, статистиці, акаунті клієнта й підрахунку продажів товарів. Якщо це справжнє замовлення, натисніть «Це справжнє замовлення» вгорі.
+        </p>
+      )}
+
       {/* key: after a save the page refreshes with new data and the panels start again from it. */}
       <FormLayout
         key={`${order.value}-${order.lines.length}-${order.name}-${order.phoneNumber}-${order.invoiceNumber}`}

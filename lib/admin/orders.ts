@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { escapeRegExp } from "@/lib/catalog/text";
-import Order from "@/lib/models/order.model";
+import Order, { REAL_ORDER } from "@/lib/models/order.model";
 import Product from "@/lib/models/product.model";
 import { connectToDB } from "@/lib/mongoose";
 import { pageWindow } from "./list";
@@ -17,6 +17,7 @@ export const ORDER_TABS = [
   { key: "shipping", label: "У дорозі", filter: { deliveryStatus: "Indelivery" } },
   { key: "done", label: "Виконані", filter: { deliveryStatus: "Fulfilled" } },
   { key: "canceled", label: "Скасовані", filter: { deliveryStatus: "Canceled" } },
+  { key: "test", label: "Тестові", filter: { isTest: true } },
 ] as const;
 
 export type OrderTabKey = (typeof ORDER_TABS)[number]["key"];
@@ -30,6 +31,7 @@ const TAB_STATUS: Record<OrderTabKey, string | null> = {
   shipping: "Indelivery",
   done: "Fulfilled",
   canceled: "Canceled",
+  test: null,
 };
 
 export type OrderRow = {
@@ -80,12 +82,14 @@ export async function listOrders({ tab, query, page, pageSize = ORDERS_PAGE_SIZE
 
   const searchFilter = searchFilterFor(query);
   const status = TAB_STATUS[tab];
-  const filter = status ? { ...searchFilter, deliveryStatus: status } : searchFilter;
+  // Test orders are only under «Тестові»; every other tab and count leaves them out.
+  const filter = tab === "test" ? { ...searchFilter, isTest: true } : status ? { ...searchFilter, ...REAL_ORDER, deliveryStatus: status } : { ...searchFilter, ...REAL_ORDER };
 
   // The counts and the requested page in parallel; the page is re-read only if it was past the end.
   const requested = Math.max(1, Math.floor(page) || 1);
-  let [grouped, orders] = await Promise.all([
-    Order.aggregate<{ _id: string; count: number }>([{ $match: searchFilter }, { $group: { _id: "$deliveryStatus", count: { $sum: 1 } } }]),
+  let [grouped, testCount, orders] = await Promise.all([
+    Order.aggregate<{ _id: string; count: number }>([{ $match: { ...searchFilter, ...REAL_ORDER } }, { $group: { _id: "$deliveryStatus", count: { $sum: 1 } } }]),
+    Order.countDocuments({ ...searchFilter, isTest: true }),
     findPage(filter, (requested - 1) * pageSize, pageSize),
   ]);
 
@@ -96,6 +100,7 @@ export async function listOrders({ tab, query, page, pageSize = ORDERS_PAGE_SIZE
     shipping: byStatus.get("Indelivery") ?? 0,
     done: byStatus.get("Fulfilled") ?? 0,
     canceled: byStatus.get("Canceled") ?? 0,
+    test: testCount,
   };
 
   const total = counts[tab];
@@ -166,6 +171,7 @@ export type OrderDetail = {
   invoiceStatus: string;
   invoiceCheckedAt: string | null;
   hasNovaPoshtaAddress: boolean;
+  isTest: boolean;
   lines: OrderLine[];
 };
 
@@ -221,6 +227,7 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail | nul
     invoiceStatus: order.invoiceStatus ?? "",
     invoiceCheckedAt: order.invoiceCheckedAt ? new Date(order.invoiceCheckedAt).toISOString() : null,
     hasNovaPoshtaAddress: Boolean(order.cityRef && order.warehouseRef),
+    isTest: Boolean(order.isTest),
     lines: (order.products ?? []).map((line: any) => {
       const product = line.product;
       return {

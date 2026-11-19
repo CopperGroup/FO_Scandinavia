@@ -1,5 +1,5 @@
 import { escapeRegExp } from "@/lib/catalog/text";
-import Order from "@/lib/models/order.model";
+import Order, { REAL_ORDER } from "@/lib/models/order.model";
 import { connectToDB } from "@/lib/mongoose";
 import { pageWindow } from "./list";
 
@@ -60,7 +60,7 @@ export async function listPayments({ tab, query, sort, page, pageSize = PAYMENTS
 
   const search = query.trim();
   const pattern = search ? new RegExp(escapeRegExp(search), "i") : null;
-  const searchFilter = pattern ? { $or: [{ id: pattern }, { name: pattern }, { surname: pattern }, { phoneNumber: pattern }, { email: pattern }] } : {};
+  const searchFilter = { ...(pattern ? { $or: [{ id: pattern }, { name: pattern }, { surname: pattern }, { phoneNumber: pattern }, { email: pattern }] } : {}), ...REAL_ORDER };
   const status = PAYMENT_TABS.find((entry) => entry.key === tab)?.status ?? null;
   const filter = status ? { ...searchFilter, paymentStatus: status } : searchFilter;
 

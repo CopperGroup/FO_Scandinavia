@@ -116,12 +116,13 @@ export function deliveryProblems(settings: DeliverySettings): string[] {
  */
 export const AWAITING_FILTER = {
   deliveryStatus: "Proceeding",
+  isTest: { $ne: true },
   deliveryMethod: { $regex: "^Нова пошта" },
   invoiceString: { $in: [null, ""] },
   $or: [{ paymentStatus: "Success" }, { paymentType: "Накладний платіж" }],
 };
 
-export const WAYBILL_FILTER = { invoiceString: { $nin: [null, ""] } };
+export const WAYBILL_FILTER = { invoiceString: { $nin: [null, ""] }, isTest: { $ne: true } };
 
 export type AwaitingRow = {
   _id: string;
