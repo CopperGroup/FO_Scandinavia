@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { Golos_Text, Unbounded } from "next/font/google";
+import { preload } from "react-dom";
+import "@/app/fonts.css";
+import { PRELOAD_FONTS } from "@/lib/fonts";
 import "../globals.css";
 import Provider from "../Provider";
 import { AppWrapper } from "./context";
@@ -22,8 +24,6 @@ import { Store } from "@/constants/store";
 import { getCurrentUser, getStoreContacts } from "@/lib/storefront/session";
 
 // Text face drawn for Cyrillic first; display face only for headings and the wordmark.
-const textFont = Golos_Text({ subsets: ["latin", "cyrillic"], display: "swap", variable: "--font-text" });
-const displayFont = Unbounded({ subsets: ["latin", "cyrillic"], weight: ["500", "600"], display: "swap", variable: "--font-display" });
 
 export const metadata: Metadata = {
   // Without it Open Graph images and canonical links of a self-hosted build point at localhost.
@@ -44,8 +44,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // Inside the page editor of the admin panel: no analytics, and the page talks to the editor.
   const inEditor = await previewing();
 
+  // The shop's own font files (app/fonts.css): Latin and Cyrillic are needed on every page.
+
+  PRELOAD_FONTS.forEach((href) => preload(href, { as: "font", type: "font/woff2", crossOrigin: "anonymous" }));
+
+
   return (
-    <html lang="uk" className={`${textFont.variable} ${displayFont.variable}`}>
+    <html lang="uk">
       <body className="bg-white font-sans text-brand-ink antialiased">
         <FacebookPixel pixels={inEditor ? NO_ACTIVE_PIXELS : pixels} />
         {inEditor && <PreviewBridge />}

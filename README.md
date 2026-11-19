@@ -378,6 +378,15 @@ the first time they open their codes or the checkout, or apply one. Their last d
 before the date written in them, as before. `tools/migrate-promo-codes.mjs` does the same for
 all customers at once, so the admin sees them all straight away (see below).
 
+### Fonts (`public/fonts`, `app/fonts.css`)
+
+The shop's two fonts, Golos Text and Unbounded, are served from the shop itself. The files and
+their split by alphabet are what Google Fonts serves, downloaded once by
+`node tools/fonts/fetch-fonts.mjs`, which also writes `app/fonts.css` and `lib/fonts.ts` (the
+files every page preloads). The build never goes to Google: with `next/font/google` it did, and
+Google now and then answered the server with a font link Next cannot read, so builds failed at
+random. Run the script again only to change or update a font.
+
 ## Deploy and backups
 
 The shop runs on its server from `docker-compose.yaml` (the app, a Redis cache, MinIO for

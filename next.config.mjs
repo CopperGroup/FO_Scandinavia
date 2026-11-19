@@ -48,6 +48,11 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // The shop's own fonts (app/fonts.css). A month in the browser: they change only when
+  // tools/fonts/fetch-fonts.mjs is run again.
+  async headers() {
+    return [{ source: "/fonts/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=2592000" }] }];
+  },
   async rewrites() {
     return [
       {

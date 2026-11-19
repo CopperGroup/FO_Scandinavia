@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { Golos_Text, Unbounded } from "next/font/google";
+import { preload } from "react-dom";
+import "@/app/fonts.css";
+import { PRELOAD_FONTS } from "@/lib/fonts";
 import "../globals.css";
 import Provider from "../Provider";
 import FacebookPixel from "@/components/pixel/FacebookPixel";
@@ -9,8 +11,6 @@ import { ShopSettingsProvider } from "@/components/storefront/ShopSettings";
 import { getFreeDelivery } from "@/lib/content/server";
 import { getPromoRewards } from "@/lib/promo/server";
 
-const textFont = Golos_Text({ subsets: ["latin", "cyrillic"], display: "swap", variable: "--font-text" });
-const displayFont = Unbounded({ subsets: ["latin", "cyrillic"], weight: ["500", "600"], display: "swap", variable: "--font-display" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(Store.domain),
@@ -24,8 +24,13 @@ export const metadata: Metadata = {
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const [pixels, freeDelivery, rewards] = await Promise.all([getActivePixels(), getFreeDelivery(), getPromoRewards()]);
 
+  // The shop's own font files (app/fonts.css): Latin and Cyrillic are needed on every page.
+
+  PRELOAD_FONTS.forEach((href) => preload(href, { as: "font", type: "font/woff2", crossOrigin: "anonymous" }));
+
+
   return (
-    <html lang="uk" className={`${textFont.variable} ${displayFont.variable}`}>
+    <html lang="uk">
       <body className="bg-white font-sans text-brand-ink antialiased">
         <Provider>
           <FacebookPixel pixels={pixels} />

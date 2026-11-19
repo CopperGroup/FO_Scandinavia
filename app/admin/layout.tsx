@@ -1,13 +1,11 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Golos_Text, Unbounded } from "next/font/google"
+import { preload } from "react-dom"
+import "@/app/fonts.css"
+import { PRELOAD_FONTS } from "@/lib/fonts"
 import "../globals.css"
 import { Toaster } from "sonner"
 import { Store } from "@/constants/store"
-
-// The same faces as the shop: a Cyrillic-first text face and a display face for headings.
-const textFont = Golos_Text({ subsets: ["latin", "cyrillic"], display: "swap", variable: "--font-text" })
-const displayFont = Unbounded({ subsets: ["latin", "cyrillic"], weight: ["500", "600"], display: "swap", variable: "--font-display" })
 
 export const metadata: Metadata = {
   title: {
@@ -18,8 +16,11 @@ export const metadata: Metadata = {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  // The shop's own font files (app/fonts.css): Latin and Cyrillic are needed on every page.
+  PRELOAD_FONTS.forEach((href) => preload(href, { as: "font", type: "font/woff2", crossOrigin: "anonymous" }))
+
   return (
-    <html lang="uk" className={`admin-root ${textFont.variable} ${displayFont.variable}`}>
+    <html lang="uk" className="admin-root">
       <body className="bg-white font-sans text-sm text-neutral-900 antialiased">
         {children}
         <Toaster />
