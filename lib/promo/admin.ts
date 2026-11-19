@@ -16,7 +16,8 @@ export const PROMO_TABS = [
   { key: "all", label: "Усі", tip: "Усі промокоди магазину" },
   { key: "active", label: "Діють", tip: "Коди, якими можна скористатися сьогодні" },
   { key: "scheduled", label: "Заплановані", tip: "Коди, що почнуть діяти пізніше" },
-  { key: "finished", label: "Завершені", tip: "Термін минув або всі використання вичерпано" },
+  { key: "used", label: "Використані", tip: "Коди, якими вже скористалися стільки разів, скільки дозволено" },
+  { key: "ended", label: "Прострочені", tip: "Коди, у яких минув останній день, а використання ще лишалися" },
   { key: "off", label: "Вимкнені", tip: "Коди, які магазин вимкнув вручну" },
 ] as const;
 export type PromoTab = (typeof PROMO_TABS)[number]["key"];
@@ -59,8 +60,11 @@ function tabFilter(tab: PromoTab, today: string): Record<string, unknown> {
       return { active: true, $and: [started, notEnded, { $expr: { $not: USED_UP } }] };
     case "scheduled":
       return { active: true, startDay: { $gt: today }, $and: [notEnded, { $expr: { $not: USED_UP } }] };
-    case "finished":
-      return { active: true, $or: [{ endDay: { $lt: today } }, { $expr: USED_UP }] };
+    // The same order as promoStatus(): a used-up code counts as used even after its last day.
+    case "used":
+      return { active: true, $expr: USED_UP };
+    case "ended":
+      return { active: true, endDay: { $lt: today }, $expr: { $not: USED_UP } };
     case "off":
       return { active: false };
     default:
